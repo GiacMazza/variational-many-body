@@ -1,0 +1,77 @@
+FC=mpif90
+#=========================================================================
+include sfmake.inc
+#=========================================================================
+
+DIREXE=$(HOME)/.project_bin
+DIR=.
+
+#EXE=ed_ahm_disorder
+#EXE=ed_ahm_slab
+#EXE=ed_ahm_stripe
+#EXE=ed_hm_slab_mb
+#EXE=ed_hm_disorder
+#EXE=ed_hm_slab_hyb
+EXE=GZ_MB
+
+
+OBJS=AMOEBA.o GZ_GLOBAL.o GZ_AUX_FUNX.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_FUNCTIONAL.o
+
+GALLIBDIR  = /opt/galahad/objects/pc64.lnx.ifr/double
+GALLIBS1   = -lgalahad -lgalahad_hsl -lgalahad_lapack
+GALLIBS2   = -lgalahad_metis -lgalahad_blas
+
+
+#=================STANDARD COMPILATION====================================
+normal: FLAG=$(STD)
+normal: ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I/opt/galahad/modules/pc64.lnx.ifr/double $(SFLIBS)
+normal:compile
+
+#================DEBUGGIN COMPILATION=====================================
+debug: FLAG=$(DEB)
+debug: ARGS=-L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I/opt/galahad/modules/pc64.lnx.ifr/double  $(SFLIBS_DEB)
+debug: compile
+
+all: lib normal
+all_debug: lib_debug debug
+
+lib: ipt_solver ed_solver
+lib_debug: ipt_solver_debug ed_solver_debug
+
+#=================STANDARD COMPILATION====================================
+compile: version $(OBJS)
+	@echo " ..................... compile ........................... "
+	$(FC) $(FLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE) $(ARGS)
+	@echo " ...................... done .............................. "
+	@echo ""
+	@echo ""
+	@echo "created" $(DIREXE)/$(EXE)
+
+ipt_solver:
+	@make -C IPT_SOLVER/
+
+ed_solver:
+	@make -C ED_SOLVER/
+
+ipt_solver_debug:
+	@make debug -C IPT_SOLVER/
+
+ed_solver_debug:
+	@make debug -C ED_SOLVER/
+
+.f90.o:	
+	$(FC) $(FLAG) -c $< $(SFINCLUDE) -I/opt/galahad/modules/pc64.lnx.ifr/double
+
+
+clean: 
+	@echo 'removing *.mod *.o *~'
+	@rm -fv *.mod *.o *~ revision.inc
+
+all_clean: clean
+	@make -C IPT_SOLVER/ clean
+	@make -C ED_SOLVER/ clean
+
+
+
+version:
+	@echo $(VER)

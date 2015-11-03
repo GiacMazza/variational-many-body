@@ -1,0 +1,72 @@
+#COMPILER (PARALLEL)
+FC=mpif90
+#PRECOMPILATION FLAG (leave blank for serial code)
+FPP=
+
+#EXE
+#EXE=GUTZ_misc
+EXE=GZ_MB
+
+
+
+DIR=.
+DIREXE=$(HOME)/.project_bin
+
+.SUFFIXES: .f90
+
+#REVISION SOFTWARE GIT:
+BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
+VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
+
+OBJS=AMOEBA.o GZ_GLOBAL.o GZ_AUX_FUNX.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_FUNCTIONAL.o
+
+GALLIBDIR  = /opt/galahad/objects/pc64.lnx.ifr/double
+GALLIBS1   = -lgalahad -lgalahad_hsl -lgalahad_lapack
+GALLIBS2   = -lgalahad_metis -lgalahad_blas
+
+MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
+
+FFLAG +=-fpp -D_$(FPP)
+
+ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I/opt/galahad/modules/pc64.lnx.ifr/double -lscifor $(MKLARGS) -lminpack -larpack -lparpack   
+
+
+all:compile
+
+
+lib: ed_solver
+
+compile: version $(OBJS)
+	@echo " !+------------------------------------------------- "
+	@echo " ..................... compile ..................... "
+	@echo " !+------------------------------------------------- "
+	$(FC) $(FFLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE) $(ARGS)
+	@echo " !+--------------------------------------+! "
+	@echo " .................. done .................. "
+	@echo " !+--------------------------------------+! "
+	@echo ""
+	@echo ""
+	@echo "created" $(DIREXE)/$(EXE)
+
+ed_solver:
+	@make -C ED_SOLVER/
+
+.f90.o:	
+	$(FC) $(FFLAG)  -c $< -lscifor -I./IPT_SOLVER -I./ED_SOLVER
+
+
+completion:
+	sf_lib_completion.sh $(DIR)/$(EXE).f90
+	@echo "run: . .bash_completion.d/$(EXE) to add completion for $(EXE) in this shell"
+
+clean: 
+	@echo "Cleaning:"
+	@rm -f *.mod *.o *~ revision.inc
+
+all_clean: clean
+#		@make -C IPT_SOLVER/ clean
+	@make -C ED_SOLVER/ clean
+
+version:
+	@echo $(VER)
+

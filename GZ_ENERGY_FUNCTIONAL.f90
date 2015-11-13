@@ -19,8 +19,8 @@ contains
 
 
   function gz_energy_local_density(n0)  result(GZ_energy)
-    !real(8),intent(in)           :: n0(:)
-    real(8)           :: n0(:)  
+    real(8),intent(in)           :: n0(:)
+    !real(8)           :: n0(:)  
     real(8)                      :: GZ_energy
     real(8),dimension(state_dim) :: ni
     real(8),dimension(nFock)     :: phi_

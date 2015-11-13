@@ -2,8 +2,7 @@ MODULE GZ_PROJECTORS
   USE GZ_VARS_GLOBAL
   USE GZ_AUX_FUNX
   implicit none
-
-
+  
   interface gz_trace
      module procedure gz_local_diag,gz_local_diag_
   end interface gz_trace
@@ -141,8 +140,6 @@ CONTAINS
     end do
   end function gz_Rhop
 
-
-
   function gz_Rhop_dens(phi,ni,cc,ca) result(R)
     real(8),dimension(nFock)                 :: phi
     real(8),dimension(state_dim,nFock,nFock) :: ca,cc
@@ -178,10 +175,174 @@ CONTAINS
              R(istate) = R(istate) + tmp(i,i)
           end do
           R(istate) = R(istate)/sqrt(ni(istate)*(1.d0-ni(istate)))
-          !R(istate) = R(istate)/sqrt(ntmp*(1.d0-ntmp))
        end do
     end do
   end function gz_Rhop_dens  
+
+
+
+  
+  subroutine build_gz_local_traces_diag
+    real(8),dimension(nFock,nFock) :: tmp
+    real(8),dimension(nFock,nFock,nFock) :: phi_basis
+    integer :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock,kfock
+    !
+    phi_basis=0.d0
+    do ifock=1,nFock
+       phi_basis(ifock,ifock,ifock) = 1.d0
+    end do
+    allocate(phi_traces_basis_Rhop(state_dim,state_dim,nFock,nFock))
+    allocate(phi_traces_basis_dens(state_dim,state_dim,nFock,nFock))
+    allocate(phi_traces_basis_Hloc(nFock,nFock))
+
+    do iorb=1,Norb
+       do ispin=1,2
+          do jorb=1,Norb
+             do jspin=1,2
+                istate=index(ispin,iorb)
+                jstate=index(jspin,jorb)
+                phi_traces_basis_Rhop(istate,jstate,:,:)=0.d0                
+                do ifock=1,nFock
+                   do jfock=1,nFock
+                      phi_traces_basis_Rhop(istate,jstate,ifock,jfock)= &
+                           phi_traces_basis_Rhop(istate,jstate,ifock,jfock) + 0.5d0*CC(istate,ifock,jfock)*CA(jstate,jfock,ifock)
+                      phi_traces_basis_Rhop(istate,jstate,ifock,jfock)= &
+                           phi_traces_basis_Rhop(istate,jstate,ifock,jfock) + 0.5d0*CC(istate,jfock,ifock)*CA(jstate,ifock,jfock)
+                   end do
+                end do
+             end do
+          end do
+       end do
+    end do
+
+
+    do iorb=1,Norb
+       do ispin=1,2
+          do jorb=1,Norb
+             do jspin=1,2
+                istate=index(ispin,iorb)
+                jstate=index(jspin,jorb)
+                phi_traces_basis_dens(istate,jstate,:,:)=0.d0                
+                do ifock=1,nFock
+                   do kfock=1,nFock
+                      phi_traces_basis_dens(istate,jstate,ifock,ifock)= &
+                           phi_traces_basis_dens(istate,jstate,ifock,ifock) + 0.5d0*CC(istate,ifock,kfock)*CA(jstate,kfock,ifock)
+                      phi_traces_basis_dens(istate,jstate,ifock,ifock)= &
+                           phi_traces_basis_dens(istate,jstate,ifock,ifock) + 0.5d0*CC(jstate,ifock,kfock)*CA(istate,kfock,ifock)
+                   end do
+                end do
+             end do
+          end do
+       end do
+    end do
+    
+    phi_traces_basis_Hloc=0.d0                
+    do ifock=1,nFock
+       phi_traces_basis_Hloc(ifock,ifock)= &
+            !phi_traces_basis_Hloc(ifock,ifock) + UHubbard(ifock,ifock)*U*0.5d0
+            phi_traces_basis_Hloc(ifock,ifock) + local_hamiltonian(ifock,ifock)
+    end do
+
+    !<DEBUG
+    ! write(*,*)
+    ! do ifock=1,nFock
+    !    write(*,'(20F6.2)') phi_traces_basis_Hloc(ifock,1:nFock)
+    ! end do
+    ! deallocate(phi_traces_basis_Rhop)
+    ! deallocate(phi_traces_basis_dens)
+    ! deallocate(phi_traces_basis_Hloc)
+    !DEBUG>
+
+
+
+  end subroutine build_gz_local_traces_diag
+
+
+
+
+  subroutine build_gz_local_traces_full ! need for sparsness
+    real(8),dimension(nFock,nFock) :: tmp
+    real(8),dimension(nFock,nFock,nFock) :: phi_basis
+    integer :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock,kfock
+    !
+    phi_basis=0.d0
+    do ifock=1,nFock
+       phi_basis(ifock,ifock,ifock) = 1.d0
+    end do
+    allocate(phi_traces_basis_Rhop(state_dim,state_dim,nFock,nFock))
+    allocate(phi_traces_basis_dens(state_dim,state_dim,nFock,nFock))
+    allocate(phi_traces_basis_Hloc(nFock,nFock))
+
+    do iorb=1,Norb
+       do ispin=1,2
+          do jorb=1,Norb
+             do jspin=1,2
+                istate=index(ispin,iorb)
+                jstate=index(jspin,jorb)
+                phi_traces_basis_Rhop(istate,jstate,:,:)=0.d0                
+                do ifock=1,nFock
+                   do jfock=1,nFock
+                      !
+                      tmp=0.d0
+                      tmp=matmul(phi_basis(jfock,:,:),CA(jstate,:,:))
+                      tmp=matmul(CC(istate,:,:),tmp)
+                      tmp=matmul(phi_basis(ifock,:,:),tmp)
+                      do kfock=1,nFock
+                         phi_traces_basis_Rhop(istate,jstate,ifock,jfock) = &
+                              phi_traces_basis_Rhop(istate,jstate,ifock,jfock) + 0.5d0*tmp(kfock,kfock)
+                      end do
+                      tmp=0.d0
+                      tmp=matmul(phi_basis(ifock,:,:),CA(jstate,:,:))
+                      tmp=matmul(CC(istate,:,:),tmp)
+                      tmp=matmul(phi_basis(jfock,:,:),tmp)
+                      do kfock=1,nFock
+                         phi_traces_basis_Rhop(istate,jstate,ifock,jfock) = &
+                              phi_traces_basis_Rhop(istate,jstate,ifock,jfock) + 0.5d0*tmp(kfock,kfock)
+                      end do
+                      !
+                   end do
+                end do
+             end do
+          end do
+       end do
+    end do
+
+
+
+    
+    phi_traces_basis_Hloc=0.d0                
+    do ifock=1,nFock
+       do jfock=1,nFock
+          tmp=0.d0
+          tmp=matmul(UHubbard,phi_basis(jfock,:,:))
+          tmp=matmul(phi_basis(ifock,:,:),tmp)
+          do kfock=1,nFock
+             phi_traces_basis_Hloc(ifock,jfock) = & 
+                  phi_traces_basis_Hloc(ifock,jfock) + tmp(kfock,kfock)                  
+          end do
+       end do
+    end do
+
+
+    !<DEBUG
+    ! write(*,*)
+    ! do ifock=1,nFock
+    !    write(*,'(20F6.2)') phi_traces_basis_Hloc(ifock,1:nFock)
+    ! end do
+    ! deallocate(phi_traces_basis_Rhop)
+    ! deallocate(phi_traces_basis_dens)
+    ! deallocate(phi_traces_basis_Hloc)
+    !DEBUG>
+    
+    
+
+
+  end subroutine build_gz_local_traces_full
+
+
+  
+
+
 
   
 END MODULE GZ_PROJECTORS

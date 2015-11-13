@@ -1,12 +1,10 @@
 #COMPILER (PARALLEL)
-FC=mpif90
+FC=gfortran
 #PRECOMPILATION FLAG (leave blank for serial code)
 FPP=
 
-#EXE
-#EXE=GUTZ_misc
-#EXE=GZ_MB
-EXE=gz_2band_minN
+EXE=GZ_MB
+#EXE=gz_2band_minN
 
 
 DIR=drivers
@@ -18,7 +16,7 @@ DIREXE=$(HOME)/.project_bin
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
-OBJS=AMOEBA.o GZ_GLOBAL.o GZ_AUX_FUNX.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_FUNCTIONAL.o GZ_MINIMIZATION.o
+OBJS=AMOEBA.o GZ_GLOBAL.o GZ_AUX_FUNX.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_FUNCTIONAL.o GZ_ENERGY_FUNCTIONAL_SELF.o GZ_MINIMIZATION.o
 
 GALLIBDIR  = /home/mazza/opt_local/galahad/objects/pc64.lnx.gfo/double
 # GALLIBS1   = -lgalahad -lgalahad_hsl -lgalahad_lapack
@@ -32,7 +30,7 @@ MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 #FFLAG +=-fpp -D_$(FPP)
 LIBDIR=/home/mazza/opt_local
 INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib -I$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double -L$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
-FFLAG +=-ffree-line-length-none -ffpe-summary=all -cpp $(INCARGS)
+FFLAG += -ffree-line-length-none -ffpe-summary=all -cpp $(INCARGS)
 
 #ARGS=  $(GALLIBS1) $(GALLIBS2) -I/home/mazza/opt_local/galahad/modules/pc64.lnx.gfo/double -lscifor $(MKLARGS) -lminpack -larpack -lparpack   
 ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I$(LIBDIR)/galahad/modules/pc64.lnx.gfo/double -ldmftt -lscifor  -lfftpack -lminpack  -llapack -lblas -larpack -lparpack    
@@ -46,13 +44,13 @@ compile: version $(OBJS)
 	@echo " !+------------------------------------------------- "
 	@echo " ..................... compile ..................... "
 	@echo " !+------------------------------------------------- "
-	$(FC) $(FFLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE) $(ARGS)
+	$(FC) $(FFLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE)_$(BRANCH) $(ARGS)
 	@echo " !+--------------------------------------+! "
 	@echo " .................. done .................. "
 	@echo " !+--------------------------------------+! "
 	@echo ""
 	@echo ""
-	@echo "created" $(DIREXE)/$(EXE)
+	@echo "created" $(DIREXE)/$(EXE)_$(BRANCH)
 
 ed_solver:
 	@make -C ED_SOLVER/

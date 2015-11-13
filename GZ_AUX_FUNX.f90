@@ -8,11 +8,11 @@ MODULE GZ_AUX_FUNX
   public :: bdecomp
   public :: get_spin_indep_states
   public :: initialize_local_density
+  public :: vec2mat_stride,mat2vec_stride
   !
 CONTAINS
 
   subroutine build_local_fock
-    !    integer                            :: State_dim
     integer                            :: fock_state,ifock
     integer                            :: i,iup,jup,idw,iup_,idw_,np,nup_
     integer                            :: ispin,iorb,istate
@@ -33,13 +33,6 @@ CONTAINS
     end do
     !
 
-    !+- allocate and initialize stride  -+! 
-    allocate(index(2,Norb))
-    do ispin=1,2
-       do iorb=1,Norb
-          index(ispin,iorb)=iorb+(ispin-1)*Norb
-       enddo
-    end do
 
     !+- allocate and build creation/anhhilation operators -+!
     allocate(CC(state_dim,nFock,nFock),CA(state_dim,nFock,nFock))
@@ -53,9 +46,20 @@ CONTAINS
 
     !+- allocate and build local operators -+!
     allocate(UHubbard(nFock,nFock),docc(Norb,nFock,nFock),dens(state_dim,nFock,nFock))
-    Uhubbard=HubbInt_RI(CC,CA)
+    allocate(local_hamiltonian(nFock,nFock),dens_dens_interaction(nFock,nFock))
+    Uhubbard=rotationally_invariant_density_density(CC,CA)
+    dens_dens_interaction=rotationally_invariant_density_density(CC,CA)  !HERE MAY ADD SINGLET SPLITTING TERMS, SPIN FLIPS, PAIR HOPPINGS, etc...
     docc = local_doubly(CC,CA)
-    dens = local_density(CC,CA)    
+    dens = local_density(CC,CA)
+
+
+    !This should be located in a separate routine!
+    local_hamiltonian = U*0.5d0*dens_dens_interaction
+    do istate=1,state_dim
+       local_hamiltonian = local_hamiltonian + atomic_energy_levels(istate)*dens(istate,:,:)
+       local_hamiltonian = local_hamiltonian - xmu*dens(istate,:,:)
+    end do
+
   end subroutine build_local_fock
   !
   subroutine bdecomp(i,ivec)
@@ -202,7 +206,7 @@ CONTAINS
           i_ind=i_ind+1
           fock_indep(i_ind) = tmp_search(i)
        end if
-    end do    
+    end do
     do i_ind=1,nFock_indep
        full2indep_fock(fock_indep(i_ind))=i_ind       
        full2indep_fock(tmp_target(fock_indep(i_ind)))=i_ind
@@ -222,11 +226,8 @@ CONTAINS
 
 
 
-
-  !+- build local operators +-!
-
   ! Rotationally invariant Hubbard interaction !
-  function HubbInt_RI(cc,ca) result(Oi)
+  function rotationally_invariant_density_density(cc,ca) result(Oi)
     real(8),dimension(state_dim,nFock,nFock) :: cc,ca
     real(8),dimension(nFock,nFock) :: Oi,Id
     real(8),dimension(nFock,nFock) :: ni
@@ -234,7 +235,7 @@ CONTAINS
     !
     Id=0.d0                 
     do i=1,nFock
-       Id(i,i)=1.d0
+       Id(i,i)=1.d0*Norb
     end do
     !
     ni=0.d0    
@@ -246,7 +247,7 @@ CONTAINS
     end do
     !
     Oi=matmul(ni-Id,ni-Id)
-  end function HubbInt_RI
+  end function Rotationally_invariant_density_density
   
   ! Local density !
   function local_density(cc,ca) result(ni)
@@ -316,6 +317,40 @@ CONTAINS
        end do       
     end if
   end subroutine initialize_local_density
+
+
+
+  subroutine mat2vec_stride(mat,vec)
+    real(8) :: mat(:,:)
+    real(8) :: vec(:)
+    integer :: n,m,vec_size,i,j,k
+    n=size(mat,1)
+    m=size(mat,2)
+    vec_size=n*m
+    if(vec_size.ne.size(vec)) stop "mat2vec vec_size.ne.size(vec)"
+    do i=1,n
+       do j=1,m
+          k=(i-1)*m+j
+          vec(k)=mat(i,j)
+       end do
+    end do    
+  end subroutine mat2vec_stride
+
+
+  subroutine vec2mat_stride(vec,mat)
+    real(8) :: mat(:,:)
+    real(8) :: vec(:)
+    integer :: n,m,vec_size,i,j,k
+    n=size(mat,1)
+    m=size(mat,2)
+    vec_size=n*m
+    if(vec_size.ne.size(vec)) stop "vec2mat vec_size.ne.size(vec)"
+    do k=1,vec_size
+       i=(k-1)/m+1
+       j=mod((k-1),m)+1
+       mat(i,j)=vec(k)
+    end do
+  end subroutine vec2mat_stride
 
 
   

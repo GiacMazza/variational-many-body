@@ -2,22 +2,18 @@ MODULE GZ_PROJECTORS
   USE GZ_VARS_GLOBAL
   USE GZ_AUX_FUNX
   implicit none
-  
+
   interface gz_trace
      module procedure gz_local_diag,gz_local_diag_
-  end interface gz_trace
+  end interface
 
   public :: gz_trace
   public :: gz_hop_diag
   public :: gz_Rhop
   public :: gz_Rhop_dens
+  public :: Rhop_matrix
 
 CONTAINS
-
-
-
-
-
 
   function gz_local_diag(phi,Oi) result(out)
     real(8),dimension(nFock)       :: phi  ! gz_projector     --> input
@@ -177,11 +173,33 @@ CONTAINS
           R(istate) = R(istate)/sqrt(ni(istate)*(1.d0-ni(istate)))
        end do
     end do
-  end function gz_Rhop_dens  
+  end function gz_Rhop_dens
+
+
+  function Rhop_matrix(GZvect,n0) 
+    real(8) :: GZvect(nFock)
+    real(8) :: n0(state_dim)
+    real(8) :: Rhop_matrix(state_dim,state_dim)
+    integer :: istate,jstate,ifock,jfock
+    
+    do istate=1,state_dim
+       do jstate=1,state_dim
+          Rhop_matrix(istate,jstate)=0.d0
+          do ifock=1,nFock
+             do jfock=1,nFock
+                Rhop_matrix(istate,jstate)= &
+                     Rhop_matrix(istate,jstate) + &
+                     GZvect(ifock)*GZvect(jfock)*phi_traces_basis_Rhop(istate,jstate,ifock,jfock)
+             end do
+          end do
+          Rhop_matrix(istate,jstate)=Rhop_matrix(istate,jstate)/sqrt(n0(jstate)*(1.d0-n0(jstate)))
+       end do
+    end do
+
+  end function Rhop_matrix
 
 
 
-  
   subroutine build_gz_local_traces_diag
     real(8),dimension(nFock,nFock) :: tmp
     real(8),dimension(nFock,nFock,nFock) :: phi_basis
@@ -235,25 +253,24 @@ CONTAINS
           end do
        end do
     end do
-    
+
     phi_traces_basis_Hloc=0.d0                
     do ifock=1,nFock
        phi_traces_basis_Hloc(ifock,ifock)= &
-            !phi_traces_basis_Hloc(ifock,ifock) + UHubbard(ifock,ifock)*U*0.5d0
+                                !phi_traces_basis_Hloc(ifock,ifock) + UHubbard(ifock,ifock)*U*0.5d0
             phi_traces_basis_Hloc(ifock,ifock) + local_hamiltonian(ifock,ifock)
     end do
 
     !<DEBUG
     ! write(*,*)
     ! do ifock=1,nFock
-    !    write(*,'(20F6.2)') phi_traces_basis_Hloc(ifock,1:nFock)
+    !    write(*,'(20F6.2)') phi_traces_basis_dens(1,1,ifock,1:nFock)
     ! end do
+    ! stop
     ! deallocate(phi_traces_basis_Rhop)
     ! deallocate(phi_traces_basis_dens)
     ! deallocate(phi_traces_basis_Hloc)
     !DEBUG>
-
-
 
   end subroutine build_gz_local_traces_diag
 
@@ -309,7 +326,7 @@ CONTAINS
 
 
 
-    
+
     phi_traces_basis_Hloc=0.d0                
     do ifock=1,nFock
        do jfock=1,nFock
@@ -333,16 +350,16 @@ CONTAINS
     ! deallocate(phi_traces_basis_dens)
     ! deallocate(phi_traces_basis_Hloc)
     !DEBUG>
-    
-    
+
+
 
 
   end subroutine build_gz_local_traces_full
 
 
-  
 
 
 
-  
+
+
 END MODULE GZ_PROJECTORS

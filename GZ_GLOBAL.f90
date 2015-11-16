@@ -53,6 +53,11 @@ MODULE GZ_VARS_GLOBAL
   logical :: fix_density_minimization
   integer :: lancelot_verbose
   logical :: amoeba_verbose
+  logical :: GZmin_verbose
+
+  real(8) :: Rseed,err_self
+  integer :: Niter_self
+  integer :: opt_energy_unit,GZmin_unit
 
   !+-------------------------+!
   !+- MODEL DETAILS DETAILS -+!

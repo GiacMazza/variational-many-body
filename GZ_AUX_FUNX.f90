@@ -9,6 +9,7 @@ MODULE GZ_AUX_FUNX
   public :: get_spin_indep_states
   public :: initialize_local_density
   public :: vec2mat_stride,mat2vec_stride
+  public :: initialize_variational_density_simplex
   !
 CONTAINS
 
@@ -248,7 +249,7 @@ CONTAINS
     !
     Oi=matmul(ni-Id,ni-Id)
   end function Rotationally_invariant_density_density
-  
+
   ! Local density !
   function local_density(cc,ca) result(ni)
     real(8),dimension(state_dim,nFock,nFock) :: cc,ca
@@ -265,7 +266,7 @@ CONTAINS
     !
   end function local_density
 
-  
+
   function local_doubly(cc,ca) result(di)
     real(8),dimension(state_dim,nFock,nFock) :: cc,ca
     real(8),dimension(nFock,nFock) :: Id,tmp_up,tmp_dw
@@ -290,7 +291,7 @@ CONTAINS
 
 
   subroutine initialize_local_density(local_density)
-    real(8),dimension(Norb),intent(inout) :: local_density
+    real(8),dimension(state_dim),intent(inout) :: local_density
     logical                 :: IOfile
     integer                 :: unit,flen,i
     inquire(file="restart.density_seed.conf",exist=IOfile)
@@ -299,24 +300,58 @@ CONTAINS
        unit=free_unit()
        open(unit,file="restart.density_seed.conf")
        write(*,*) 'reading denisty seed from file density_seed.conf'
-       if(flen.eq.Norb) then
+       if(flen.eq.state_dim) then
           !+- read from file -+!
           do i=1,flen
              read(unit,*) local_density(i)
           end do
        else
-          !+- initialize in the usual way -+!
-          do i=1,Norb
-             local_density(i)=1.d0+(-1.d0)**dble(i)*0.5d0
+          !+- initialize in the symmetric way -+!
+          do i=1,state_dim
+             local_density(i)=0.5d0
           end do
        end if
        close(unit)
     else
-       do i=1,Norb
-          local_density(i)=1.d0+(-1.d0)**dble(i)*0.5d0
-       end do       
+       do i=1,state_dim
+          local_density(i)=0.5d0
+       end do
     end if
   end subroutine initialize_local_density
+
+
+  subroutine initialize_variational_density_simplex(variational_density_simplex)
+    real(8),dimension(state_dim+1,state_dim),intent(inout) :: variational_density_simplex
+    logical                 :: IOfile
+    integer                 :: unit,flen,i,j,expected_flen
+    expected_flen=(state_dim+1)*(state_dim+1)-1
+    inquire(file="vdm_simplex_seed.conf",exist=IOfile)
+    if(IOfile) then
+       flen=file_length("vdm_simplex_seed.conf")
+       unit=free_unit()
+       open(unit,file="vdm_simplex_seed.conf")
+       write(*,*) 'reading denisty seed from file vdm_simplex_seed.conf'
+       if(flen.eq.expected_flen) then
+          !+- read from file -+!
+          do i=1,state_dim+1
+             do j=1,state_dim
+                read(unit,*) variational_density_simplex(i,j)
+             end do
+             write(*,*) variational_density_simplex(i,:)
+             if(i.le.state_dim) read(unit,*)
+          end do
+       else
+          write(*,*) 'vdm_simplex_seed.conf in the wrong form',flen,expected_flen
+          write(*,*) 'please check your initialization file for the simplex'
+          stop
+       end if
+    else
+       write(*,*) 'vdm_simplex_seed.conf does not exist'
+       write(*,*) 'please provide an initialization file for the simplex'
+       stop
+    end if
+  end subroutine initialize_variational_density_simplex
+
 
 
 

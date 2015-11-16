@@ -17,6 +17,7 @@ program GUTZ_mb
   real(8),dimension(3)                :: GZene  
 
   real(8),dimension(:),allocatable :: variational_density_natural
+  real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
 
 
 
@@ -44,9 +45,14 @@ program GUTZ_mb
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
   call parse_input_variable(lancelot_verbose,"LANCELOT_VERBOSE","inputGZ.conf",default=1)
   call parse_input_variable(amoeba_verbose,"AMOEBA_VERBOSE","inputGZ.conf",default=.false.)
+  call parse_input_variable(GZmin_verbose,"GZMIN_VERBOSE","inputGZ.conf",default=.false.)
+  call parse_input_variable(Rseed,"RSEED","inputGZ.conf",default=1.d0)
+  call parse_input_variable(Niter_self,"NITER_SELF","inputGZ.conf",default=100)
+  call parse_input_variable(err_self,"ERR_SELF","inputGZ.conf",default=1.d-10)
   call parse_input_variable(fix_density_minimization,"MIN_FIX_DENSITY","inputGZ.conf",default=.false.)
   call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)
   call save_input_file("inputGZ.conf")
+
 
   !+- BUILD MODEL -+!
   select case(lattice)
@@ -142,24 +148,46 @@ program GUTZ_mb
   do istate=1,state_dim
      variational_density_natural(istate)=0.5d0
   end do
-
+  !
   do iorb=1,Norb
      do jorb=1,Norb
         do ispin=1,2
            istate=index(ispin,iorb)
            jstate=index(ispin,jorb)
-           if(iorb.lt.jorb) variational_density_natural(istate)=variational_density_natural(istate)+0.05d0
-           if(iorb.gt.jorb) variational_density_natural(istate)=variational_density_natural(istate)-0.025d0
+           if(iorb.lt.jorb) variational_density_natural(istate)=variational_density_natural(istate)+0.1d0
+           if(iorb.gt.jorb) variational_density_natural(istate)=variational_density_natural(istate)-0.075d0
            write(*,*) variational_density_natural(istate)
         end do
      end do
   end do
 
-  ene_min=gz_energy_self(variational_density_natural)
-  !call gz_energy_self(variational_density_natural,Rhop_r,GZproj_vect,ene_min)
 
-  write(*,*) 'ma che cazzo!!!'
+  ! call initialize_local_density(local_dens_min)  
+  ! out_unit=free_unit()
+  ! open(out_unit,file='used.density_seed.conf')
+  ! do iorb=1,Norb
+  !    write(out_unit,'(6(F18.10))') local_dens_min(iorb)
+  ! end do
+
+  allocate(variational_density_natural_simplex(state_dim+1,state_dim))
+  call initialize_variational_density_simplex(variational_density_natural_simplex)
   
+  do istate=1,state_dim+1
+     write(*,'(10F18.10)') variational_density_natural_simplex(istate,:)
+  end do
+  !  variational_density_natural=0.5d0
+  !  ene_min=gz_energy_self(variational_density_natural)
+  !  stop
+  !call gz_energy_self(variational_density_natural,Rhop_r,GZproj_vect,ene_min)
+  !ene_min=gz_optimization(variational_density_natural)
+
+  call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural,ene_min)
+
+  ! variational_density_natural=0.d0
+  ! do i=1,9
+  !    variational_density_natural=variational_density_natural+0.1d0
+  !    ene_min=gz_energy_self(variational_density_natural)
+  ! end do
   !  stop
 
 
@@ -196,12 +224,6 @@ program GUTZ_mb
   ! allocate(local_density(state_dim),local_dens_min(Norb))  
 
   ! !+- look for the local density configuration file and read -+!
-  ! call initialize_local_density(local_dens_min)  
-  ! out_unit=free_unit()
-  ! open(out_unit,file='used.density_seed.conf')
-  ! do iorb=1,Norb
-  !    write(out_unit,'(6(F18.10))') local_dens_min(iorb)
-  ! end do
   ! close(out_unit)
   ! !+----------------------------------------------------------+!
 

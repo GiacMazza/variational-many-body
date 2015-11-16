@@ -1,14 +1,14 @@
 program GUTZ_mb
   USE SCIFOR
+  !
   USE DMFT_MISC
   USE DMFT_PARSE_INPUT
+  !
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_PROJECTORS
-  USE GZ_ENERGY_FUNCTIONAL
-  USE GZ_ENERGY_FUNCTIONAL_SELF
-  USE GZ_MINIMIZE
-  USE MIN_AMOEBA
+  USE GZ_OPTIMIZED_ENERGY
+  !
   implicit none
   !
   !+- hamiltonian details -+!
@@ -23,14 +23,10 @@ program GUTZ_mb
 
   real(8),allocatable,dimension(:)    :: local_density,local_dens_min
   real(8),allocatable,dimension(:)    :: kx
-  !real(8),allocatable,dimension(:)    :: pol_test,pol_out
-  !real(8)                             :: GZene,pol
   real(8)                             :: ene_min
   real(8)                             :: ts,test_k,kx_,ky_,kz_
   integer                             :: ix,iy,iz,ik,Nk
-  !  integer                             :: Ndens
   integer                             :: out_unit,iter
-  !integer                             :: minimization
   integer                             :: lattice ! 2=square;3=cubic
 
 
@@ -46,7 +42,9 @@ program GUTZ_mb
   call parse_input_variable(lancelot_verbose,"LANCELOT_VERBOSE","inputGZ.conf",default=1)
   call parse_input_variable(amoeba_verbose,"AMOEBA_VERBOSE","inputGZ.conf",default=.false.)
   call parse_input_variable(GZmin_verbose,"GZMIN_VERBOSE","inputGZ.conf",default=.false.)
+  call parse_input_variable(min_method,"MIN_METHOD","inputGZ.conf",default='nlep')
   call parse_input_variable(Rseed,"RSEED","inputGZ.conf",default=1.d0)
+  call parse_input_variable(Rmix,"RMIX","inputGZ.conf",default=1.d0)
   call parse_input_variable(Niter_self,"NITER_SELF","inputGZ.conf",default=100)
   call parse_input_variable(err_self,"ERR_SELF","inputGZ.conf",default=1.d-10)
   call parse_input_variable(fix_density_minimization,"MIN_FIX_DENSITY","inputGZ.conf",default=.false.)
@@ -129,7 +127,7 @@ program GUTZ_mb
   case default
      atomic_energy_levels=0.d0        
   end select
-
+  
   !+- BUILD LOCAL FOCK SPACE -+!
   call build_local_fock
   allocate(slater_matrix_elements(state_dim,state_dim,Lk),slater_ground_state_deriv(state_dim,state_dim))  
@@ -144,24 +142,22 @@ program GUTZ_mb
   call build_gz_local_traces_diag
 
 
-  allocate(variational_density_natural(state_dim))
-  do istate=1,state_dim
-     variational_density_natural(istate)=0.5d0
-  end do
-  !
-  do iorb=1,Norb
-     do jorb=1,Norb
-        do ispin=1,2
-           istate=index(ispin,iorb)
-           jstate=index(ispin,jorb)
-           if(iorb.lt.jorb) variational_density_natural(istate)=variational_density_natural(istate)+0.1d0
-           if(iorb.gt.jorb) variational_density_natural(istate)=variational_density_natural(istate)-0.075d0
-           write(*,*) variational_density_natural(istate)
-        end do
-     end do
-  end do
-
-
+  ! allocate(variational_density_natural(state_dim))
+  ! do istate=1,state_dim
+  !    variational_density_natural(istate)=0.5d0
+  ! end do
+  ! !
+  ! do iorb=1,Norb
+  !    do jorb=1,Norb
+  !       do ispin=1,2
+  !          istate=index(ispin,iorb)
+  !          jstate=index(ispin,jorb)
+  !          if(iorb.lt.jorb) variational_density_natural(istate)=variational_density_natural(istate)+0.1d0
+  !          if(iorb.gt.jorb) variational_density_natural(istate)=variational_density_natural(istate)-0.075d0
+  !          write(*,*) variational_density_natural(istate)
+  !       end do
+  !    end do
+  ! end do
   ! call initialize_local_density(local_dens_min)  
   ! out_unit=free_unit()
   ! open(out_unit,file='used.density_seed.conf')
@@ -172,16 +168,18 @@ program GUTZ_mb
   allocate(variational_density_natural_simplex(state_dim+1,state_dim))
   call initialize_variational_density_simplex(variational_density_natural_simplex)
   
-  do istate=1,state_dim+1
-     write(*,'(10F18.10)') variational_density_natural_simplex(istate,:)
-  end do
+  ! do istate=1,state_dim+1
+  !    write(*,'(10F18.10)') variational_density_natural_simplex(istate,:)
+  ! end do
   !  variational_density_natural=0.5d0
   !  ene_min=gz_energy_self(variational_density_natural)
   !  stop
   !call gz_energy_self(variational_density_natural,Rhop_r,GZproj_vect,ene_min)
   !ene_min=gz_optimization(variational_density_natural)
-
   call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural,ene_min)
+
+!  call get_gutzwiller_ground_state_estimation
+
 
   ! variational_density_natural=0.d0
   ! do i=1,9

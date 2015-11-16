@@ -46,7 +46,7 @@ CONTAINS
     end do
 
     !+- allocate and build local operators -+!
-    allocate(UHubbard(nFock,nFock),docc(Norb,nFock,nFock),dens(state_dim,nFock,nFock))
+    allocate(UHubbard(nFock,nFock),docc(Norb,nFock,nFock),dens(state_dim,nFock,nFock),dens_dens_orb(Norb*(Norb-1),nFock,nFock))
     allocate(local_hamiltonian(nFock,nFock),dens_dens_interaction(nFock,nFock))
     Uhubbard=rotationally_invariant_density_density(CC,CA)
     dens_dens_interaction=rotationally_invariant_density_density(CC,CA)  !HERE MAY ADD SINGLET SPLITTING TERMS, SPIN FLIPS, PAIR HOPPINGS, etc...
@@ -287,6 +287,39 @@ CONTAINS
     end do
     !    
   end function local_doubly
+
+  !+- continue from here che non ci stai a capi' chiu niente!!!!
+  function local_dens_dens_orb(cc,ca) result(di)
+    real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+    real(8),dimension(nFock,nFock) :: Id,tmp1,tmp2
+    real(8),dimension(Norb*(Norb-1),nFock,nFock) :: ddi
+    integer                        :: i,ispin,iorb,istate
+    !
+    do iorb=1,Norb
+       do jorb=1,Norb
+          if(iorb.ne.jorb) then
+             i=(iorb-1)*Norb+jorb
+             
+             ddi
+
+          end if
+       end do
+
+       !
+       ispin=1
+       istate=index(ispin,iorb)
+       tmp_up = matmul(cc(istate,:,:),ca(istate,:,:))
+       ispin=2
+       istate=index(ispin,iorb)
+       tmp_dw = matmul(cc(istate,:,:),ca(istate,:,:))
+       !
+       di(iorb,:,:) = matmul(tmp_up,tmp_dw)
+       !
+    end do
+    !    
+  end function local_dens_dens_orb
+
+
 
 
 

@@ -3,9 +3,9 @@ FC=gfortran
 #PRECOMPILATION FLAG (leave blank for serial code)
 FPP=
 
-EXE=GZ_MB
+#EXE=GZ_MB
 #EXE=gz_2band_minN
-
+EXE=gz_2b_bethe
 
 DIR=drivers
 DIREXE=$(HOME)/.project_bin

@@ -234,3 +234,85 @@ function get_local_density_matrix_full(lm) result(local_density_matrix)
      end do
   end do
 end function get_local_density_matrix_full
+!
+!ORBITAL DIAGONAL TEST
+!
+function get_delta_local_density_matrix_orb(lm_) result(delta_local_density_matrix_vec)
+  real(8),dimension(:)  :: lm_
+  real(8),dimension(Norb)  :: delta_local_density_matrix_vec
+  real(8),dimension(state_dim*state_dim)  :: delta_local_density_matrix_vec_
+  real(8),dimension(state_dim,state_dim)  :: lm
+  real(8),dimension(state_dim,state_dim)  :: delta_local_density_matrix,local_density_matrix
+  real(8),dimension(state_dim,state_dim) :: Hk,tmp
+  real(8),dimension(state_dim)          :: ek
+  integer                              :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik
+  !
+  lm=0.d0
+  do iorb=1,Norb
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        lm(istate,istate)= lm_(iorb)
+     end do
+  end do
+  !
+  local_density_matrix=0.d0
+  do ik=1,Lk
+     Hk=0.d0
+     ek=0.d0
+     ! build-up the hopping hamiltonian !         
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,2
+              do jspin=1,2
+                 istate=index(ispin,iorb)
+                 jstate=index(jspin,jorb)                                            
+                 if(ispin.eq.jspin) then
+                    if(iorb.eq.jorb) then
+                       Hk(istate,jstate)=epsik(ik)
+                    else
+                       Hk(istate,jstate)=hybik(ik)
+                    end if
+                 end if
+              end do
+           end do
+        end do
+     end do
+     ! hopping renormalization !
+     Hk=matmul(Hk,Rhop)
+     Hk=matmul(Rhop,Hk)
+     ! add Lagrange multipliers !
+     Hk=Hk-lm                     
+     ! diagonalize hamiltonian !
+     call  matrix_diagonalize(Hk,ek,'V','L')
+     !compute local density matrix
+     do istate=1,state_dim
+        do jstate=1,state_dim
+           do kstate=1,state_dim
+              local_density_matrix(istate,jstate) = &
+                   local_density_matrix(istate,jstate) + fermi(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)
+           end do
+        end do
+     end do
+  end do
+  ! return variation of local density matrix with respect to the target values
+  delta_local_density_matrix = local_density_matrix
+  do istate=1,state_dim
+     delta_local_density_matrix(istate,istate) = delta_local_density_matrix(istate,istate) - n0_target(istate)      
+  end do
+  do iorb=1,Norb
+     delta_local_density_matrix_vec(iorb)=0.d0
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        delta_local_density_matrix_vec(iorb)=&
+             delta_local_density_matrix_vec(iorb)+delta_local_density_matrix(istate,istate)
+     end do
+  end do
+end function get_delta_local_density_matrix_orb
+
+
+
+
+
+
+
+

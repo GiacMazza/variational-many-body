@@ -4,7 +4,9 @@ MODULE GZ_AUX_FUNX
   implicit none
   private
   !
-  public :: build_local_fock
+  public :: initialize_local_fock_space
+  public :: build_local_operators_fock_space
+  public :: build_local_hamiltonian
   public :: bdecomp
   public :: get_spin_indep_states
   public :: initialize_local_density
@@ -13,19 +15,15 @@ MODULE GZ_AUX_FUNX
   !
 CONTAINS
 
-  subroutine build_local_fock
-    integer                            :: fock_state,ifock
-    integer                            :: i,iup,jup,idw,iup_,idw_,np,nup_
-    integer                            :: ispin,iorb,istate
-    integer                            :: nup,ndw,irnd
+  subroutine initialize_local_fock_space
+    integer :: iorb,jorb,ispin,jspin,ifock
     integer,dimension(:),allocatable   :: Fock,ivec
-    integer,dimension(:,:),allocatable :: Fock_vec
-    real(8)                            :: rnd    
+    !    integer :: 
     !
     State_dim = 2*Norb        
     NFock = 2**State_dim
     !
-    allocate(ivec(State_dim))
+    allocate(ivec(state_dim))
     allocate(Fock(Nfock))
     do ifock=1,NFock
        Fock(ifock)=ifock
@@ -33,7 +31,25 @@ CONTAINS
        write(*,'(10I3)') ivec(:),ifock
     end do
     !
+    allocate(index(2,Norb))
+    do ispin=1,2
+       do iorb=1,Norb
+          index(ispin,iorb)=iorb+(ispin-1)*Norb
+       enddo
+    end do
+    !
+    call get_spin_indep_states
+  end subroutine initialize_local_fock_space
 
+
+  subroutine build_local_operators_fock_space
+    integer                            :: fock_state,ifock
+    integer                            :: i,iup,jup,idw,iup_,idw_,np,nup_
+    integer                            :: ispin,iorb,istate
+    integer                            :: nup,ndw,irnd
+    !integer,dimension(:),allocatable   :: Fock,ivec
+    !integer,dimension(:,:),allocatable :: Fock_vec
+    real(8)                            :: rnd    
 
     !+- allocate and build creation/anhhilation operators -+!
     allocate(CC(state_dim,nFock,nFock),CA(state_dim,nFock,nFock))
@@ -46,22 +62,46 @@ CONTAINS
     end do
 
     !+- allocate and build local operators -+!
-    allocate(UHubbard(nFock,nFock),docc(Norb,nFock,nFock),dens(state_dim,nFock,nFock),dens_dens_orb(Norb*(Norb-1),nFock,nFock))
-    allocate(local_hamiltonian(nFock,nFock),dens_dens_interaction(nFock,nFock))
-    Uhubbard=rotationally_invariant_density_density(CC,CA)
+    allocate(UHubbard(nFock,nFock),docc(Norb,nFock,nFock),dens(state_dim,nFock,nFock),dens_dens_orb(Norb,Norb,nFock,nFock))
+    allocate(local_hamiltonian(nFock,nFock),local_hamiltonian_free(nFock,nFock),dens_dens_interaction(nFock,nFock))
+    Uhubbard=density_density_interaction(CC,CA)    
     dens_dens_interaction=rotationally_invariant_density_density(CC,CA)  !HERE MAY ADD SINGLET SPLITTING TERMS, SPIN FLIPS, PAIR HOPPINGS, etc...
+
     docc = local_doubly(CC,CA)
     dens = local_density(CC,CA)
+    dens_dens_orb=local_density_density_orb(CC,CA)
+
+  end subroutine build_local_operators_fock_space
 
 
-    !This should be located in a separate routine!
-    local_hamiltonian = U*0.5d0*dens_dens_interaction
+  subroutine build_local_hamiltonian
+    integer :: iorb,jorb,ispin,jspin,istate,jstate    
+    allocate(atomic_energy_levels(state_dim))
+    select case(Norb)
+    case(2)
+       do iorb=1,Norb
+          do ispin=1,2
+             istate=index(ispin,iorb)
+             atomic_energy_levels(istate) = Cfield*0.5d0
+             if(iorb.eq.2) atomic_energy_levels(istate) = -Cfield*0.5d0
+          end do
+       end do
+    case default
+       atomic_energy_levels=0.d0        
+    end select
+
+    ! I should think to something smarter for the local hamiltonian
+    local_hamiltonian=0.d0
     do istate=1,state_dim
        local_hamiltonian = local_hamiltonian + atomic_energy_levels(istate)*dens(istate,:,:)
        local_hamiltonian = local_hamiltonian - xmu*dens(istate,:,:)
     end do
+    local_hamiltonian_free=local_hamiltonian
+    local_hamiltonian = local_hamiltonian+U*0.5d0*dens_dens_interaction
+  end subroutine build_local_hamiltonian
 
-  end subroutine build_local_fock
+
+
   !
   subroutine bdecomp(i,ivec)
     integer :: ivec(:)         
@@ -250,6 +290,52 @@ CONTAINS
     Oi=matmul(ni-Id,ni-Id)
   end function Rotationally_invariant_density_density
 
+
+
+  function density_density_interaction(cc,ca) result(Oi)
+    real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+    real(8),dimension(nFock,nFock) :: Oi,Id
+    real(8),dimension(nFock,nFock) :: ni,nj,n_up,n_dn
+    integer                        :: i,ispin,iorb,istate,jorb
+    !
+    Id=0.d0                 
+    do i=1,nFock
+       Id(i,i)=1.d0
+    end do
+    !
+    ni=0.d0    
+
+    Oi=0.d0
+    do iorb=1,Norb
+       ispin=1
+       istate=index(ispin,iorb)
+       n_up=matmul(cc(istate,:,:),ca(istate,:,:))
+       ispin=2
+       istate=index(ispin,iorb)
+       n_dn=matmul(cc(istate,:,:),ca(istate,:,:))
+       Oi = Oi + matmul(n_up,n_dn)
+    end do
+
+    do iorb=1,Norb
+       ni=0.d0
+       do ispin=1,2
+          istate=index(ispin,iorb)
+          ni=ni+matmul(cc(istate,:,:),ca(istate,:,:))
+       end do
+       do jorb=1,iorb-1
+          nj=0.d0
+          do ispin=1,2
+             istate=index(ispin,jorb)
+             nj=nj+matmul(cc(istate,:,:),ca(istate,:,:))
+          end do
+          Oi = Oi + matmul(ni,nj)
+       end do
+    end do
+  end function density_density_interaction
+
+
+
+
   ! Local density !
   function local_density(cc,ca) result(ni)
     real(8),dimension(state_dim,nFock,nFock) :: cc,ca
@@ -288,36 +374,29 @@ CONTAINS
     !    
   end function local_doubly
 
-  !+- continue from here che non ci stai a capi' chiu niente!!!!
-  function local_dens_dens_orb(cc,ca) result(di)
+
+  function local_density_density_orb(cc,ca) result(ddi)
     real(8),dimension(state_dim,nFock,nFock) :: cc,ca
-    real(8),dimension(nFock,nFock) :: Id,tmp1,tmp2
-    real(8),dimension(Norb*(Norb-1),nFock,nFock) :: ddi
-    integer                        :: i,ispin,iorb,istate
+    real(8),dimension(nFock,nFock) :: Id,tmp_ni,tmp_nj
+    real(8),dimension(Norb,Norb,nFock,nFock) :: ddi
+    integer                        :: i,ispin,iorb,istate,jstate,jorb
     !
     do iorb=1,Norb
        do jorb=1,Norb
-          if(iorb.ne.jorb) then
-             i=(iorb-1)*Norb+jorb
-             
-             ddi
-
-          end if
+          ddi(iorb,jorb,:,:)=0.d0
+          tmp_ni=0.d0
+          tmp_nj=0.d0
+          do ispin=1,2
+             istate=index(ispin,iorb)
+             jstate=index(ispin,jorb)
+             tmp_ni=tmp_ni+matmul(cc(istate,:,:),ca(istate,:,:))
+             tmp_nj=tmp_nj+matmul(cc(jstate,:,:),ca(jstate,:,:))             
+          end do
+          ddi(iorb,jorb,:,:)=matmul(tmp_ni,tmp_nj)
        end do
-
-       !
-       ispin=1
-       istate=index(ispin,iorb)
-       tmp_up = matmul(cc(istate,:,:),ca(istate,:,:))
-       ispin=2
-       istate=index(ispin,iorb)
-       tmp_dw = matmul(cc(istate,:,:),ca(istate,:,:))
-       !
-       di(iorb,:,:) = matmul(tmp_up,tmp_dw)
-       !
     end do
     !    
-  end function local_dens_dens_orb
+  end function local_density_density_orb
 
 
 
@@ -401,7 +480,7 @@ CONTAINS
           k=(i-1)*m+j
           vec(k)=mat(i,j)
        end do
-    end do    
+    end do
   end subroutine mat2vec_stride
 
 
@@ -421,5 +500,5 @@ CONTAINS
   end subroutine vec2mat_stride
 
 
-  
+
 END MODULE GZ_AUX_FUNX

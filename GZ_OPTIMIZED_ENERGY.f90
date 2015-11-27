@@ -10,6 +10,7 @@ MODULE GZ_OPTIMIZED_ENERGY
   private
 
   public :: gz_optimization_simplex
+  public :: get_gz_ground_state_estimation
   logical,public :: optimization_flag
 
 CONTAINS
@@ -21,8 +22,12 @@ CONTAINS
     real(8),dimension(state_dim),intent(in)    :: optimized_vdm
     real(8)                                    :: energy
     real(8),dimension(nFock,nFock)             :: local_operator
+    integer                                    :: iorb,jorb,istate,jstate
     !
     optimization_flag=.true.
+    allocate(GZ_opt_projector_diag(nFock))
+    allocate(GZ_opt_Rhop(state_dim,state_dim))
+    !allocate()
     select case(min_method)
     case('nlep')
        energy=gz_energy_recursive_nlep(optimized_vdm)
@@ -32,44 +37,48 @@ CONTAINS
     !
 
     !+- get renormalization matrices -+!
-    allocate(gz_rhop(state_dim,state_dim))
-    gz_rhop=Rhop_matrix(GZ_opt_projector_diag,n0)
-    
+
+    GZ_opt_Rhop=Rhop_matrix(GZ_opt_projector_diag,optimized_vdm)
+
     !+- GET OBSERVABLES -+!
     ! physical density !
     allocate(gz_dens(state_dim))
-    do iorb=1,Norb
-       do ispin=1,2
-          istate=index(ispin,iorb)
-          
-       end do
+    do istate=1,state_dim
+       gz_dens(istate)=gz_local_diag(GZ_opt_projector_diag,dens(istate,:,:))
     end do
-    
 
-    
-    ! density-density same orbital !
+    ! density-density same orbital -aka orbital doubly occupancy-!
     allocate(gz_docc(Norb))
+    do iorb=1,Norb
+       gz_docc(iorb)=gz_local_diag(GZ_opt_projector_diag,docc(iorb,:,:))
+    end do
 
     ! density-density different orbitals !
-    allocate(gz_dens_dens_orb(Norb))
-
+    allocate(gz_dens_dens_orb(Norb,Norb))
+    do iorb=1,Norb
+       do jorb=1,Norb
+          gz_dens_dens_orb(iorb,jorb)=&
+               gz_local_diag(GZ_opt_projector_diag,dens_dens_orb(iorb,jorb,:,:))
+       end do
+    end do
+    !+-
     ! place for other observables... SPINS,ISO-SPINS,...bla bla bla
-
+    !+-
   end subroutine get_gz_ground_state_estimation
 
-  subroutine gz_optimization_simplex(simplex_init,optimized_vdm,optimized_energy) 
+  subroutine gz_optimization_simplex(simplex_init,optimized_vdm) 
     real(8),dimension(state_dim+1,state_dim),intent(inout) :: simplex_init
     real(8),dimension(state_dim),intent(out)               :: optimized_vdm
-    real(8),intent(out)                                    :: optimized_energy    
+    !real(8),intent(out)                                    :: optimized_energy    
     !+- amoeba_variables-+!
-    real(8),allocatable,dimension(:,:) :: p
-    real(8),allocatable,dimension(:)   :: y
-    real(8)                            :: ftol
-    integer                            :: np,mp,i_vertex,j_vertex,i_dim,iter
-    integer,allocatable,dimension(:)   :: idum
-    integer                            :: tmp_dum
-    real(8)                            :: rnd,tot_dens,tmp_pol
-    integer                            :: amoeba_unit    
+    real(8),allocatable,dimension(:,:)                     :: p
+    real(8),allocatable,dimension(:)                       :: y
+    real(8)                                                :: ftol
+    integer                                                :: np,mp,i_vertex,j_vertex,i_dim,iter
+    integer,allocatable,dimension(:)                       :: idum
+    integer                                                :: tmp_dum
+    real(8)                                                :: rnd,tot_dens,tmp_pol
+    integer                                                :: amoeba_unit    
     !+-------------------+!
     optimization_flag=.false.
     amoeba_unit=free_unit()
@@ -78,6 +87,8 @@ CONTAINS
     open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
     opt_rhop_unit=free_unit()
     open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+    opt_GZ_unit=free_unit()
+    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
     if(GZmin_verbose) then
        GZmin_unit=free_unit()
        open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
@@ -101,15 +112,17 @@ CONTAINS
        write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
     end do
     !stop
-    ftol=1.d-6
+    ftol=amoeba_min_tol
     select case(min_method)
     case('nlep')
-       call amoeba(p(1:MP,1:NP),y(1:MP),FTOL,gz_energy_recursive_nlep,iter,amoeba_verbose)
+       call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_energy_recursive_nlep,iter,amoeba_verbose)
     case('cmin')
-       call amoeba(p(1:MP,1:NP),y(1:MP),FTOL,gz_energy_recursive_cmin,iter,amoeba_verbose)
+       call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_energy_recursive_cmin,iter,amoeba_verbose)
     end select
-    optimized_vdm=p(1,:)
-    optimized_energy=y(1)     
+    !+- Optimized Variational Density Matrix -+!
+    optimized_vdm=p(1,:) 
+    !+- Optimized Variational Energy -+!
+    simplex_init=p
     write(amoeba_unit,*) 
     write(amoeba_unit,*) 'Last loop simplex verteces'
     write(amoeba_unit,*) 
@@ -122,7 +135,6 @@ CONTAINS
     close(amoeba_unit)
     close(opt_energy_unit)
   end subroutine gz_optimization_simplex
-
 
 
 
@@ -188,6 +200,7 @@ CONTAINS
           if(energy_err.lt.err_self) exit
        end do
        if(GZmin_verbose) write(GZmin_unit,*) 
+       if(GZmin_verbose) write(GZmin_unit,*) 
        if(iter-1.eq.Niter_self) then
           write(*,*) 'Self consistent Gutzwiller minimization'
           write(*,*) 'Input VDM',n0
@@ -195,11 +208,18 @@ CONTAINS
           write(*,*) "Not converged after",Niter_self,'iterations: exiting'
           stop 
        end if
+       write(opt_GZ_unit,*) n0
+       write(opt_GZ_unit,*)
+       do ifock=1,nFock
+          write(opt_GZ_unit,*) GZvect_iter(ifock)
+       end do
+       write(opt_GZ_unit,*)
+       write(opt_GZ_unit,*)
+       write(opt_energy_unit,*) n0,GZ_energy,E_Hloc,E_Hstar
+       write(opt_rhop_unit,*) n0,R_diag(1:state_dim)
     else
        GZ_energy=100.d0
     end if
-    write(opt_energy_unit,*) n0,GZ_energy,E_Hloc,E_Hstar
-    write(opt_rhop_unit,*) n0,R_diag(1:state_dim)
     if(optimization_flag) then
        !+- store final informations to global variables -+!              
        GZ_opt_projector_diag = GZvect_iter
@@ -212,7 +232,10 @@ CONTAINS
 
 
 
-  
+
+
+
+
   function gz_energy_recursive_cmin(n0)  result(GZ_energy)
     real(8),dimension(:),intent(in)           :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                                   :: GZ_energy !INPUT: Optimized GZ energy at fixed 
@@ -242,8 +265,9 @@ CONTAINS
     !
 
     if(.not.bound) then
+       !+- get not-interacting GZprojectors corresponding to this density matrix -+!
+       call initialize_GZprojectors(GZvect_iter,n0)
        !
-       GZvect_iter=1.d0/sqrt(1.d0*nFock)
        do i_ind=1,nFock_indep
           GZvect_iter_(i_ind) = GZvect_iter(fock_indep(i_ind))
        end do
@@ -254,9 +278,6 @@ CONTAINS
           !+- update phi_vectors -+!
           GZ_energy_old=GZ_energy
           GZvect_iter_tmp=GZvect_iter_
-          do ifock=1,nFock
-             GZvect_iter(ifock)=GZvect_iter_(full2indep_fock(ifock))     
-          end do
           !
           !+----------------------------+!
           !+- SLATER STEP MINIMIZATION -+!
@@ -275,16 +296,21 @@ CONTAINS
              R_diag(istate)=R_iter(istate,istate)
           end do
           !
+          do ifock=1,nFock
+             GZvect_iter(ifock)=GZvect_iter_(full2indep_fock(ifock))     
+          end do
+          !
           if(iter.lt.2) then 
              energy_err=1.d0
           else
              energy_err=abs(GZ_energy-GZ_energy_old)
           end if
           E_HLoc=GZ_energy-E_Hstar
+          write(*,*) GZ_energy
           if(GZmin_verbose) then
              write(GZmin_unit,*) dble(iter),energy_err,GZ_energy,E_Hstar,E_Hloc,R_diag(1:state_dim)
           end if
-          if(energy_err.lt.err_self) exit
+          if(energy_err.lt.err_self) exit          
        end do
        if(GZmin_verbose) write(GZmin_unit,*) 
        if(iter-1.eq.Niter_self) then
@@ -294,11 +320,22 @@ CONTAINS
           write(*,*) "Not converged after",Niter_self,'iterations: exiting'
           stop 
        end if
+       write(opt_GZ_unit,*) n0
+       write(opt_GZ_unit,*)
+       do ifock=1,nFock
+          write(opt_GZ_unit,*) GZvect_iter(ifock)
+       end do
+       write(opt_GZ_unit,*)
+       write(opt_GZ_unit,*)
+       write(opt_energy_unit,*) n0,GZ_energy,E_Hstar,E_Hloc
+       R_iter=Rhop_matrix(GZvect_iter,n0)          
+       do istate=1,state_dim
+          R_diag(istate)=R_iter(istate,istate)
+       end do
+       write(opt_rhop_unit,*) n0,R_diag(1:state_dim)
     else
        GZ_energy=100.d0
     end if
-    write(opt_energy_unit,*) n0,GZ_energy,E_Hstar,E_Hloc
-    write(opt_rhop_unit,*) n0,R_diag(1:state_dim)
     if(optimization_flag) then
        !+- store final informations to global variables -+!              
        GZ_opt_projector_diag = GZvect_iter
@@ -309,5 +346,29 @@ CONTAINS
     !
   end function gz_energy_recursive_cmin
   !
+
+
+
+  subroutine initialize_GZprojectors(GZvect_iter,n0)
+    real(8),dimension(nFock) :: GZvect_iter
+    real(8),dimension(state_dim) :: n0
+    real(8),dimension(state_dim,state_dim) :: R_init        
+    real(8),dimension(state_dim,state_dim) :: slater_derivatives
+    real(8),dimension(state_dim)           :: slater_lgr_multip
+    real(8),dimension(state_dim,state_dim) :: GZproj_lgr_multip  
+    real(8) :: E_Hstar,E_HLoc
+    logical :: iverbose
+    integer :: istate
+
+    iverbose=.false.
+    R_init=0.d0
+    do istate=1,state_dim
+       R_init(istate,istate)=1.d0
+    end do
+    call slater_determinant_minimization_nlep(R_init,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose)
+    call free_gz_projectors_init(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose)
+    
+  end subroutine initialize_GZprojectors
+
 END MODULE GZ_OPTIMIZED_ENERGY
   

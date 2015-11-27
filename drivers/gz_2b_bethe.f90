@@ -14,21 +14,22 @@ program GUTZ_mb
   !+- hamiltonian details -+!
   integer                            :: ispin,iorb,i,istate,jstate,ifock,jorb
   integer,dimension(:),allocatable   :: fock_vec
-  !  real(8),dimension(3)               :: GZene  
+!  real(8),dimension(3)               :: GZene  
   real(8),dimension(:),allocatable   :: variational_density_natural
   real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
-  !  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
-  !  integer                            :: ix,iy,iz,ik,Nk
+!  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
+!  integer                            :: ix,iy,iz,ik,Nk
   integer                            :: out_unit,iter
   integer                            :: lattice ! 2=square;3=cubic
-  
+
+
   !+- PARSE INPUT -+!
   call parse_input_variable(Norb,"Norb","inputGZ.conf",default=1)
   call parse_input_variable(U,"U","inputGZ.conf",default=0.5d0)
   call parse_input_variable(xmu,"XMU","inputGZ.conf",default=0.d0)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
-  call parse_input_variable(Vhyb,"Vhyb","inputGZ.conf",default=0.5d0)
+  !call parse_input_variable(Vhyb,"Vhyb","inputGZ.conf",default=0.5d0)
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
   call parse_input_variable(lancelot_verbose,"LANCELOT_VERBOSE","inputGZ.conf",default=1)
   call parse_input_variable(amoeba_verbose,"AMOEBA_VERBOSE","inputGZ.conf",default=.false.)
@@ -44,7 +45,7 @@ program GUTZ_mb
   call save_input_file("inputGZ.conf")
 
   
-  call build_lattice_model(lattice)
+  call build_lattice_model
   
   call initialize_local_fock_space
   
@@ -52,13 +53,14 @@ program GUTZ_mb
 
   call build_local_hamiltonian
 
-  !  allocate(slater_matrix_elements(state_dim,state_dim,Lk),slater_ground_state_deriv(state_dim,state_dim))    
+  !  allocate(slater_matrix_elements(state_dim,state_dim,Lk),slater_ground_state_deriv(state_dim,state_dim))  
+  
   !  allocate(fock_vec(state_dim))
   !call get_spin_indep_states
-  !  do i=1,nFock_indep
-  !     call bdecomp(fock_indep(i),fock_vec)
-  !     write(*,'(A,I5,A,20I3)') '|',fock_indep(i),'>',fock_vec(:)
-  !  end do
+!  do i=1,nFock_indep
+!     call bdecomp(fock_indep(i),fock_vec)
+!     write(*,'(A,I5,A,20I3)') '|',fock_indep(i),'>',fock_vec(:)
+!  end do
 
   call build_gz_local_traces_diag
   !
@@ -74,65 +76,36 @@ program GUTZ_mb
   !
 CONTAINS
   !
-  subroutine build_lattice_model(lattice)    
+  subroutine build_lattice_model  
     !
-    integer :: lattice
     integer :: ix,iy,iz,ik,Nk
     real(8),allocatable,dimension(:)   :: kx
-    real(8)                            :: ts,test_k,kx_,ky_,kz_
+    real(8)                            :: ts,test_k,kx_,ky_,kz_,wini,wfin,de
     !
 
-    !+- BUILD MODEL -+!
-    select case(lattice)
-    case(2)
-       ts = Wband/8.d0
-       Vhyb = Vhyb/8.d0
-       !
-       nk=Nx+1
-       Lk=Nk*Nk
-       allocate(epsik(Lk),hybik(Lk),wtk(Lk))
-       test_k=0.d0
-       ik=0
-       do ix=0,Nx
-          do iy=0,Nx
-             ik=ik+1
-             kx_=dble(ix)/dble(Nx)*pi
-             ky_=dble(iy)/dble(Nx)*pi
-             epsik(ik) = -2.d0*ts*(cos(kx_)+cos(ky_))
-             hybik(ik) = Vhyb*(cos(kx_)-cos(ky_))
-             wtk(ik)   = 1.d0/dble(Lk)           
-             test_k = test_k + fermi(epsik(ik),beta)*wtk(ik)*epsik(ik)
-          end do
-       end do
-    case(3)
-       ts = Wband/6.d0
-       Vhyb = Vhyb/6.d0
-       !
-       nk=Nx+1
-       !Lk=Nk*(Nk+1)/2
-       Lk=Nk*Nk
-       Lk=Lk*(Nk)
-       allocate(epsik(Lk),hybik(Lk),wtk(Lk))
-       test_k=0.d0
-       ik=0
-       do ix=0,Nx
-          do iy=0,Nx
-             do iz=0,Nx
-                ik=ik+1
-                kx_=dble(ix)/dble(Nx)*pi
-                ky_=dble(iy)/dble(Nx)*pi
-                kz_=dble(iz)/dble(Nx)*pi
-                epsik(ik) = -2.d0*ts*(cos(kx_)+cos(ky_)+cos(kz_))
-                hybik(ik) = Vhyb*(cos(kx_)-cos(ky_))*cos(kz_)
-                !hybik(ik) = Vhyb*(sin(kx_)*sin(ky_))*cos(kz_)
-                wtk(ik)   = 1.d0/dble(Lk)           
-                test_k = test_k + fermi(epsik(ik),beta)*wtk(ik)*epsik(ik)
-             end do
-          end do
-       end do
-    end select
+
+    Lk=Nx
+    allocate(epsik(Lk),wtk(Lk),hybik(Lk))
+    
+    wini=-Wband/2.d0
+    wfin= Wband/2.d0
+    epsik=linspace(wini,wfin,Lk,mesh=de)
     !
-    call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
+    test_k=0.d0
+    do ix=1,Lk
+       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       !wtk(ix) = 1.d0/Wband*de
+       if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+       test_k=test_k+wtk(ix)
+       write(77,*) epsik(ix),wtk(ix)
+    end do
+    hybik=0.d0
+    write(*,*) test_k,de
+!    stop
+    
+
+    !
+    !call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
     !  
 
 

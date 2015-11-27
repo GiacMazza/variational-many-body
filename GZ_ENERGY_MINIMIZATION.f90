@@ -16,6 +16,8 @@ MODULE GZ_ENERGY_MINIMIZATION
   !
   public :: gz_projectors_minimization_nlep,slater_determinant_minimization_nlep
   public :: slater_determinant_minimization_cmin,gz_projectors_minimization_cmin
+
+  public :: free_gz_projectors_init
   !
   real(8),dimension(:),allocatable,public :: vdm
   !
@@ -113,6 +115,65 @@ contains
   end subroutine gz_projectors_minimization_nlep
 
 
+
+
+
+
+  
+  subroutine free_gz_projectors_init(slater_derivatives,n0_target,E_Hloc,GZvect,lgr_multip,iverbose)
+    real(8),dimension(state_dim,state_dim),intent(in) :: slater_derivatives !input:  Slater Deter GZ energy derivatives
+    real(8),dimension(state_dim),intent(in)           :: n0_target          !input:  Variational density matrix
+    real(8),dimension(state_dim) :: lgr
+    real(8),dimension(state_dim,state_dim),intent(out):: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
+    real(8),dimension(nFock)                          :: GZvect   !output: GZvector
+    real(8)                                           :: E_Hloc   !output: optimized local energy
+    real(8)                                           :: lgr_symm(1)
+    logical,optional                                  :: iverbose
+    real(8),dimension(state_dim)            :: err_dens
+    real(8) :: delta_out
+    logical                                 :: iverbose_
+    integer                                           :: info,istate,i,j
+
+    iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose    
+    !
+    do istate=1,state_dim
+       lgr(istate)=(n0_target(istate)-0.5d0)*2.d0       
+    end do
+    call fsolve(get_delta_free_proj_variational_density_diag,lgr,tol=1.d-15,info=info)    
+    !
+    lgr_multip=0.d0
+    do istate=1,state_dim
+       lgr_multip(istate,istate)=lgr(istate)
+    end do
+    call get_GZproj_free_ground_state(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect)
+    !
+    if(iverbose_) then
+       write(*,*)
+       write(*,*) "GZ projectors: Lagrange Parameters -diagonal case-",info
+       write(*,'(10F18.10)') lgr(1:state_dim)
+       err_dens=get_delta_proj_variational_density_diag(lgr)
+       write(*,*) "GZ projectors: Variational density matrix error"
+       write(*,'(10F18.10)') err_dens
+       write(*,*) "GZ projectors: Optimized Local Energy"
+       write(*,'(10F18.10)') E_Hloc
+       write(*,*)
+    end if
+    !
+  contains
+    !
+    include 'self_minimization_GZproj_routines.f90'
+    !
+  end subroutine free_gz_projectors_init
+
+
+
+
+
+
+
+
+
+
   !+--------------------------------------------+!
   !+- CONSTRAINED MINIMIZATION (cmin) ROUTINES -+!
   !+--------------------------------------------+!
@@ -130,12 +191,15 @@ contains
     real(8),dimension(state_dim)                       :: ek,tmp_lgr,err_dens
     integer                                            :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb
     real(8),dimension(state_dim)                       :: lgr_multip_vec
+    
+    real(8),dimension(Norb)                       :: lgr_orb,test_dens_orb
     logical                                            :: iverbose_
     !
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose
     !
     lgr=0.d0
     call fsolve(get_delta_local_density_matrix_diag,lgr,tol=1.d-12,info=info)
+    !
     call store_slater_ground_state_cmin(Rhop,lgr,Estar,slater_matrix_el)
     lgr_multip=lgr
     !
@@ -253,7 +317,7 @@ contains
        write(GZmin_unit_,*) 
        write(GZmin_unit_,*)  'NUMBER OF ITERATION'
        write(GZmin_unit_,*) iter,'/',maxit       
-       write(GZmin_unit_,*) 'Eiteration',Ephi
+       write(GZmin_unit_,*) 'Eiteration',GZenergy
     end if
     deallocate(bl,bu,cx,y)
     deallocate(slater_matrix_elements)
@@ -333,11 +397,17 @@ subroutine energy_GZproj_functional(x,f,i)
      end do
      !
      f=Estar
-     do ifock=1,nFock
-        do jfock=1,nFock
-           f=f+phi_(ifock)*phi_traces_basis_Hloc(ifock,jfock)*phi_(jfock)
-        end do
+     ! do ifock=1,nFock
+     !    do jfock=1,nFock
+     !       f=f+phi_(ifock)*phi_traces_basis_Hloc(ifock,jfock)*phi_(jfock)
+     !    end do
+     ! end do
+     f = f + gz_local_diag(phi_,UHubbard)*U
+     do istate=1,state_dim
+        f = f + gz_local_diag(phi_,dens(istate,:,:))*atomic_energy_levels(istate)
+        f = f - 1.5d0*U*gz_local_diag(phi_,dens(istate,:,:))        
      end do
+     f=f+2.d0*U
   else
      !+- CONSTRAINTS ON GUTZWILLER PARAMETERS -+!
      select case(Norb)

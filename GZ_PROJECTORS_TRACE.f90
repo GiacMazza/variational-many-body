@@ -211,7 +211,7 @@ CONTAINS
     end do
     allocate(phi_traces_basis_Rhop(state_dim,state_dim,nFock,nFock))
     allocate(phi_traces_basis_dens(state_dim,state_dim,nFock,nFock))
-    allocate(phi_traces_basis_Hloc(nFock,nFock))
+    allocate(phi_traces_basis_Hloc(nFock,nFock),phi_traces_basis_free_Hloc(nFock,nFock))
 
     do iorb=1,Norb
        do ispin=1,2
@@ -253,25 +253,18 @@ CONTAINS
           end do
        end do
     end do
-
+    !
     phi_traces_basis_Hloc=0.d0                
     do ifock=1,nFock
        phi_traces_basis_Hloc(ifock,ifock)= &
-                                !phi_traces_basis_Hloc(ifock,ifock) + UHubbard(ifock,ifock)*U*0.5d0
             phi_traces_basis_Hloc(ifock,ifock) + local_hamiltonian(ifock,ifock)
     end do
-
-    !<DEBUG
-    ! write(*,*)
-    ! do ifock=1,nFock
-    !    write(*,'(20F6.2)') phi_traces_basis_dens(1,1,ifock,1:nFock)
-    ! end do
-    ! stop
-    ! deallocate(phi_traces_basis_Rhop)
-    ! deallocate(phi_traces_basis_dens)
-    ! deallocate(phi_traces_basis_Hloc)
-    !DEBUG>
-
+    !
+    phi_traces_basis_free_Hloc=0.d0
+    do ifock=1,nFock
+       phi_traces_basis_free_Hloc(ifock,ifock)= &
+            phi_traces_basis_free_Hloc(ifock,ifock) + local_hamiltonian_free(ifock,ifock)
+    end do    
   end subroutine build_gz_local_traces_diag
 
 
@@ -323,10 +316,7 @@ CONTAINS
           end do
        end do
     end do
-
-
-
-
+    !
     phi_traces_basis_Hloc=0.d0                
     do ifock=1,nFock
        do jfock=1,nFock
@@ -339,27 +329,8 @@ CONTAINS
           end do
        end do
     end do
-
-
-    !<DEBUG
-    ! write(*,*)
-    ! do ifock=1,nFock
-    !    write(*,'(20F6.2)') phi_traces_basis_Hloc(ifock,1:nFock)
-    ! end do
-    ! deallocate(phi_traces_basis_Rhop)
-    ! deallocate(phi_traces_basis_dens)
-    ! deallocate(phi_traces_basis_Hloc)
-    !DEBUG>
-
-
-
-
+    !
   end subroutine build_gz_local_traces_full
-
-
-
-
-
 
 
 END MODULE GZ_PROJECTORS

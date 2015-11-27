@@ -31,6 +31,39 @@ end subroutine get_GZproj_ground_state
 
 
 
+subroutine get_GZproj_free_ground_state(n0,slater_derivatives,lgr_multip,E_Hloc,GZvect) 
+  real(8),dimension(state_dim)           :: n0
+  real(8),dimension(state_dim,state_dim) :: slater_derivatives,lgr_multip
+  real(8)                                :: E_Hloc
+  real(8),dimension(nFock)               :: GZvect
+  !
+  real(8),dimension(nFock,nFock)         :: H_projectors
+  real(8),dimension(nFock)               :: H_eigens
+  integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+  !
+  !+- build up the local H_projectors -+!
+  H_projectors=phi_traces_basis_free_Hloc
+  do istate=1,state_dim
+     do jstate=1,state_dim
+        H_projectors = H_projectors + &
+             slater_derivatives(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)/sqrt(n0(jstate)*(1.d0-n0(jstate)))
+        H_projectors = H_projectors + lgr_multip(istate,jstate)*phi_traces_basis_dens(istate,jstate,:,:)
+     end do
+  end do
+  !
+  call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
+  GZvect=H_projectors(1:nFock,1)
+  !
+  E_Hloc=0.d0
+  do ifock=1,nFock
+     do jfock=1,nFock
+        E_Hloc=E_Hloc+GZvect(ifock)*phi_traces_basis_Hloc(ifock,jfock)*GZvect(jfock)
+     end do
+  end do
+end subroutine get_GZproj_free_ground_state
+
+
+
 
 
 subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)     
@@ -168,3 +201,6 @@ subroutine store_slater_ground_state_cmin(Rhop,lm,Estar,slater_matrix_el)
      end do
   end do
 end subroutine store_slater_ground_state_cmin
+
+
+

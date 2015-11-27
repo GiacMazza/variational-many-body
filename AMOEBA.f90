@@ -22,8 +22,7 @@ CONTAINS
          REAL(8) :: func
        END FUNCTION func
     END INTERFACE
-    !INTEGER, PARAMETER :: ITMAX=100000
-    INTEGER, PARAMETER :: ITMAX=100
+    INTEGER, PARAMETER :: ITMAX=200
     REAL(8), PARAMETER :: TINY=1.0d-10
     INTEGER :: ihi,ndim
     REAL(8), DIMENSION(size(p,2)) :: psum
@@ -51,7 +50,7 @@ CONTAINS
          inhi=imaxloc(y(:))
          y(ihi)=ytmp
          rtol=2.0d0*abs(y(ihi)-y(ilo))/(abs(y(ihi))+abs(y(ilo))+TINY)
-         if(verbose) write(unit,'(I1,F18.10)') iter,rtol
+         if(verbose) write(unit,'(5F18.10)') dble(iter),rtol,y(ihi),y(ilo)
          if (rtol < ftol) then
             call swap_r(y(1),y(ilo))
             call swap_rv(p(1,:),p(ilo,:))                        

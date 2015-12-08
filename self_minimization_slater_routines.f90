@@ -16,26 +16,8 @@ function get_delta_local_density_matrix_diag(lm_) result(delta_local_density_mat
   do ik=1,Lk
      Hk=0.d0
      ek=0.d0
-     ! build-up the hopping hamiltonian !         
-     do iorb=1,Norb
-        do jorb=1,Norb
-           do ispin=1,2
-              do jspin=1,2
-                 istate=index(ispin,iorb)
-                 jstate=index(jspin,jorb)                                            
-                 if(ispin.eq.jspin) then
-                    if(iorb.eq.jorb) then
-                       Hk(istate,jstate)=epsik(ik)
-                    else
-                       Hk(istate,jstate)=hybik(ik)
-                    end if
-                 end if
-              end do
-           end do
-        end do
-     end do
      ! hopping renormalization !
-     Hk=matmul(Hk,Rhop)
+     Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop,Hk)
      ! add Lagrange multipliers !
      Hk=Hk+lm                     
@@ -76,26 +58,8 @@ function get_delta_local_density_matrix_full(lm_) result(delta_local_density_mat
   do ik=1,Lk
      Hk=0.d0
      ek=0.d0
-     ! build-up the hopping hamiltonian !         
-     do iorb=1,Norb
-        do jorb=1,Norb
-           do ispin=1,2
-              do jspin=1,2
-                 istate=index(ispin,iorb)
-                 jstate=index(jspin,jorb)                                            
-                 if(ispin.eq.jspin) then
-                    if(iorb.eq.jorb) then
-                       Hk(istate,jstate)=epsik(ik)
-                    else
-                       Hk(istate,jstate)=hybik(ik)
-                    end if
-                 end if
-              end do
-           end do
-        end do
-     end do
      ! hopping renormalization !
-     Hk=matmul(Hk,Rhop)
+     Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop,Hk)
      ! add Lagrange multipliers !
      Hk=Hk+lm                     
@@ -137,26 +101,8 @@ function get_local_density_matrix_diag(lm_) result(local_density_matrix)
   do ik=1,Lk
      Hk=0.d0
      ek=0.d0
-     do iorb=1,Norb
-        do ispin=1,2
-           do jorb=1,Norb
-              do jspin=1,2
-                 istate=index(ispin,iorb)
-                 jstate=index(jspin,jorb)               
-                 ! build up the hopping hamiltonian !
-                 if(ispin.eq.jspin) then
-                    if(iorb.eq.jorb) then
-                       Hk(istate,jstate)=epsik(ik)
-                    else
-                       Hk(istate,jstate)=hybik(ik)
-                    end if
-                 end if
-              end do
-           end do
-        end do
-     end do
      ! hopping renormalization !
-     Hk=matmul(Hk,Rhop)
+     Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop,Hk)
      ! add Lagrange multipliers !
      Hk=Hk+lm                     
@@ -190,28 +136,8 @@ function get_local_density_matrix_full(lm) result(local_density_matrix)
   do ik=1,Lk
      Hk=0.d0
      ek=0.d0
-     do iorb=1,Norb
-        do ispin=1,2
-           do jorb=1,Norb
-              do jspin=1,2
-                 istate=index(ispin,iorb)
-                 jstate=index(jspin,jorb)               
-                 ! build up the hopping hamiltonian !
-                 if(ispin.eq.jspin) then
-
-
-                    if(iorb.eq.jorb) then
-                       Hk(istate,jstate)=epsik(ik)
-                    else
-                       Hk(istate,jstate)=hybik(ik)
-                    end if
-                 end if
-              end do
-           end do
-        end do
-     end do
      ! hopping renormalization !
-     Hk=matmul(Hk,Rhop)
+     Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop,Hk)
      ! add Lagrange multipliers !
      Hk=Hk+lm                     
@@ -259,26 +185,8 @@ function get_delta_local_density_matrix_orb(lm_) result(delta_local_density_matr
   do ik=1,Lk
      Hk=0.d0
      ek=0.d0
-     ! build-up the hopping hamiltonian !         
-     do iorb=1,Norb
-        do jorb=1,Norb
-           do ispin=1,2
-              do jspin=1,2
-                 istate=index(ispin,iorb)
-                 jstate=index(jspin,jorb)                                            
-                 if(ispin.eq.jspin) then
-                    if(iorb.eq.jorb) then
-                       Hk(istate,jstate)=epsik(ik)
-                    else
-                       Hk(istate,jstate)=hybik(ik)
-                    end if
-                 end if
-              end do
-           end do
-        end do
-     end do
      ! hopping renormalization !
-     Hk=matmul(Hk,Rhop)
+     Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop,Hk)
      ! add Lagrange multipliers !
      Hk=Hk-lm                     

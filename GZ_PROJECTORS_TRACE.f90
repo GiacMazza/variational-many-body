@@ -1,6 +1,6 @@
 MODULE GZ_PROJECTORS
   USE GZ_VARS_GLOBAL
-  USE GZ_AUX_FUNX
+  USE GZ_LOCAL_FOCK
   implicit none
 
   interface gz_trace

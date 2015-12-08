@@ -8,7 +8,7 @@ MODULE GZ_ENERGY_MINIMIZATION
   USE LANCELOT_simple_double
   ! GZ routines
   USE GZ_VARS_GLOBAL
-  USE GZ_AUX_FUNX
+  USE GZ_LOCAL_FOCK
   USE GZ_PROJECTORS
   !
   implicit none
@@ -368,26 +368,8 @@ subroutine energy_GZproj_functional(x,f,i)
      Estar=0.d0
      do ik=1,Lk
         Hk=0.d0
-        do iorb=1,Norb
-           do ispin=1,2
-              do jorb=1,Norb
-                 do jspin=1,2
-                    istate=index(ispin,iorb)
-                    jstate=index(jspin,jorb)               
-                    ! build up the hopping hamiltonian !
-                    if(ispin.eq.jspin) then
-                       if(iorb.eq.jorb) then
-                          Hk(istate,jstate)=epsik(ik)
-                       else
-                          Hk(istate,jstate)=hybik(ik)
-                       end if
-                    end if
-                 end do
-              end do
-           end do
-        end do
         ! hopping renormalization !
-        Hk=matmul(Hk,Rhop)
+        Hk=matmul(Hk_tb(:,:,ik),Rhop)
         Hk=matmul(Rhop,Hk)
         do istate=1,state_dim
            do jstate=1,state_dim
@@ -397,17 +379,17 @@ subroutine energy_GZproj_functional(x,f,i)
      end do
      !
      f=Estar
-     ! do ifock=1,nFock
-     !    do jfock=1,nFock
-     !       f=f+phi_(ifock)*phi_traces_basis_Hloc(ifock,jfock)*phi_(jfock)
-     !    end do
-     ! end do
-     f = f + gz_local_diag(phi_,UHubbard)*U
-     do istate=1,state_dim
-        f = f + gz_local_diag(phi_,dens(istate,:,:))*atomic_energy_levels(istate)
-        f = f - 1.5d0*U*gz_local_diag(phi_,dens(istate,:,:))        
+     do ifock=1,nFock
+        do jfock=1,nFock
+           f=f+phi_(ifock)*phi_traces_basis_Hloc(ifock,jfock)*phi_(jfock)
+        end do
      end do
-     f=f+2.d0*U
+     ! f = f + gz_local_diag(phi_,UHubbard)*U
+     ! do istate=1,state_dim
+     !    f = f + gz_local_diag(phi_,dens(istate,:,:))*atomic_energy_levels(istate)
+     !    f = f - 1.5d0*U*gz_local_diag(phi_,dens(istate,:,:))        
+     ! end do
+     ! f=f+2.d0*U
   else
      !+- CONSTRAINTS ON GUTZWILLER PARAMETERS -+!
      select case(Norb)

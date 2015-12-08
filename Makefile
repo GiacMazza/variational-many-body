@@ -3,7 +3,7 @@ FC=gfortran
 #PRECOMPILATION FLAG (leave blank for serial code)
 FPP=
 
-#EXE=GZ_MB
+EXE=GZ_MB
 #EXE=gz_2band_minN
 EXE=gz_2b_bethe
 
@@ -17,9 +17,8 @@ DIREXE=$(HOME)/.project_bin
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
-#OBJS=AMOEBA.o GZ_GLOBAL.o GZ_AUX_FUNX.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_FUNCTIONAL.o GZ_ENERGY_FUNCTIONAL_SELF.o GZ_MINIMIZATION.o
-
-OBJS=AMOEBA.o GZ_GLOBAL.o GZ_AUX_FUNX.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
+#OBJS=AMOEBA.o GZ_GLOBAL.o GZ_AUX_FUNX.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
+OBJS=AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
 
 GALLIBDIR  = /home/mazza/opt_local/galahad/objects/pc64.lnx.gfo/double
 # GALLIBS1   = -lgalahad -lgalahad_hsl -lgalahad_lapack

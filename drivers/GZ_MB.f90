@@ -22,49 +22,36 @@ program GUTZ_mb
   integer                            :: out_unit,iter
   integer                            :: lattice ! 2=square;3=cubic
   
-  !+- PARSE INPUT -+!
-  call parse_input_variable(Norb,"Norb","inputGZ.conf",default=1)
-  call parse_input_variable(U,"U","inputGZ.conf",default=0.5d0)
-  call parse_input_variable(xmu,"XMU","inputGZ.conf",default=0.d0)
+  !+- PARSE INPUT DRIVER -+!
+  call parse_input_variable(Vhyb,"Vhyb","inputGZ.conf",default=0.d0)
+  call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
-  call parse_input_variable(Vhyb,"Vhyb","inputGZ.conf",default=0.5d0)
-  call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
-  call parse_input_variable(lancelot_verbose,"LANCELOT_VERBOSE","inputGZ.conf",default=1)
-  call parse_input_variable(amoeba_verbose,"AMOEBA_VERBOSE","inputGZ.conf",default=.false.)
-  call parse_input_variable(GZmin_verbose,"GZMIN_VERBOSE","inputGZ.conf",default=.false.)
-  call parse_input_variable(min_method,"MIN_METHOD","inputGZ.conf",default='nlep')
-  call parse_input_variable(Rseed,"RSEED","inputGZ.conf",default=1.d0)
-  call parse_input_variable(Rmix,"RMIX","inputGZ.conf",default=1.d0)
-  call parse_input_variable(Niter_self,"NITER_SELF","inputGZ.conf",default=100)
-  call parse_input_variable(err_self,"ERR_SELF","inputGZ.conf",default=1.d-10)
-  call parse_input_variable(amoeba_min_tol,"AMOEBA_MIN_TOL","inputGZ.conf",default=1.d-12)
-  call parse_input_variable(fix_density_minimization,"MIN_FIX_DENSITY","inputGZ.conf",default=.false.)
   call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)
+  !
+  call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
 
+  !rescale Jhund couplings
+  Jh = Jh*Uloc(1)
+  Jsf = Jh
+  Jph = Jh
+  Ust = Uloc(1)-2.d0*Jh
+  !
+
   
-  call build_lattice_model(lattice)
+
   
   call initialize_local_fock_space
   
-  call build_local_operators_fock_space
-
-  call build_local_hamiltonian
-
-  !  allocate(slater_matrix_elements(state_dim,state_dim,Lk),slater_ground_state_deriv(state_dim,state_dim))    
-  !  allocate(fock_vec(state_dim))
-  !call get_spin_indep_states
-  !  do i=1,nFock_indep
-  !     call bdecomp(fock_indep(i),fock_vec)
-  !     write(*,'(A,I5,A,20I3)') '|',fock_indep(i),'>',fock_vec(:)
-  !  end do
-
   call build_gz_local_traces_diag
   !
   allocate(variational_density_natural_simplex(state_dim+1,state_dim))
   allocate(variational_density_natural(state_dim))
   call initialize_variational_density_simplex(variational_density_natural_simplex)
+
+  call build_lattice_model(lattice)
+
   !
   call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)  
   !
@@ -85,8 +72,8 @@ CONTAINS
     !+- BUILD MODEL -+!
     select case(lattice)
     case(2)
-       ts = Wband/8.d0
-       Vhyb = Vhyb/8.d0
+       ts = Wband/4.d0
+       Vhyb = Vhyb/4.d0
        !
        nk=Nx+1
        Lk=Nk*Nk
@@ -130,12 +117,30 @@ CONTAINS
              end do
           end do
        end do
+
+       allocate(Hk_tb(state_dim,state_dim,Lk))
+
+       Hk_tb=0.d0
+       do ik=1,Lk
+          write(*,*) ik
+          do iorb=1,Norb
+             do jorb=1,Norb
+                do ispin=1,2
+                   istate=index(ispin,iorb)
+                   jstate=index(ispin,jorb)
+                   if(iorb.eq.jorb) Hk_tb(istate,istate,ik) = epsik(ik)
+                   if(iorb.ne.jorb) Hk_tb(istate,jstate,ik) = hybik(ik)
+                end do
+             end do
+          end do          
+
+       end do
     end select
     !
     call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
     !  
-
-
+    
+    
   end subroutine build_lattice_model
 
 

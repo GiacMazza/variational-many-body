@@ -79,27 +79,10 @@ subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)
   do ik=1,Lk
      Hk=0.d0
      ek=0.d0
-     do iorb=1,Norb
-        do ispin=1,2
-           do jorb=1,Norb
-              do jspin=1,2
-                 istate=index(ispin,iorb)
-                 jstate=index(jspin,jorb)               
-                 ! build up the hopping hamiltonian !
-                 if(ispin.eq.jspin) then
-                    if(iorb.eq.jorb) then
-                       Hk(istate,jstate)=epsik(ik)
-                    else
-                       Hk(istate,jstate)=hybik(ik)
-                    end if
-                 end if
-              end do
-           end do
-        end do
-     end do
-     Hk_bare=Hk
+     !
+     Hk_bare=Hk_tb(:,:,ik)
      ! hopping renormalization !
-     Hk=matmul(Hk,Rhop)
+     Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop,Hk)
      Hstar=Hk
      ! add Lagrange multipliers !
@@ -152,27 +135,27 @@ subroutine store_slater_ground_state_cmin(Rhop,lm,Estar,slater_matrix_el)
   do ik=1,Lk
      Hk=0.d0
      ek=0.d0
-     do iorb=1,Norb
-        do ispin=1,2
-           do jorb=1,Norb
-              do jspin=1,2
-                 istate=index(ispin,iorb)
-                 jstate=index(jspin,jorb)               
-                 ! build up the hopping hamiltonian !
-                 if(ispin.eq.jspin) then
-                    if(iorb.eq.jorb) then
-                       Hk(istate,jstate)=epsik(ik)
-                    else
-                       Hk(istate,jstate)=hybik(ik)
-                    end if
-                 end if
-              end do
-           end do
-        end do
-     end do
-     Hk_bare=Hk
+     ! do iorb=1,Norb
+     !    do ispin=1,2
+     !       do jorb=1,Norb
+     !          do jspin=1,2
+     !             istate=index(ispin,iorb)
+     !             jstate=index(jspin,jorb)               
+     !             ! build up the hopping hamiltonian !
+     !             if(ispin.eq.jspin) then
+     !                if(iorb.eq.jorb) then
+     !                   Hk(istate,jstate)=epsik(ik)
+     !                else
+     !                   Hk(istate,jstate)=hybik(ik)
+     !                end if
+     !             end if
+     !          end do
+     !       end do
+     !    end do
+     ! end do
+     Hk_bare=Hk_tb(:,:,ik)
      ! hopping renormalization !
-     Hk=matmul(Hk,Rhop)
+     Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop,Hk)
      Hstar=Hk
      ! add Lagrange multipliers !

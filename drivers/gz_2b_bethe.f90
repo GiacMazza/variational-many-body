@@ -6,8 +6,12 @@ program GUTZ_mb
   !
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
-  USE GZ_PROJECTORS
+  USE GZ_LOCAL_FOCK
   USE GZ_OPTIMIZED_ENERGY
+  !
+
+  !
+  USE GZ_MATRIX_BASIS
   !
   implicit none
   !
@@ -41,15 +45,15 @@ program GUTZ_mb
   
   call initialize_local_fock_space
   
-  call build_gz_local_traces_diag
+  call init_variational_matrices
+  
+  !call build_gz_local_traces_diag  
   !
-  allocate(variational_density_natural_simplex(state_dim+1,state_dim))
-  allocate(variational_density_natural(state_dim))
+  allocate(variational_density_natural_simplex(Ns+1,Ns))
+  allocate(variational_density_natural(Ns))
   call initialize_variational_density_simplex(variational_density_natural_simplex)
 
   call build_lattice_model
-
-
 
   !
   call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)  
@@ -86,7 +90,7 @@ CONTAINS
     hybik=0.d0
     write(*,*) test_k,de
 
-    allocate(Hk_tb(state_dim,state_dim,Lk))
+    allocate(Hk_tb(Ns,Ns,Lk))
     
     Hk_tb=0.d0
     do ik=1,Lk
@@ -105,18 +109,25 @@ CONTAINS
 
   
   subroutine print_output(vdm_simplex)
-    real(8),dimension(state_dim+1,state_dim) :: vdm_simplex
-    integer :: out_unit,istate,iorb
-    integer,dimension(state_dim) :: fock_state
-    real(8),dimension(state_dim) :: tmp
+    real(8),dimension(Ns+1,Ns) :: vdm_simplex
+    integer :: out_unit,istate,iorb,iphi
+    integer,dimension(Ns) :: fock_state
+    real(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
-    do ifock=1,nFock
+    !<BUP
+    ! do ifock=1,nFock
+    !    call bdecomp(ifock,fock_state)
+    !    write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(ifock),'#|',ifock,' >',fock_state(:)
+    ! end do
+    do iphi=1,Nphi
+       ifock=indep2full_fock(iphi,1)
        call bdecomp(ifock,fock_state)
-       write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(ifock),'#|',ifock,' >',fock_state(:)
+       write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(iphi),'#|',ifock,' >',fock_state(:)
     end do
+    !BUP>
     close(out_unit)
     !
     out_unit=free_unit()
@@ -126,22 +137,22 @@ CONTAINS
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_variational_density_matrix.data')
-    write(out_unit,'(20F18.10)') variational_density_natural(1:state_dim)
+    write(out_unit,'(20F18.10)') variational_density_natural(1:Ns)
     close(out_unit)
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_Rhop_matrix.data')
-    do istate=1,state_dim
+    do istate=1,Ns
        tmp(istate)=GZ_opt_Rhop(istate,istate)
-       write(out_unit,'(20F18.10)') GZ_opt_Rhop(istate,1:state_dim)
+       write(out_unit,'(20F18.10)') GZ_opt_Rhop(istate,1:Ns)
     end do
     write(out_unit,*) ! on the last line store the diagonal elements
-    write(out_unit,'(20F18.10)') tmp(1:state_dim)
+    write(out_unit,'(20F18.10)') tmp(1:Ns)
     close(out_unit)
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_density.data')
-    write(out_unit,'(20F18.10)') gz_dens(1:state_dim)
+    write(out_unit,'(20F18.10)') gz_dens(1:Ns)
     close(out_unit)
     !
     out_unit=free_unit()
@@ -158,14 +169,14 @@ CONTAINS
     !
     out_unit=free_unit()
     open(out_unit,file='vdm_simplex.restart')
-    do jstate=1,state_dim+1
-       if(jstate.le.state_dim) then
-          do istate=1,state_dim
+    do jstate=1,Ns+1
+       if(jstate.le.Ns) then
+          do istate=1,Ns
              write(out_unit,'(20F18.10)') vdm_simplex(jstate,istate)
           end do
-          if(jstate.le.state_dim) write(out_unit,*)  'x'
+          if(jstate.le.Ns) write(out_unit,*)  'x'
        else
-          do istate=1,state_dim
+          do istate=1,Ns
              deltani=vdm_simplex(jstate,istate)-0.5
              if(deltani.gt.0.d0) then
                 delta_tmp=0.9999-vdm_simplex(jstate,istate)

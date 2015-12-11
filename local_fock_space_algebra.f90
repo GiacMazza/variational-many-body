@@ -5,7 +5,7 @@ subroutine build_local_fock_algebra
   integer                            :: nup,ndw,irnd
   real(8)                            :: rnd    
   !+- allocate and build creation/anhhilation operators -+!
-  allocate(CC(state_dim,nFock,nFock),CA(state_dim,nFock,nFock))
+  allocate(CC(Ns,nFock,nFock),CA(Ns,nFock,nFock))
   do ispin=1,2
      do iorb=1,Norb
         istate=index(ispin,iorb)
@@ -20,7 +20,7 @@ contains
     integer                        :: ispin,iorb
     real(8),dimension(nFock,nFock) :: Cmat
     integer                        :: imp,i,j
-    integer                        :: ib(state_dim)
+    integer                        :: ib(Ns)
     real(8)                        :: c_
     !build <j|C|i>
     imp = index(ispin,iorb)
@@ -39,7 +39,7 @@ contains
   !m labels the sites
   !+-------------------------------------------------------------------+
   subroutine c(m,i,j,sgn)
-    integer :: ib(state_dim)
+    integer :: ib(Ns)
     integer :: i,j,m,km
     integer :: isg
     real(8) :: sgn
@@ -65,7 +65,7 @@ contains
     integer                        :: ispin,iorb
     real(8),dimension(nFock,nFock) :: Cmat
     integer                        :: imp,i,j
-    integer                        :: ib(state_dim)
+    integer                        :: ib(Ns)
     real(8)                        :: c_
     !build <j|C^+|i>
     imp = index(ispin,iorb)
@@ -84,7 +84,7 @@ contains
   !m labels the sites
   !+-------------------------------------------------------------------+
   subroutine cdg(m,i,j,sgn)
-    integer :: ib(state_dim)
+    integer :: ib(Ns)
     integer :: i,j,m,km
     integer :: isg
     real(8) :: sgn

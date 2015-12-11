@@ -3,7 +3,9 @@ MODULE GZ_OPTIMIZED_ENERGY
   !USE SF_OPTIMIZE
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
-  USE GZ_PROJECTORS
+  USE GZ_EFFECTIVE_HOPPINGS
+!  USE GZ_PROJECTORS
+  USE GZ_MATRIX_BASIS
   USE GZ_ENERGY_MINIMIZATION
   USE MIN_AMOEBA
   implicit none
@@ -19,15 +21,17 @@ CONTAINS
   !+- PURPOSE: Minimize the GUTZWILLER ENERGY FUNCTIONAL WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
   !+-----------------------------------------------------------------------------------------------------+!
   subroutine get_gz_ground_state_estimation(optimized_vdm)
-    real(8),dimension(state_dim),intent(in)    :: optimized_vdm
+    real(8),dimension(Ns),intent(in)    :: optimized_vdm
     real(8)                                    :: energy
-    real(8),dimension(nFock,nFock)             :: local_operator
     integer                                    :: iorb,jorb,istate,jstate
+    integer :: ifock,iphi,jphi,ifock_
+    !
+    real(8),dimension(Nphi) :: phi_vector_test,phi_vec
     !
     optimization_flag=.true.
-    allocate(GZ_opt_projector_diag(nFock))
-    allocate(GZ_opt_Rhop(state_dim,state_dim))
-    !allocate()
+    allocate(GZ_opt_projector_diag(Nphi))
+    allocate(GZ_opt_Rhop(Ns,Ns))
+    !
     select case(min_method)
     case('nlep')
        energy=gz_energy_recursive_nlep(optimized_vdm)
@@ -35,30 +39,30 @@ CONTAINS
        energy=gz_energy_recursive_cmin(optimized_vdm)
     end select
     !
-
-    !+- get renormalization matrices -+!
-
-    GZ_opt_Rhop=Rhop_matrix(GZ_opt_projector_diag,optimized_vdm)
-
+    
+    GZ_opt_Rhop=hopping_renormalization_normal(GZ_opt_projector_diag,optimized_vdm)
+    !    
+    phi_vector_test=GZ_opt_projector_diag
+    !
+    
     !+- GET OBSERVABLES -+!
     ! physical density !
-    allocate(gz_dens(state_dim))
-    do istate=1,state_dim
-       gz_dens(istate)=gz_local_diag(GZ_opt_projector_diag,dens(istate,:,:))
+    allocate(gz_dens(Ns))
+    do istate=1,Ns
+       gz_dens(istate) = trace_phi_basis(phi_vector_test,phi_traces_basis_local_dens(istate,istate,:,:))
     end do
 
     ! density-density same orbital -aka orbital doubly occupancy-!
     allocate(gz_docc(Norb))
     do iorb=1,Norb
-       gz_docc(iorb)=gz_local_diag(GZ_opt_projector_diag,docc(iorb,:,:))
+       gz_docc(iorb) = trace_phi_basis(phi_vector_test,phi_traces_basis_docc_orb(iorb,:,:))
     end do
 
     ! density-density different orbitals !
     allocate(gz_dens_dens_orb(Norb,Norb))
     do iorb=1,Norb
        do jorb=1,Norb
-          gz_dens_dens_orb(iorb,jorb)=&
-               gz_local_diag(GZ_opt_projector_diag,dens_dens_orb(iorb,jorb,:,:))
+          gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vector_test,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
        end do
     end do
     !+-
@@ -66,9 +70,13 @@ CONTAINS
     !+-
   end subroutine get_gz_ground_state_estimation
 
+  
+  
+
+  
   subroutine gz_optimization_simplex(simplex_init,optimized_vdm) 
-    real(8),dimension(state_dim+1,state_dim),intent(inout) :: simplex_init
-    real(8),dimension(state_dim),intent(out)               :: optimized_vdm
+    real(8),dimension(Ns+1,Ns),intent(inout) :: simplex_init
+    real(8),dimension(Ns),intent(out)               :: optimized_vdm
     !real(8),intent(out)                                    :: optimized_energy    
     !+- amoeba_variables-+!
     real(8),allocatable,dimension(:,:)                     :: p
@@ -95,7 +103,7 @@ CONTAINS
        GZmin_unit_=free_unit()
        open(GZmin_unit_,file='GZ_proj_min.out')
     end if
-    NP=state_dim
+    NP=Ns
     MP=NP+1  
     allocate(y(MP),p(MP,NP))
     !+- initialize simplex -+!
@@ -142,28 +150,28 @@ CONTAINS
     real(8),dimension(:),intent(in)        :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                                :: GZ_energy !INPUT: Optimized GZ energy at fixed 
     real(8)                                :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
-    real(8),dimension(state_dim,state_dim) :: R_init        ! initial guess for the hopping renormalization matrix    
-    real(8),dimension(state_dim,state_dim) :: slater_derivatives    
-    real(8),dimension(state_dim,state_dim) :: R_iter,R_old ! hopping matrix renormalization (during iterations)
-    real(8),dimension(state_dim)           :: slater_lgr_multip,R_diag
-    real(8),dimension(state_dim,state_dim) :: GZproj_lgr_multip  ! GZ vector (during iterations)
+    real(8),dimension(Ns,Ns) :: R_init        ! initial guess for the hopping renormalization matrix    
+    real(8),dimension(Ns,Ns) :: slater_derivatives    
+    real(8),dimension(Ns,Ns) :: R_iter,R_old ! hopping matrix renormalization (during iterations)
+    real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
+    real(8),dimension(Ns,Ns) :: GZproj_lgr_multip  ! GZ vector (during iterations)
     real(8)                                :: E_Hstar,E_Hloc
-    real(8),dimension(nFock)               :: GZvect_iter  ! GZ vector (during iterations)
+    real(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)
     !
-    integer                                :: istate,iter,jstate,ifock,jfock
+    integer                                :: istate,iter,jstate,ifock,jfock,iphi,jphi
     integer                                :: unit
     logical                                :: bound
     !
     write(*,*) '********************'
     write(*,*) 'INPUT DENSITY',n0(:)
     bound=.false.
-    do istate=1,state_dim
+    do istate=1,Ns
        if(n0(istate).le.1.d-10.or.n0(istate).ge.1.d0-1.d-10) bound=.true.
     end do
     !
     if(.not.bound) then
        R_init=0.d0 
-       do istate=1,state_dim
+       do istate=1,Ns
           R_init(istate,istate)=Rseed
        end do
        !
@@ -181,10 +189,10 @@ CONTAINS
           !+----------------------------+!
           !+- GZproj STEP MINIMIZATION -+!
           !+----------------------------+!    
-          call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)          
-          ! update R-matrix
-          R_iter=Rmix*Rhop_matrix(GZvect_iter,n0)+(1.d0-Rmix)*R_old
-          do istate=1,state_dim
+          call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+          R_iter=hopping_renormalization_normal(GZvect_iter,n0)
+          R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
+          do istate=1,Ns
              R_diag(istate)=R_iter(istate,istate)
           end do
           ! update GZ-energy
@@ -195,7 +203,7 @@ CONTAINS
              energy_err=abs(GZ_energy-GZ_energy_old)
           end if
           if(GZmin_verbose) then
-             write(GZmin_unit,'(20F18.10)') dble(iter),energy_err,GZ_energy,E_Hstar,E_Hloc,R_diag(1:state_dim)
+             write(GZmin_unit,'(20F18.10)') dble(iter),energy_err,GZ_energy,E_Hstar,E_Hloc,R_diag(1:Ns)
           end if
           if(energy_err.lt.err_self) exit
        end do
@@ -210,13 +218,15 @@ CONTAINS
        end if
        write(opt_GZ_unit,*) n0
        write(opt_GZ_unit,*)
-       do ifock=1,nFock
-          write(opt_GZ_unit,*) GZvect_iter(ifock)
+       !
+       do iphi=1,Nphi
+          write(opt_GZ_unit,*) GZvect_iter(iphi)
        end do
+       !
        write(opt_GZ_unit,*)
        write(opt_GZ_unit,*)
        write(opt_energy_unit,*) n0,GZ_energy,E_Hloc,E_Hstar
-       write(opt_rhop_unit,*) n0,R_diag(1:state_dim)
+       write(opt_rhop_unit,*) n0,R_diag(1:Ns)
     else
        GZ_energy=100.d0
     end if
@@ -240,26 +250,27 @@ CONTAINS
     real(8),dimension(:),intent(in)           :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                                   :: GZ_energy !INPUT: Optimized GZ energy at fixed 
     real(8)                                   :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
-    real(8),dimension(nFock)                  :: GZvect_iter  ! GZ vector (during iterations)
-    real(8),dimension(nFock_indep)            :: GZvect_iter_,GZvect_iter_tmp  ! GZ vector (during iterations)
-    real(8),dimension(state_dim,state_dim)    :: R_iter ! hopping matrix renormalization (during iterations)
+    real(8),dimension(Nphi)                  :: GZvect_iter  ! GZ vector (during iterations)
 
-    real(8),dimension(state_dim,state_dim)    :: R_init        ! initial guess for the hopping renormalization matrix    
-    real(8),dimension(state_dim)              :: R_diag
-    real(8),dimension(state_dim,state_dim,Lk) :: slater_matrix_el    
+    real(8),dimension(Ns,Ns)    :: R_iter ! hopping matrix renormalization (during iterations)
 
-    real(8),dimension(state_dim)              :: slater_lgr_multip
-    real(8),dimension(state_dim,state_dim)    :: GZproj_lgr_multip  
+    real(8),dimension(Ns,Ns)    :: R_init        ! initial guess for the hopping renormalization matrix    
+    real(8),dimension(Ns)              :: R_diag
+    real(8),dimension(Ns,Ns,Lk) :: slater_matrix_el    
+
+    real(8),dimension(Ns)              :: slater_lgr_multip
+    real(8),dimension(Ns,Ns)    :: GZproj_lgr_multip  
     real(8)                                   :: E_Hstar,E_Hloc
     !
     integer                                   :: istate,iter,jstate,ifock,jfock,i_ind
+    integer                                   :: iphi,jphi
     integer                                   :: unit
     logical                                   :: bound
     !
     write(*,*) '*************************'
     write(*,*) 'INPUT DENSITY',n0(:)
     bound=.false.
-    do istate=1,state_dim
+    do istate=1,Ns
        if(n0(istate).le.1.d-10.or.n0(istate).ge.1.d0-1.d-10) bound=.true.
     end do
     !
@@ -268,16 +279,12 @@ CONTAINS
        !+- get not-interacting GZprojectors corresponding to this density matrix -+!
        call initialize_GZprojectors(GZvect_iter,n0)
        !
-       do i_ind=1,nFock_indep
-          GZvect_iter_(i_ind) = GZvect_iter(fock_indep(i_ind))
-       end do
-       R_iter=Rhop_matrix(GZvect_iter,n0)
+       R_iter=hopping_renormalization_normal(GZvect_iter,n0)
        !
        GZ_energy=0.d0
        do iter=1,Niter_self
           !+- update phi_vectors -+!
           GZ_energy_old=GZ_energy
-          GZvect_iter_tmp=GZvect_iter_
           !
           !+----------------------------+!
           !+- SLATER STEP MINIMIZATION -+!
@@ -289,15 +296,11 @@ CONTAINS
           !+- GZproj STEP MINIMIZATION -+!
           !+----------------------------+!    
           !
-          call gz_projectors_minimization_cmin(slater_matrix_el,n0,GZvect_iter_,GZ_energy,GZproj_lgr_multip,GZmin_verbose)
+          call gz_projectors_minimization_cmin(slater_matrix_el,n0,GZvect_iter,GZ_energy,GZproj_lgr_multip,GZmin_verbose)
           !
-          R_iter=Rhop_matrix(GZvect_iter,n0)          
-          do istate=1,state_dim
+          R_iter=hopping_renormalization_normal(GZvect_iter,n0)
+          do istate=1,Ns
              R_diag(istate)=R_iter(istate,istate)
-          end do
-          !
-          do ifock=1,nFock
-             GZvect_iter(ifock)=GZvect_iter_(full2indep_fock(ifock))     
           end do
           !
           if(iter.lt.2) then 
@@ -308,7 +311,7 @@ CONTAINS
           E_HLoc=GZ_energy-E_Hstar
           write(*,*) GZ_energy
           if(GZmin_verbose) then
-             write(GZmin_unit,*) dble(iter),energy_err,GZ_energy,E_Hstar,E_Hloc,R_diag(1:state_dim)
+             write(GZmin_unit,*) dble(iter),energy_err,GZ_energy,E_Hstar,E_Hloc,R_diag(1:Ns)
           end if
           if(energy_err.lt.err_self) exit          
        end do
@@ -322,19 +325,25 @@ CONTAINS
        end if
        write(opt_GZ_unit,*) n0
        write(opt_GZ_unit,*)
-       do ifock=1,nFock
-          write(opt_GZ_unit,*) GZvect_iter(ifock)
+       !
+       do iphi=1,Nphi
+          write(opt_GZ_unit,*) GZvect_iter(iphi)
        end do
+       !
        write(opt_GZ_unit,*)
        write(opt_GZ_unit,*)
        write(opt_energy_unit,*) n0,GZ_energy,E_Hstar,E_Hloc
-       R_iter=Rhop_matrix(GZvect_iter,n0)          
-       do istate=1,state_dim
+       !
+       R_iter=hopping_renormalization_normal(GZvect_iter,n0)
+       do istate=1,Ns
           R_diag(istate)=R_iter(istate,istate)
-       end do
-       write(opt_rhop_unit,*) n0,R_diag(1:state_dim)
+       end do       
+       write(opt_rhop_unit,*) n0,R_diag(1:Ns)
+       !
     else
+       !
        GZ_energy=100.d0
+       !
     end if
     if(optimization_flag) then
        !+- store final informations to global variables -+!              
@@ -346,28 +355,24 @@ CONTAINS
     !
   end function gz_energy_recursive_cmin
   !
-
-
-
   subroutine initialize_GZprojectors(GZvect_iter,n0)
-    real(8),dimension(nFock) :: GZvect_iter
-    real(8),dimension(state_dim) :: n0
-    real(8),dimension(state_dim,state_dim) :: R_init        
-    real(8),dimension(state_dim,state_dim) :: slater_derivatives
-    real(8),dimension(state_dim)           :: slater_lgr_multip
-    real(8),dimension(state_dim,state_dim) :: GZproj_lgr_multip  
+    real(8),dimension(Nphi) :: GZvect_iter
+    real(8),dimension(Ns) :: n0
+    real(8),dimension(Ns,Ns) :: R_init        
+    real(8),dimension(Ns,Ns) :: slater_derivatives
+    real(8),dimension(Ns)           :: slater_lgr_multip
+    real(8),dimension(Ns,Ns) :: GZproj_lgr_multip  
     real(8) :: E_Hstar,E_HLoc
     logical :: iverbose
     integer :: istate
 
     iverbose=.false.
     R_init=0.d0
-    do istate=1,state_dim
+    do istate=1,Ns
        R_init(istate,istate)=1.d0
     end do
     call slater_determinant_minimization_nlep(R_init,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose)
-    call free_gz_projectors_init(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose)
-    
+    call free_gz_projectors_init(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose)    
   end subroutine initialize_GZprojectors
 
 END MODULE GZ_OPTIMIZED_ENERGY

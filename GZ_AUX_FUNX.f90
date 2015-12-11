@@ -64,10 +64,10 @@ CONTAINS
   
   !+- Get the input file initialization of the density symplex -+!
   subroutine initialize_variational_density_simplex(variational_density_simplex)
-    real(8),dimension(state_dim+1,state_dim),intent(inout) :: variational_density_simplex
+    real(8),dimension(Ns+1,Ns),intent(inout) :: variational_density_simplex
     logical                 :: IOfile
     integer                 :: unit,flen,i,j,expected_flen
-    expected_flen=(state_dim+1)*(state_dim+1)-1
+    expected_flen=(Ns+1)*(Ns+1)-1
     inquire(file="vdm_simplex_seed.conf",exist=IOfile)
     if(IOfile) then
        flen=file_length("vdm_simplex_seed.conf")
@@ -76,12 +76,12 @@ CONTAINS
        write(*,*) 'reading denisty seed from file vdm_simplex_seed.conf'
        if(flen.eq.expected_flen) then
           !+- read from file -+!
-          do i=1,state_dim+1
-             do j=1,state_dim
+          do i=1,Ns+1
+             do j=1,Ns
                 read(unit,*) variational_density_simplex(i,j)
              end do
              write(*,*) variational_density_simplex(i,:)
-             if(i.le.state_dim) read(unit,*)
+             if(i.le.Ns) read(unit,*)
           end do
        else
           write(*,*) 'vdm_simplex_seed.conf in the wrong form',flen,expected_flen

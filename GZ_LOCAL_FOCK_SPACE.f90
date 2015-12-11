@@ -16,10 +16,10 @@ CONTAINS
     integer :: iorb,jorb,ispin,jspin,ifock
     integer,dimension(:),allocatable   :: Fock,ivec
     !
-    State_dim = 2*Norb        
-    NFock = 2**State_dim
+    Ns = 2*Norb        
+    NFock = 2**Ns
     !
-    allocate(ivec(state_dim))
+    allocate(ivec(Ns))
     allocate(Fock(Nfock))
     do ifock=1,NFock
        Fock(ifock)=ifock
@@ -50,14 +50,14 @@ CONTAINS
   !
   subroutine build_local_hamiltonian
     integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn
-    real(8),dimension(state_dim,nFock,nFock) :: state_dens
+    real(8),dimension(Ns,nFock,nFock) :: state_dens
     real(8),dimension(nFock,nFock) :: tmp
     real(8) :: mu_ph
     !
     allocate(local_hamiltonian(nFock,nFock),local_hamiltonian_free(nFock,nFock))
 
     !+- energy of the atomic levels -+!
-    allocate(atomic_energy_levels(state_dim))
+    allocate(atomic_energy_levels(Ns))
     select case(Norb)
     case(2)
        do iorb=1,Norb
@@ -72,12 +72,12 @@ CONTAINS
     end select
 
 
-    do istate=1,state_dim
+    do istate=1,Ns
        state_dens(istate,:,:) = matmul(cc(istate,:,:),ca(istate,:,:))
     end do
     !+- FREE PART OF THE LOCAL HAMILTONIAN -+!
     local_hamiltonian=0.d0
-    do istate=1,state_dim
+    do istate=1,Ns
        local_hamiltonian = local_hamiltonian + atomic_energy_levels(istate)*state_dens(istate,:,:)
        local_hamiltonian = local_hamiltonian - xmu*state_dens(istate,:,:)
     end do
@@ -162,15 +162,16 @@ CONTAINS
     end if
     !+- CHEMICAL POTENTIAL FOR PH CONDITION -+!
     mu_ph = Uloc(1)*0.5d0 + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh)
-    do istate=1,state_dim       
+    do istate=1,Ns       
        local_hamiltonian = local_hamiltonian - mu_ph*state_dens(istate,:,:)
     end do
   end subroutine build_local_hamiltonian
   !
 
-  subroutine build_local_observables
+  subroutine build_local_observables  !+---> forse piu' corretto chiamarli local operators...
 
-    allocate(dens(state_dim,nFock,nFock))
+    allocate(dens(Ns,nFock,nFock))
+    allocate(local_dens(Ns,Ns,nFock,nFock))
     allocate(docc(Norb,nFock,nFock))
     allocate(dens_dens_orb(Norb,Norb,nFock,nFock))
     allocate(dens_dens_interaction(nFock,nFock))
@@ -182,6 +183,7 @@ CONTAINS
 
     docc          = local_doubly(CC,CA)
     dens          = local_density(CC,CA)
+    local_dens    = local_density_matrix(CC,CA)
     dens_dens_orb = local_density_density_orb(CC,CA)
     spin_flip     = local_spin_flip(CC,CA)
     pair_hopping  = local_pair_hopping(CC,CA)
@@ -196,7 +198,7 @@ CONTAINS
 
   function sz_rotate(fock_in) result(fock_out)
     integer                      :: fock_in,fock_out
-    integer,dimension(state_dim) :: state_in,state_out    
+    integer,dimension(Ns) :: state_in,state_out    
     integer                      :: iorb,istate
     call bdecomp(fock_in,state_in)    
     do iorb=1,Norb
@@ -204,7 +206,7 @@ CONTAINS
        state_out(iorb+Norb) = state_in(iorb)
     end do
     fock_out=1
-    do istate=0,state_dim-1
+    do istate=0,Ns-1
        fock_out = fock_out + state_out(istate+1)*2**istate
     end do
   end function sz_rotate
@@ -215,7 +217,7 @@ CONTAINS
     integer :: tmp_search(nFock),tmp_target(nFock)
     integer :: ifock,isymm
     integer :: check_maps
-    integer :: test_vec(state_dim)
+    integer :: test_vec(Ns)
     !+- get independent states under sz rotation symmetry -+!        
     tmp_search=0
     i_ind=0
@@ -255,7 +257,7 @@ CONTAINS
 
   ! Rotationally invariant Hubbard interaction !
   function rotationally_invariant_density_density(cc,ca) result(Oi)
-    real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+    real(8),dimension(Ns,nFock,nFock) :: cc,ca
     real(8),dimension(nFock,nFock) :: Oi,Id
     real(8),dimension(nFock,nFock) :: ni
     integer                        :: i,ispin,iorb,istate
@@ -279,7 +281,7 @@ CONTAINS
 
 
   function density_density_interaction(cc,ca) result(Oi)
-    real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+    real(8),dimension(Ns,nFock,nFock) :: cc,ca
     real(8),dimension(nFock,nFock) :: Oi,Id
     real(8),dimension(nFock,nFock) :: ni,nj,n_up,n_dn
     integer                        :: i,ispin,iorb,istate,jorb

@@ -9,7 +9,8 @@ MODULE GZ_ENERGY_MINIMIZATION
   ! GZ routines
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
-  USE GZ_PROJECTORS
+  !USE GZ_PROJECTORS
+  USE GZ_MATRIX_BASIS
   !
   implicit none
   private
@@ -30,27 +31,27 @@ contains
   !+-------------------------------------------------+!
   ! slater
   subroutine slater_determinant_minimization_nlep(Rhop,n0_target,Estar,lgr_multip,slater_derivatives,iverbose) 
-    real(8),dimension(state_dim,state_dim),intent(in)  :: Rhop         !input:  renrmalization matrix
-    real(8),dimension(state_dim),intent(in)            :: n0_target    !input:  variational density matrix
+    real(8),dimension(Ns,Ns),intent(in)  :: Rhop         !input:  renrmalization matrix
+    real(8),dimension(Ns),intent(in)            :: n0_target    !input:  variational density matrix
     real(8),intent(out)                                :: Estar        !output: Slater Deter GS energy
-    real(8),dimension(state_dim),intent(out)           :: lgr_multip   !output: Slater Deter lagrange multipliers
-    real(8),dimension(state_dim,state_dim),intent(out) :: slater_derivatives !output: Slater Deter GS energy derivatives
+    real(8),dimension(Ns),intent(out)           :: lgr_multip   !output: Slater Deter lagrange multipliers
+    real(8),dimension(Ns,Ns),intent(out) :: slater_derivatives !output: Slater Deter GS energy derivatives
     logical,optional                                   :: iverbose     !input:  Verbosity level
     !
-    real(8),dimension(state_dim)                       :: lgr
-    real(8),dimension(state_dim,state_dim)             :: Hk,test_dens
-    real(8),dimension(state_dim)                       :: ek,tmp_lgr,err_dens
+    real(8),dimension(Ns)                       :: lgr
+    real(8),dimension(Ns,Ns)             :: Hk,test_dens
+    real(8),dimension(Ns)                       :: ek,tmp_lgr,err_dens
     integer                                            :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb
-    real(8),dimension(state_dim)                       :: lgr_multip_vec
+    real(8),dimension(Ns)                       :: lgr_multip_vec
     logical                                            :: iverbose_
 
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose
-
+    !
     lgr=0.d0
     call fsolve(get_delta_local_density_matrix_diag,lgr,tol=1.d-12,info=info)
     call store_slater_ground_state(Rhop,lgr,Estar,slater_derivatives)
     lgr_multip=lgr
-
+    !
     if(iverbose_) then
        write(*,*)
        write(*,*) "Slater Determinant: Lagrange Multipliers - diagonal form -"
@@ -70,28 +71,28 @@ contains
   end subroutine slater_determinant_minimization_nlep
   ! gz_projectors
   subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,GZvect,lgr_multip,iverbose)
-    real(8),dimension(state_dim,state_dim),intent(in) :: slater_derivatives !input:  Slater Deter GZ energy derivatives
-    real(8),dimension(state_dim),intent(in)           :: n0_target          !input:  Variational density matrix
-    real(8),dimension(state_dim) :: lgr
-    real(8),dimension(state_dim,state_dim),intent(out):: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
-    real(8),dimension(nFock)                          :: GZvect   !output: GZvector
-    real(8)                                           :: E_Hloc   !output: optimized local energy
-    real(8)                                           :: lgr_symm(1)
-    logical,optional                                  :: iverbose
-    real(8),dimension(state_dim)            :: err_dens
-    real(8) :: delta_out
-    logical                                 :: iverbose_
-    integer                                           :: info,istate,i,j
+    real(8),dimension(Ns,Ns),intent(in)  :: slater_derivatives !input:  Slater Deter GZ energy derivatives
+    real(8),dimension(Ns),intent(in)     :: n0_target          !input:  Variational density matrix
+    real(8),dimension(Ns)                :: lgr
+    real(8),dimension(Ns,Ns),intent(out) :: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
+    real(8),dimension(nPhi)              :: GZvect   !output: GZvector
+    real(8)                              :: E_Hloc   !output: optimized local energy
+    real(8)                              :: lgr_symm(1)
+    logical,optional                     :: iverbose
+    real(8),dimension(Ns)                :: err_dens
+    real(8)                              :: delta_out
+    logical                              :: iverbose_
+    integer                              :: info,istate,i,j
 
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose    
     !
-    do istate=1,state_dim
+    do istate=1,Ns
        lgr(istate)=(n0_target(istate)-0.5d0)*2.d0       
     end do
     call fsolve(get_delta_proj_variational_density_diag,lgr,tol=1.d-15,info=info)    
     !
     lgr_multip=0.d0
-    do istate=1,state_dim
+    do istate=1,Ns
        lgr_multip(istate,istate)=lgr(istate)
     end do
     call get_GZproj_ground_state(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect)
@@ -99,7 +100,7 @@ contains
     if(iverbose_) then
        write(*,*)
        write(*,*) "GZ projectors: Lagrange Parameters -diagonal case-",info
-       write(*,'(10F18.10)') lgr(1:state_dim)
+       write(*,'(10F18.10)') lgr(1:Ns)
        err_dens=get_delta_proj_variational_density_diag(lgr)
        write(*,*) "GZ projectors: Variational density matrix error"
        write(*,'(10F18.10)') err_dens
@@ -121,28 +122,28 @@ contains
 
   
   subroutine free_gz_projectors_init(slater_derivatives,n0_target,E_Hloc,GZvect,lgr_multip,iverbose)
-    real(8),dimension(state_dim,state_dim),intent(in) :: slater_derivatives !input:  Slater Deter GZ energy derivatives
-    real(8),dimension(state_dim),intent(in)           :: n0_target          !input:  Variational density matrix
-    real(8),dimension(state_dim) :: lgr
-    real(8),dimension(state_dim,state_dim),intent(out):: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
-    real(8),dimension(nFock)                          :: GZvect   !output: GZvector
+    real(8),dimension(Ns,Ns),intent(in) :: slater_derivatives !input:  Slater Deter GZ energy derivatives
+    real(8),dimension(Ns),intent(in)           :: n0_target          !input:  Variational density matrix
+    real(8),dimension(Ns) :: lgr
+    real(8),dimension(Ns,Ns),intent(out):: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
+    real(8),dimension(Nphi)                          :: GZvect   !output: GZvector
     real(8)                                           :: E_Hloc   !output: optimized local energy
     real(8)                                           :: lgr_symm(1)
     logical,optional                                  :: iverbose
-    real(8),dimension(state_dim)            :: err_dens
+    real(8),dimension(Ns)            :: err_dens
     real(8) :: delta_out
     logical                                 :: iverbose_
     integer                                           :: info,istate,i,j
 
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose    
     !
-    do istate=1,state_dim
+    do istate=1,Ns
        lgr(istate)=(n0_target(istate)-0.5d0)*2.d0       
     end do
     call fsolve(get_delta_free_proj_variational_density_diag,lgr,tol=1.d-15,info=info)    
     !
     lgr_multip=0.d0
-    do istate=1,state_dim
+    do istate=1,Ns
        lgr_multip(istate,istate)=lgr(istate)
     end do
     call get_GZproj_free_ground_state(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect)
@@ -150,7 +151,7 @@ contains
     if(iverbose_) then
        write(*,*)
        write(*,*) "GZ projectors: Lagrange Parameters -diagonal case-",info
-       write(*,'(10F18.10)') lgr(1:state_dim)
+       write(*,'(10F18.10)') lgr(1:Ns)
        err_dens=get_delta_proj_variational_density_diag(lgr)
        write(*,*) "GZ projectors: Variational density matrix error"
        write(*,'(10F18.10)') err_dens
@@ -179,18 +180,18 @@ contains
   !+--------------------------------------------+!
   ! slater
   subroutine slater_determinant_minimization_cmin(Rhop,n0_target,Estar,lgr_multip,slater_matrix_el,iverbose) 
-    real(8),dimension(state_dim,state_dim),intent(in)  :: Rhop         !input:  renrmalization matrix
-    real(8),dimension(state_dim),intent(in)            :: n0_target    !input:  variational density matrix
+    real(8),dimension(Ns,Ns),intent(in)  :: Rhop         !input:  renrmalization matrix
+    real(8),dimension(Ns),intent(in)            :: n0_target    !input:  variational density matrix
     real(8),intent(out)                                :: Estar        !output: Slater Deter GS energy
-    real(8),dimension(state_dim),intent(out)           :: lgr_multip   !output: Slater Deter lagrange multipliers
-    real(8),dimension(state_dim,state_dim,Lk),intent(out) :: slater_matrix_el !output: Slater Deter GS energy derivatives
+    real(8),dimension(Ns),intent(out)           :: lgr_multip   !output: Slater Deter lagrange multipliers
+    real(8),dimension(Ns,Ns,Lk),intent(out) :: slater_matrix_el !output: Slater Deter GS energy derivatives
     logical,optional                                   :: iverbose     !input:  Verbosity level
     !
-    real(8),dimension(state_dim)                       :: lgr
-    real(8),dimension(state_dim,state_dim)             :: Hk,test_dens
-    real(8),dimension(state_dim)                       :: ek,tmp_lgr,err_dens
+    real(8),dimension(Ns)                       :: lgr
+    real(8),dimension(Ns,Ns)             :: Hk,test_dens
+    real(8),dimension(Ns)                       :: ek,tmp_lgr,err_dens
     integer                                            :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb
-    real(8),dimension(state_dim)                       :: lgr_multip_vec
+    real(8),dimension(Ns)                       :: lgr_multip_vec
     
     real(8),dimension(Norb)                       :: lgr_orb,test_dens_orb
     logical                                            :: iverbose_
@@ -222,11 +223,11 @@ contains
   end subroutine slater_determinant_minimization_cmin
   ! gz_projectors (lancelot subroutine)
   subroutine gz_projectors_minimization_cmin(slater_matrix_el,n0,GZvect_indep,GZenergy,GZproj_lgr_multip,GZmin_verbose)
-    real(8),dimension(state_dim,state_dim,Lk),intent(in) :: slater_matrix_el
-    real(8),dimension(state_dim),intent(in)              :: n0
-    real(8),dimension(nFock_indep),intent(inout)         :: GZvect_indep
+    real(8),dimension(Ns,Ns,Lk),intent(in) :: slater_matrix_el
+    real(8),dimension(Ns),intent(in)              :: n0
+    real(8),dimension(Nphi),intent(inout)         :: GZvect_indep    
     real(8),intent(inout)                                :: GZenergy
-    real(8),dimension(state_dim,state_dim),intent(inout) :: GZproj_lgr_multip
+    real(8),dimension(Ns,Ns),intent(inout) :: GZproj_lgr_multip
     logical                                              :: GZmin_verbose
     integer                                              :: iter,iter_max,istate,i,iter_
     integer                                              :: iorb,ispin,i_ind,ifock
@@ -241,12 +242,12 @@ contains
 
     if(allocated(slater_matrix_elements)) deallocate(slater_matrix_elements)
     if(allocated(vdm)) deallocate(vdm)
-    allocate(slater_matrix_elements(state_dim,state_dim,Lk))
+    allocate(slater_matrix_elements(Ns,Ns,Lk))
     slater_matrix_elements=slater_matrix_el
-    allocate(vdm(state_dim)); vdm=n0
+    allocate(vdm(Ns)); vdm=n0
     !
     ! LANCELOT configuration parameters 
-    n_min       = nFock_indep ! number of minimization parameters
+    n_min       = Nphi ! number of minimization parameters
     neq         = Norb + 1    ! number of equality constraints                   
     nin         = 0           ! number of in-equality constraints                   
     maxit       = 1000        ! maximum iteration number 
@@ -331,7 +332,8 @@ END MODULE GZ_ENERGY_MINIMIZATION
 subroutine energy_GZproj_functional(x,f,i)
   USE GZ_VARS_GLOBAL
   USE GZ_ENERGY_MINIMIZATION
-  USE GZ_PROJECTORS
+  !USE GZ_PROJECTORS
+  USE GZ_MATRIX_BASIS 
   implicit none
   !+- routine variables -+!
   real(8), intent(in)           :: x(:)
@@ -340,18 +342,15 @@ subroutine energy_GZproj_functional(x,f,i)
   real(8),allocatable           :: phi_(:)
   real(8),allocatable           :: niorb(:)
   real(8)                       :: Estar
-  real(8),dimension(state_dim)  :: local_dens_
-  real(8),dimension(state_dim,state_dim)  :: Rhop    
-  real(8),dimension(state_dim,state_dim)  :: Hk
+  real(8),dimension(Ns)  :: local_dens_
+  real(8),dimension(Ns,Ns)  :: Rhop    
+  real(8),dimension(Ns,Ns)  :: Hk
   !
-  integer                       :: iorb,ispin,istate,jstate,ik,ifock,jfock,jorb,jspin
+  integer                       :: iorb,ispin,istate,jstate,ik,ifock,jfock,jorb,jspin,iphi,jphi
   !
-  allocate(phi_(nFock))
+  allocate(phi_(Nphi))
+  phi_=x
   allocate(niorb(Norb))
-  !
-  do ifock=1,nFock
-     phi_(ifock)=x(full2indep_fock(ifock))     
-  end do
   !
   do iorb=1,Norb
      niorb(iorb) =  0.d0
@@ -361,7 +360,17 @@ subroutine energy_GZproj_functional(x,f,i)
      end do
   end do
   !
-  Rhop=Rhop_matrix(phi_,vdm)
+  do istate=1,Ns
+     do jstate=1,Ns
+        Rhop(istate,jstate) = 0.d0
+        do iphi=1,Nphi
+           do jphi=1,Nphi
+              Rhop(istate,jstate) = &
+                   Rhop(istate,jstate) + 1.d0/sqrt(vdm(jstate)*(1-vdm(jstate)))*phi_(iphi)*phi_(jphi)*phi_traces_basis_Rhop(istate,jstate,iphi,jphi)
+           end do
+        end do
+     end do
+  end do
   !
   if (.not.present(i)) then
      !+- FREE ENERGY ESTIMATION WITHIN GZ APPROX -+!
@@ -371,25 +380,17 @@ subroutine energy_GZproj_functional(x,f,i)
         ! hopping renormalization !
         Hk=matmul(Hk_tb(:,:,ik),Rhop)
         Hk=matmul(Rhop,Hk)
-        do istate=1,state_dim
-           do jstate=1,state_dim
+        do istate=1,Ns
+           do jstate=1,Ns
               Estar = Estar + slater_matrix_elements(istate,jstate,ik)*wtk(ik)*Hk(istate,jstate)
            end do
         end do
      end do
      !
      f=Estar
-     do ifock=1,nFock
-        do jfock=1,nFock
-           f=f+phi_(ifock)*phi_traces_basis_Hloc(ifock,jfock)*phi_(jfock)
-        end do
-     end do
-     ! f = f + gz_local_diag(phi_,UHubbard)*U
-     ! do istate=1,state_dim
-     !    f = f + gz_local_diag(phi_,dens(istate,:,:))*atomic_energy_levels(istate)
-     !    f = f - 1.5d0*U*gz_local_diag(phi_,dens(istate,:,:))        
-     ! end do
-     ! f=f+2.d0*U
+     !
+     f=f+trace_phi_basis(phi_,phi_traces_basis_Hloc)
+     !
   else
      !+- CONSTRAINTS ON GUTZWILLER PARAMETERS -+!
      select case(Norb)
@@ -400,14 +401,18 @@ subroutine energy_GZproj_functional(x,f,i)
            iorb=1
            do ispin=1,2
               istate=index(ispin,iorb)
-              f=f+gz_local_diag(phi_,dens(istate,:,:))
+              !
+              f = f + trace_phi_basis(phi_,phi_traces_basis_dens(istate,istate,:,:))
+              !
            end do
            f=f-niorb(iorb)
         case(2)
            f=0.d0
-           do ifock=1,nFock
-              f=f+phi_(ifock)*phi_(ifock)
+           !
+           do iphi=1,Nphi
+              f = f + phi_(iphi)*phi_(iphi)
            end do
+           !
            f=f-1.d0
         end select
      case(2)
@@ -417,7 +422,9 @@ subroutine energy_GZproj_functional(x,f,i)
            iorb=1
            do ispin=1,2
               istate=index(ispin,iorb)
-              f=f+gz_local_diag(phi_,dens(istate,:,:))
+              !
+              f = f + trace_phi_basis(phi_,phi_traces_basis_dens(istate,istate,:,:))
+              !
            end do
            f=f-niorb(iorb)
         case(2)
@@ -425,16 +432,20 @@ subroutine energy_GZproj_functional(x,f,i)
            iorb=2
            do ispin=1,2
               istate=index(ispin,iorb)
-              f=f+gz_local_diag(phi_,dens(istate,:,:))
+              !
+              f = f + trace_phi_basis(phi_,phi_traces_basis_dens(istate,istate,:,:))
+              !
            end do
            f=f-niorb(iorb)
         case(3)
            f=0.d0
-           do ifock=1,nFock
-              f=f+phi_(ifock)*phi_(ifock)
+           !
+           do iphi=1,Nphi
+              f = f + phi_(iphi)*phi_(iphi)
            end do
+           !
            f=f-1.d0
-        end select        
+        end select
      end select
   end if
 end subroutine energy_GZproj_functional

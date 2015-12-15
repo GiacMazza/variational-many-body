@@ -1,13 +1,18 @@
 MODULE GZ_MATRIX_BASIS
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
+  USE SF_LINALG
   implicit none
   private
   !
   public :: init_variational_matrices
   public :: trace_phi_basis
+
+  public :: enforce_su2_rotational_symmetry
   !
 CONTAINS
+
+  include 'symmetries.f90'
   
   subroutine init_variational_matrices
     !

@@ -15,7 +15,7 @@ subroutine enforce_su2_rotational_symmetry
   integer,dimension(:),allocatable :: count_NSstates,tmp_vec
   integer,dimension(:,:),allocatable :: irreducible_states,tmp_irreducible_states,SZ_states
   integer :: i,j,k,iorb,jorb,ispin,jspin,istate,jstate,is,iss,jfock,ifock
-  real(8) :: storeS,tmp_sz,deltaS
+  real(8) :: storeS,tmp_sz,deltaS,tmp_test
 
   integer :: map,NS,NMS
 
@@ -65,36 +65,72 @@ subroutine enforce_su2_rotational_symmetry
   S2diag=0.d0
   do i=1,nFock
      S2diag(i,i)=S2eigen(i)
+     write(*,*) i,S2eigen(i),Ntest(i,i)
   end do
-     
+  !  stop
   !
 
   !<TEST
+  tmp=0.d0
   do ifock=1,nFock
+     tmp(ifock)=0.d0
      do jfock=1,nFock
         test(ifock,jfock)=0.d0        
         test_(ifock,jfock)=0.d0        
         !
         do i=1,nFock
            do j=1,nFock
-              test(ifock,jfock) = test(ifock,jfock) +&
-                                !     tmp_matrix(ifock,i)*conjg(tmp_matrix(jfock,j))*Svec(i,j,3)
+              test(ifock,jfock) = test(ifock,jfock) + &
                    tmp_matrix(j,jfock)*conjg(tmp_matrix(i,ifock))*Ntest(i,j)
+              !tmp_matrix(j,jfock)*conjg(tmp_matrix(i,ifock))*S2(i,j)
            end do
         end do
+        !
+        !
+        ! test(ifock,jfock)=0.d0        
         ! do i=1,nFock
-        !    test(ifock,jfock) = test(ifock,jfock) + &
-        !         S2(ifock,i)*Svec(i,jfock,3)
-
-        !    test_(ifock,jfock) = test_(ifock,jfock) + &
-        !         Svec(ifock,i,3)*S2(i,jfock)
+        !    do j=1,nFock
+        !       test(ifock,jfock) = test(ifock,jfock) + &
+        !            tmp_matrix(j,jfock)*conjg(tmp_matrix(i,ifock))*S2(i,j)
+        !    end do
         ! end do        
-        if(abs(test(ifock,jfock)-test_(ifock,jfock)).gt.1.d-10) then
-           write(*,'(2I4,4F18.10)')  ifock,jfock,test(ifock,jfock),test_(ifock,jfock)
+        !
+        !
+        if(abs(test(ifock,jfock)).gt.1.d-10) then
+           write(*,'(2I4,4F18.10)')  ifock,jfock,test(ifock,jfock)
+           if(ifock.ne.jfock) EXIT
         end if
 
+        ! if(abs(test(ifock,jfock)).gt.1.d-10) then
+        !    write(*,'(2I4,4F18.10)')  ifock,jfock,test(ifock,jfock),Ntest(ifock,jfock)
+        !    if(ifock.ne.jfock) stop 'test ifock /= jfock'
+        ! end if
+        !tmp(ifock) = tmp(ifock) + Ntest(ifock,jfock)*tmp_matrix(jfock,ifock)
      end do
+     !write(*,*) Ntest(:,ifock)
+!     write(*,*) dreal(tmp_matrix(:,ifock))
   end do
+
+  tmp_test=0.d0
+  do jfock=1,nFock
+     tmp(jfock) = 0.d0
+     tmp_test = 0.d0
+     do ifock=1,nFock
+        tmp(jfock) = tmp(jfock) + dreal(tmp_matrix(ifock,jfock))**2.d0
+        write(77,*) ifock,dreal(tmp_matrix(ifock,jfock)),dreal(tmp_matrix(ifock,jfock))**2.d0
+        tmp_test = tmp_test + tmp_matrix(ifock,jfock)*tmp_matrix(ifock,jfock)*Ntest(ifock,ifock)
+     end do
+     !
+     write(77,*)
+     write(77,*)
+     !
+     write(78,*) jfock,Ntest(jfock,jfock)
+     !
+     write(79,*) tmp(jfock)
+     write(*,*) jfock,tmp_test
+  end do
+
+
   !TEST>
 
   stop
@@ -287,6 +323,107 @@ subroutine enforce_su2_rotational_symmetry
 
 
 end subroutine enforce_su2_rotational_symmetry
+
+
+
+subroutine simultaneous_diag(A,V,diagA,eps)
+  complex(8),dimension(:,:,:) :: A
+  complex(8),dimension(:,:)   :: V
+  real(8),dimension(:,:)      :: diagA
+  real(8),dimension(3,3)      :: G
+  complex(8),dimension(3)      :: Gvec,Geigen,Jacobi_vec
+  real(8)                     :: eps,C
+  complex(8)                  :: S
+  integer                     :: N,M,NM
+  integer                     :: iloop,imax
+  
+  imax=200
+  !
+  if(size(A,1).ne.size(A,2)) stop "simultaneous diag: wrong dimensions" 
+  N=size(A,1);M=size(A,3);NM=N*M
+  if(size(V,1).ne.size(V,2)) stop "simultaneous diag: wrong dimensions" 
+  if(size(V,1).ne.N) stop "simultaneous diag: wrong dimensions" 
+  !
+  
+  do iloop=1,imax
+     !+- build G_matrix
+     do i=1,N
+        do j=1,N
+           G=0.d0     
+           do k=1,M
+              !
+              Gvec(1) = A(i,i,k) - A(j,j,k)
+              Gvec(2) = A(i,j,k) + A(j,i,k)
+              Gvec(3) = xi*(A(i,j,k) - A(j,i,k))
+              G = G + get_gmatrix(Gvec)
+              !
+           end do
+           !
+           call matrix_diagonalize(G,Geigen,'V')
+           Jacobi_vec = G(:,3)
+           !
+           !Givens rotations
+           if(Jacobi_vec(1).lt.0.d0) Jacobi_vec=-Jacobi_vec
+           C = sqrt(Jacobi_vec(1)*0.5d0+0.5d0)
+           S = Jacobi_vec(2)-xi*Jacobi_vec(3)
+           S = S/sqrt(2.d0*Jacobi_vec(1)+2.d0)
+           !
+           !A*R
+           A(i,i)=A(i,i)*C-A(i,j)*conjg(S)
+           A(i,j)=A(i,i)*S+A(i,j)*C
+           A(j,i)=A(j,i)*C-A(j,j)*conjg(S)
+           A(j,j)=A(j,i)*S+A(j,j)*C
+           !R*(AR)
+           
+           !
+        end do
+     end do
+  end do
+
+contains
+  !
+  function get_Gmatrix(h) result(G)
+    complex(8),dimension(:) :: h
+    real(8),dimension(:,:) :: G
+    integer :: N,i
+    N=size(h)
+    if(size(G,1).ne.size(G,2)) stop 'wrong dimensions'
+    if(size(G,1).ne.N) stop 'wrong dimensions'
+    !
+    do i=1,N
+       do j=1,N
+          G(i,j) = dreal(conjg(h(i))*h(j))
+       end do
+    end do
+    !
+    
+  end function get_Gmatrix
+  
+  !
+  function off_diag(A) result(off)
+    complex(8),dimension(:,:) :: A
+    real(8) :: off
+    integer :: i,j,N
+    N=size(A,1)
+    !
+    off = 0.d0
+    do i=1,N
+       do j=1,N
+          if(i.ne.j) off = off + abs(A(i,j))**2.d0
+       end do
+    end do
+    !
+  end function off_diag
+  !
+end subroutine simultaneous_diag
+
+
+
+
+
+
+
+
 
 
 function vec_dist(a,b) result(r)

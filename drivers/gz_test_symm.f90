@@ -18,11 +18,11 @@ program GUTZ_mb
   !+- hamiltonian details -+!
   integer                            :: ispin,iorb,i,istate,jstate,ifock,jorb
   integer,dimension(:),allocatable   :: fock_vec
-!  real(8),dimension(3)               :: GZene  
+  !  real(8),dimension(3)               :: GZene  
   real(8),dimension(:),allocatable   :: variational_density_natural
   real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
-!  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
-!  integer                            :: ix,iy,iz,ik,Nk
+  !  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
+  !  integer                            :: ix,iy,iz,ik,Nk
   integer                            :: out_unit,iter
   integer                            :: lattice ! 2=square;3=cubic
 
@@ -51,11 +51,12 @@ program GUTZ_mb
   end do
 
 
-  call enforce_su2_rotational_symmetry
-  stop
+  !call enforce_su2_rotational_symmetry
+  ! call basis_O1xSU2_irr_reps
+  ! stop
   call init_variational_matrices
 
-
+  
   
   !call build_gz_local_traces_diag  
   !

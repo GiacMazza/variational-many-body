@@ -1,5 +1,350 @@
-subroutine basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
+subroutine basis_O1cXSU2sXSU2c_irr_reps(irr_reps,equ_reps,Virr_reps)  
+  !+-BASIS STRUCTURE FOR THE IRREDUCIBLE REPS OF THE GROUP O(1)c x SU(2)s on the local Fock space-+!
+  complex(8),dimension(nFock,nFock)               :: Virr_reps ! trasnformation to the irreducible reps
+  integer,dimension(:,:),allocatable              :: irr_reps !irreducible reps info: block-structure and equivalent reps
+  integer,dimension(:,:),allocatable              :: equ_reps
+  complex(8),dimension(nFock,nFock,3)             :: Svec,isoSvec
+  complex(8),dimension(nFock,nFock)               :: S2,isoS2
+  real(8),dimension(nFock,nFock)                  :: Ncharge
+  real(8),dimension(nFock)                  :: tmp_eigen
+  complex(8),dimension(nFock,nFock)                  :: tmp_matrix
+  !
+  complex(8),dimension(2,2,3)                     :: sigma_pauli
+  complex(8),dimension(3,3,3)                     :: levi_civita
+  complex(8),dimension(nFock,nFock)               :: Splus,Sminus
+  complex(8),dimension(nFock,nFock)               :: isoSplus,isoSminus
+  !
+  complex(8),dimension(:,:,:),allocatable         :: joint_diag  
+  complex(8),dimension(:,:),allocatable           :: jointV 
+  real(8),dimension(:,:),allocatable              :: joint_eigen 
+  !
+  complex(8),dimension(:),allocatable             :: tmp_vec,tmp_vec_
+  complex(8),dimension(:),allocatable             :: tmp_vec_S,tmp_vec_isoS
+  real(8)                                         :: modV,modV_  
+  real(8)                                         :: modV_S,modV_isoS
+  integer,dimension(:,:),allocatable              :: eigen_labels
+  !
+  integer                                         :: i,j,k,iorb,jorb,ispin,jspin,istate,jstate
+  integer                                         :: ifock,jfock
+  integer                                         :: imin,imax,ii,jj,dim_irr
+  integer                                         :: map
+  integer,dimension(nFock)                        :: ker_map
+  !
+  type(local_multiplets),dimension(:),allocatable :: mult_list
+  integer,dimension(:,:),allocatable              :: irr_reps_
+  !
+  integer                                         :: Nirr_reps,jtmp,Nineq_reps
+  integer,dimension(:,:),allocatable              :: equ_reps_
+
+  !+- build sigma pauli and levi-civita tensor -+!
+  sigma_pauli=0.d0
+  !
+  sigma_pauli(1,2,1) = one
+  sigma_pauli(2,1,1) = one
+  !
+  sigma_pauli(1,2,2) = -xi
+  sigma_pauli(2,1,2) =  xi
+  !
+  sigma_pauli(1,1,3) =  one
+  sigma_pauli(2,2,3) = -one
+  ! 
   
+  !
+  levi_civita=zero
+  levi_civita(1,2,3) =  one
+  levi_civita(1,3,2) = -one
+  !
+  levi_civita(2,3,1) =  one
+  levi_civita(2,1,3) = -one
+  !
+  levi_civita(3,1,2) =  one
+  levi_civita(3,2,1) = -one
+  !
+  
+  S2=zero
+  do i=1,3
+     Svec(:,:,i)=0.d0
+     do iorb=1,Norb
+        do ispin=1,2
+           do jspin=1,2
+              istate=index(ispin,iorb)
+              jstate=index(jspin,iorb)
+              Svec(:,:,i) = Svec(:,:,i) + &
+                   0.5d0*sigma_pauli(ispin,jspin,i)*matmul(CC(istate,:,:),CA(jstate,:,:))
+           end do
+        end do
+     end do
+     S2 = S2 + matmul(Svec(:,:,i),Svec(:,:,i))
+  end do
+  Splus  = Svec(:,:,1) + xi*Svec(:,:,2)
+  Sminus = Svec(:,:,1) - xi*Svec(:,:,2)
+
+  isoS2=zero
+  do i=1,3
+     isoSvec(:,:,i)=0.d0
+     select case(Norb)
+     case(1)        
+        forall(ifock=1:nFock) isoSvec(ifock,ifock,i) = 1.d0
+     case(2)
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do ispin=1,2
+                 istate=index(ispin,iorb)
+                 jstate=index(ispin,jorb)
+                 isoSvec(:,:,i) = isoSvec(:,:,i) + &
+                      0.5d0*sigma_pauli(iorb,jorb,i)*matmul(CC(istate,:,:),CA(jstate,:,:))
+              end do
+           end do
+        end do
+     case(3) 
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do ispin=1,2
+                 istate=index(ispin,iorb)
+                 jstate=index(ispin,jorb)
+                 isoSvec(:,:,i) = isoSvec(:,:,i) - &
+                      xi*levi_civita(i,iorb,jorb)*matmul(CC(istate,:,:),CA(jstate,:,:))
+              end do
+           end do
+        end do        
+     end select
+     isoS2 = isoS2 + matmul(isoSvec(:,:,i),isoSvec(:,:,i))
+  end do
+  isoSplus  = isoSvec(:,:,1) + xi*isoSvec(:,:,2)
+  isoSminus = isoSvec(:,:,1) - xi*isoSvec(:,:,2)  
+  !
+  Ncharge=0.d0
+  do iorb=1,Norb
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        Ncharge = Ncharge + matmul(CC(istate,:,:),CA(istate,:,:))
+     end do
+  end do
+  !
+
+  ! call matrix_diagonalize(isoSvec(:,:,3),tmp_eigen)
+  ! do ifock=1,nFock
+  !    write(*,*) tmp_eigen(ifock)
+  ! end do
+  ! stop
+
+  !< TEST JACOBI JOINT DIAGONALIZATION 
+  ! allocate(joint_diag(nFock,nFock,5),jointV(nFock,nFock),joint_eigen(nFock,5))
+  ! joint_diag(:,:,1)=S2
+  ! joint_diag(:,:,2)=Svec(:,:,3)
+  ! joint_diag(:,:,3)=isoS2
+  ! joint_diag(:,:,4)=isoSvec(:,:,3)
+  ! joint_diag(:,:,5)=Ncharge
+  !
+  allocate(joint_diag(nFock,nFock,5),jointV(nFock,nFock),joint_eigen(nFock,5))
+  joint_diag(:,:,1)=S2(:,:)
+  joint_diag(:,:,2)=Svec(:,:,3)
+  joint_diag(:,:,3)=isoS2
+  joint_diag(:,:,4)=isoSvec(:,:,3)
+  joint_diag(:,:,5)=Ncharge
+  !
+  call simultaneous_diag(joint_diag,jointV,joint_eigen,eps=1.d-10) 
+  !
+  allocate(eigen_labels(5,1)); eigen_labels = 0
+  eigen_labels(1,1) = 1
+  eigen_labels(3,1) = 1
+  eigen_labels(5,1) = 1
+  !
+  call get_multiplets_list(joint_eigen,eigen_labels,mult_list)
+  !
+
+  
+  !+- here I should obtain the simultanoues kernels of S+ and L+
+  write(*,*)
+  !+- I obtained the basis for irreducible representation of total-spin rotations -+!
+  allocate(tmp_vec(nFock),tmp_vec_(nFock))
+  ifock=0
+  ker_map = 0
+  do i=1,mult_list(1)%N_mult
+     do j=1,mult_list(1)%Nequiv_mult(i)
+        !
+        map = mult_list(1)%Maps(i)%index(j)
+        
+        tmp_vec = jointV(:,map)
+        ! apply S+
+        !        write(*,*) map
+        tmp_vec = matmul(Splus,tmp_vec)
+        modV = sqrt(dot_product(tmp_vec,tmp_vec))
+        !write(*,*) modV
+        ! apply L+
+        tmp_vec = jointV(:,map)
+        tmp_vec = matmul(isoSplus,tmp_vec)
+        modV_ = sqrt(dot_product(tmp_vec,tmp_vec))
+        ! write(*,*) modV_
+        ! write(*,*)
+        !
+        if(abs(modV).lt.1.d-10.and.abs(modV_).lt.1.d-10) then
+           ker_map(map) = 1
+        end if
+        !
+     end do
+  end do
+
+  ifock=0  
+  Nirr_reps=0;Nineq_reps=0
+
+  write(*,*) ker_map  
+
+  
+  allocate(tmp_vec_S(nFock),tmp_vec_isoS(nFock))
+  allocate(irr_reps_(nFock,4))
+  allocate(equ_reps_(nFock,nFock)); equ_reps_=0
+  jtmp=0
+  do jj=1,mult_list(1)%N_mult
+     do ii=1,mult_list(1)%Nequiv_mult(jj)
+        !
+        i=mult_list(1)%Maps(jj)%index(ii)        
+        if(ker_map(i).eq.1) then
+           !
+           imin = ifock+1
+           dim_irr=0
+           !
+           write(*,*) jj,ii
+           !
+           
+           !
+           tmp_vec_S = jointV(:,i) 
+           modV_S = sqrt(dot_product(tmp_vec_S,tmp_vec_S)) 
+           !
+           do while(modV_S.gt.1.d-10)
+              !
+              tmp_vec_isoS = tmp_vec_S
+              modV_isoS = sqrt(dot_product(tmp_vec_isoS,tmp_vec_isoS))
+              
+              tmp_vec_S = matmul(Sminus,tmp_vec_S)
+              modV_S = sqrt(dot_product(tmp_vec_S,tmp_vec_S))
+              !
+              do while(modV_isoS.gt.1.d-10)
+                 !
+                 dim_irr = dim_irr+1
+                 ifock = ifock + 1
+                 write(*,*) 'ifock',ifock
+                 Virr_reps(:,ifock) = tmp_vec_isoS/modV_isoS
+                 !
+                 tmp_vec_isoS = matmul(isoSminus,tmp_vec_isoS)
+                 modV_isoS = sqrt(dot_product(tmp_vec_isoS,tmp_vec_isoS))
+                 !
+              end do
+           end do
+
+
+
+           !+- THIS IS WRONG!!! -+!
+           !+- apply S- from the common kernel -+!
+           ! do while(modV.gt.1.d-10)
+           !    !
+           !    dim_irr = dim_irr+1
+           !    ifock = ifock + 1
+           !    Virr_reps(:,ifock) = tmp_vec/modV
+           !    tmp_vec = matmul(Sminus,tmp_vec)
+           !    modV = sqrt(dot_product(tmp_vec,tmp_vec))
+           !    write(*,*) 'ifock S-',ifock
+           !    !
+           ! end do
+           ! !
+           ! ifock = ifock-1
+           ! dim_irr = dim_irr-1
+           ! tmp_vec = jointV(:,i)                   
+           ! modV = sqrt(dot_product(tmp_vec,tmp_vec))
+           ! !
+           ! !+- apply L- from the common kernel -+!
+           ! do while(modV.gt.1.d-10)
+           !    !
+           !    tmp_vec_=tmp_vec
+           !    dim_irr = dim_irr+1
+           !    ifock = ifock + 1
+           !    Virr_reps(:,ifock) = tmp_vec/modV
+           !    tmp_vec = matmul(isoSminus,tmp_vec)
+           !    modV = sqrt(dot_product(tmp_vec,tmp_vec))
+           !    write(*,*) 'ifock L-',ifock
+           !    !
+           ! end do           
+           ! !+- apply S- from the kernel of L- (just computed) -+!
+           ! !+- only if tmp_vec_ /= jointV(:,i)
+           ! modV=dot_product(tmp_vec_-jointV(:,i),tmp_vec_-jointV(:,i)) 
+           ! if(modV.gt.1.d-10) then
+           !    ifock = ifock-1
+           !    dim_irr = dim_irr-1
+           !    tmp_vec=tmp_vec_
+           !    modV = sqrt(dot_product(tmp_vec,tmp_vec))
+           !    do while(modV.gt.1.d-10)
+           !       !
+           !       dim_irr = dim_irr+1
+           !       ifock = ifock + 1
+           !       Virr_reps(:,ifock) = tmp_vec/modV
+           !       tmp_vec = matmul(Sminus,tmp_vec)
+           !       modV = sqrt(dot_product(tmp_vec,tmp_vec))
+           !       write(*,*) 'ifock S-',ifock
+           !       !
+           !    end do
+           ! end if
+           !
+           imax = ifock
+           ! write(*,*) 'ifock',ifock,dim_irr
+           ! write(*,*) 'imin,imax',imin,imax
+           !
+           j=mult_list(1)%inv_map(i)
+           !
+           Nirr_reps = Nirr_reps+1
+           !
+           if(j.ne.jtmp) Nineq_reps = Nineq_reps+1
+           equ_reps_(Nirr_reps,Nineq_reps) = 1
+           !
+           jtmp=j
+           !
+           irr_reps_(Nirr_reps,1) = imin 
+           irr_reps_(Nirr_reps,2) = imax
+           irr_reps_(Nirr_reps,3) = dim_irr
+           irr_reps_(Nirr_reps,4) = mult_list(1)%inv_map(i)
+           !
+        end if
+     end do
+  end do
+  !
+  if(allocated(irr_reps)) deallocate(irr_reps)
+  if(allocated(equ_reps)) deallocate(equ_reps)
+  allocate(irr_reps(Nirr_reps,4))
+  allocate(equ_reps(Nirr_reps,Nineq_reps))
+  !
+  do i=1,Nirr_reps
+     irr_reps(i,:) = irr_reps_(i,:)
+     do j=1,Nineq_reps
+        equ_reps(i,j) = equ_reps_(i,j)
+     end do
+  end do
+  !
+end subroutine basis_O1cXSU2sXSU2c_irr_reps
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+subroutine basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)  
   !+-BASIS STRUCTURE FOR THE IRREDUCIBLE REPS OF THE GROUP O(1)c x SU(2)s on the local Fock space-+!
   complex(8),dimension(nFock,nFock)               :: Virr_reps ! trasnformation to the irreducible reps
   integer,dimension(:,:),allocatable              :: irr_reps !irreducible reps info: block-structure and equivalent reps
@@ -171,6 +516,168 @@ end subroutine basis_O1xSU2_irr_reps
 
 
 
+
+
+
+
+
+subroutine get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
+  integer,dimension(:,:),allocatable :: irr_reps
+  integer,dimension(:,:),allocatable :: equ_reps
+  integer,dimension(:),allocatable :: map_equ_reps
+  integer :: Nirr_reps,Nineq_reps,i,j,Neq,ireps,jreps,ieq,dim_phi,jeq
+  integer :: ifock,jfock,idim,jdim,reps_dim,imin,jmin,iphi
+  complex(8),dimension(:,:,:),allocatable :: phi_irr
+
+
+  if(allocated(phi_irr)) deallocate(phi_irr)
+  !
+  Nirr_reps=size(irr_reps,1)
+  Nineq_reps=size(equ_reps,2)
+  !
+  dim_phi=0
+  do i=1,Nineq_reps
+     Neq=0
+     do j=1,Nirr_reps
+        Neq=Neq+equ_reps(j,i)
+     end do
+     dim_phi = dim_phi + Neq*Neq
+  end do
+
+  allocate(phi_irr(dim_phi,nFock,nFock)) ; phi_irr=zero
+
+  iphi=0
+  do i=1,Nineq_reps
+     ieq=0
+     do j=1,Nirr_reps
+        ieq=ieq+equ_reps(j,i)
+     end do
+     Neq=ieq
+
+     ieq=0
+     allocate(map_equ_reps(Neq))
+     do j=1,Nirr_reps
+        ieq=ieq+equ_reps(j,i)
+        if(equ_reps(j,i).eq.1) map_equ_reps(ieq)=j
+     end do
+     !write(*,*) 'MAP',map_equ_reps
+
+     do ieq=1,Neq
+        do jeq=1,Neq
+           !
+           iphi=iphi+1
+           !
+           !write(*,*) iphi
+           !
+           ireps=map_equ_reps(ieq)
+           jreps=map_equ_reps(jeq)           
+           imin=irr_reps(ireps,1);jmin=irr_reps(jreps,1)
+           idim=irr_reps(ireps,3);jdim=irr_reps(jreps,3)
+           if(idim.ne.jdim) stop "Error: equivalent representations with different dimensions"
+           reps_dim=idim
+           !
+           write(*,*) ieq,jeq
+           !
+           do j=1,reps_dim
+              !
+              ifock=imin + (j-1)
+              jfock=jmin + (j-1)
+              !
+              ! ifock = imin + (ieq-1)*reps_dim + (j-1)
+              ! jfock = jmin + (jeq-1)*reps_dim + (j-1)
+              !
+              !
+              write(*,*) 'blocks identities',ifock,jfock,imin,jmin,j,reps_dim              
+              !
+              phi_irr(iphi,ifock,jfock) = 1.d0
+           end do
+           !
+           write(*,*)
+        end do
+     end do
+     ! write(*,*)
+     deallocate(map_equ_reps)
+  end do
+  
+end subroutine get_matrix_basis_irr_reps
+
+
+
+
+subroutine get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
+  complex(8),dimension(:,:,:) :: phi_irr
+  complex(8),dimension(nFock,nFock) :: Virr_reps
+  complex(8),dimension(:,:,:),allocatable :: phi_fock,phi_fock_
+  integer :: Nphi,out_phi
+  integer,dimension(:),allocatable :: mask_out
+  logical :: flag
+  integer :: ifock,jfock,ii,jj,iphi,Nfin,i
+  real(8) :: tmp
+
+  Nphi = size(phi_irr,1)
+  if(allocated(phi_fock)) deallocate(phi_fock)
+  allocate(phi_fock_(Nphi,nFock,nFock))
+  allocate(mask_out(Nphi)) ; mask_out=0
+  !
+  out_phi=0
+  do iphi=1,nphi
+     tmp=0.d0
+     Nfin=0
+     flag=.false.
+     do ifock=1,nFock
+        do jfock=1,nFock
+           phi_fock_(iphi,ifock,jfock)=0.d0
+           do ii=1,nFock
+              do jj=1,nFock
+                 phi_fock_(iphi,ifock,jfock)= &
+                      phi_fock_(iphi,ifock,jfock) + &
+                                !Virr_reps(ii,ifock)*conjg(Virr_reps(jj,jfock))*phi_irr(iphi,ii,jj)
+                      Virr_reps(ifock,ii)*conjg(Virr_reps(jfock,jj))*phi_irr(iphi,ii,jj)
+              end do
+           end do
+           tmp = tmp + abs(dreal(phi_fock_(iphi,ifock,jfock)))**2.d0
+           if(abs(dreal(phi_fock_(iphi,ifock,jfock))).gt.1.d-10.and.ifock.ne.jfock) flag=.true.
+           if(abs(dreal(phi_fock_(iphi,ifock,jfock))).gt.1.d-10) then
+              Nfin=Nfin+1
+           end if
+        end do
+     end do
+
+     if(tmp.gt.1.d-8)  then
+        out_phi = out_phi+1
+        mask_out(iphi) = 1
+     end if
+
+
+
+  end do
+
+  !write(*,*) mask_out
+  !stop
+
+
+  allocate(phi_fock(out_phi,nFock,nFock))
+  out_phi=0
+  do iphi=1,Nphi
+     !
+     if(mask_out(iphi).eq.1) then
+        out_phi=out_phi+1
+        write(*,*) out_phi
+        phi_fock(out_phi,:,:)  = phi_fock_(iphi,:,:)
+
+        ! do ifock=1,nFock
+        !    write(*,'(20F7.2)') dreal(phi_fock(iphi,ifock,:))
+        ! end do
+        ! write(*,*)
+        ! write(*,*)
+
+        !
+     end if
+  end do
+
+
+
+end subroutine get_matrix_basis_original_fock
 
 
 

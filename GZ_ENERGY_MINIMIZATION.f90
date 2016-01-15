@@ -33,18 +33,18 @@ contains
   ! slater
   subroutine slater_determinant_minimization_nlep(Rhop,n0_target,Estar,lgr_multip,slater_derivatives,iverbose) 
     real(8),dimension(Ns,Ns),intent(in)  :: Rhop         !input:  renrmalization matrix
-    real(8),dimension(Ns),intent(in)            :: n0_target    !input:  variational density matrix
-    real(8),intent(out)                                :: Estar        !output: Slater Deter GS energy
-    real(8),dimension(Ns),intent(out)           :: lgr_multip   !output: Slater Deter lagrange multipliers
+    real(8),dimension(Ns),intent(in)     :: n0_target    !input:  variational density matrix
+    real(8),intent(out)                  :: Estar        !output: Slater Deter GS energy
+    real(8),dimension(Ns),intent(out)    :: lgr_multip   !output: Slater Deter lagrange multipliers
     real(8),dimension(Ns,Ns),intent(out) :: slater_derivatives !output: Slater Deter GS energy derivatives
-    logical,optional                                   :: iverbose     !input:  Verbosity level
+    logical,optional                     :: iverbose     !input:  Verbosity level
     !
-    real(8),dimension(Ns)                       :: lgr
+    real(8),dimension(Ns)                :: lgr
     real(8),dimension(Ns,Ns)             :: Hk,test_dens
-    real(8),dimension(Ns)                       :: ek,tmp_lgr,err_dens
-    integer                                            :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb
-    real(8),dimension(Ns)                       :: lgr_multip_vec
-    logical                                            :: iverbose_
+    real(8),dimension(Ns)                :: ek,tmp_lgr,err_dens
+    integer                              :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb
+    real(8),dimension(Ns)                :: lgr_multip_vec
+    logical                              :: iverbose_
 
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose
     !
@@ -75,77 +75,60 @@ contains
     real(8),dimension(Ns,Ns),intent(in)  :: slater_derivatives !input:  Slater Deter GZ energy derivatives
     real(8),dimension(Ns),intent(in)     :: n0_target          !input:  Variational density matrix
     real(8),dimension(Ns)                :: lgr
-    real(8),dimension(Ns*Ns)                :: lgr_full
+    real(8),dimension(Ns*Ns)             :: lgr_full
     real(8),dimension(Ns,Ns),intent(out) :: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
     real(8),dimension(nPhi)              :: GZvect   !output: GZvector
     real(8)                              :: E_Hloc,Emin   !output: optimized local energy
     real(8)                              :: lgr_symm(1)
     logical,optional                     :: iverbose
     real(8),dimension(Ns)                :: err_dens
-    real(8),dimension(Ns*Ns)                :: err_dens_full
+    real(8),dimension(Ns*Ns)             :: err_dens_full
+    real(8)                              :: off_constraints
     real(8)                              :: delta_out
     logical                              :: iverbose_
     integer                              :: info,istate,i,j,iter
-
-
-    !<EXTREMA RATIO-PERFORM AN AMOEBA MINIMIZATION
-    real(8),dimension(Ns+1,Ns) :: simplex_lgr
-    real(8),dimension(Ns)               :: optimized_lgr
     !+- amoeba_variables-+!
-    real(8),allocatable,dimension(:,:)                     :: p
-    real(8),allocatable,dimension(:)                       :: y
-    real(8)                                                :: ftol
-    integer                                                :: np,mp,i_vertex,j_vertex,i_dim
-    integer                       :: idum
-    !    integer,allocatable,dimension(:)                       :: idum
-    integer                                                :: tmp_dum
-    real(8)                                                :: rnd,tot_dens,tmp_pol
-    integer                                                :: amoeba_unit    
-    !EXTREMA RATIO>
-
-
+    real(8),allocatable,dimension(:,:)   :: p
+    real(8),allocatable,dimension(:)     :: y
+    real(8)                              :: ftol
+    integer                              :: np,mp,i_vertex,j_vertex,i_dim,is
 
 
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose    
     !
     do istate=1,Ns
-       lgr(istate)=(n0_target(istate)-0.5d0)*2.d0       
+       !lgr(istate)=(n0_target(istate)-0.5d0)*2.d0
+       lgr(istate)=(0.5d0-n0_target(istate))*2.d0
     end do
 
-
-    !call fsolve(proj_energy,lgr,tol=1.d-15,info=info)    
+    !
     call fsolve(get_delta_proj_variational_density_diag,lgr,tol=1.d-15,info=info)    
-    !call fmin_cg(lgr,proj_energy,iter,Emin)
-    
-
-    !<EXTREMA RATIO
-    ! NP=NS
-    ! MP=NP+1
-    ! allocate(y(MP),p(MP,NP))
-    ! !+- initialize simplex -+!
-    ! p(1,:) = 0.d0
-    ! idum=123456
-    ! do i=1,NS
-    !    ! do j=1,NS
-    !    !    rnd = rand(idum+j)
-    !    !    p(i+1,j) = 0.d0+rnd*0.1
-    !    ! end do
-    !    p(i+1,1) = 0.d0-0.04*dble(i)
-    !    p(i+1,2) = 0.d0+0.05*dble(i)
-    !    p(i+1,3) = 0.d0-0.04*dble(i)
-    !    p(i+1,4) = 0.d0+0.05*dble(i)
-    ! end do
-    ! !
-    ! do i_vertex=1,MP
-    !    y(i_vertex)=proj_energy(p(i_vertex,:))
-    ! end do
-    ! call amoeba_er(p(1:MP,1:NP),y(1:MP),1.d-10,proj_energy,iter,amoeba_verbose)
-    ! lgr=p(1,:) 
-    !EXTREMA RATIO>
-
-    ! lgr_full=0.d0
-    ! call fsolve(get_delta_proj_variational_density_full,lgr_full,tol=1.d-15,info=info)    
-    ! call vec2mat_stride(lgr_full,lgr_multip)
+    !
+    err_dens=get_delta_proj_variational_density_diag(lgr)
+    off_constraints=0.d0
+    do is=1,Ns
+       off_constraints = off_constraints + abs(err_dens(is))**2.d0
+    end do
+    if(off_constraints.gt.1.d-6) then 
+       !if the fsolve didn't succed try with amoeba
+       !minimizing the deviation from the variational target density no_target
+       NP=NS
+       MP=NP+1
+       allocate(y(MP),p(MP,NP))
+       !+- initialize simplex -+!
+       p(1,:) = 0.d0
+       do i=1,NS
+          do j=1,Ns
+             p(i+1,j) = (0.5d0-n0_target(j))*dble(i)
+          end do
+       end do
+       !
+       do i_vertex=1,MP
+          y(i_vertex)=deltaVDM_proj(p(i_vertex,:))
+       end do
+       call amoeba_er(p(1:MP,1:NP),y(1:MP),1.d-10,deltaVDM_proj,iter,verbose=.false.)
+       lgr=p(1,:) 
+    end if
     !
     lgr_multip=0.d0
     do istate=1,Ns
@@ -155,56 +138,37 @@ contains
     !
     if(iverbose_) then
        write(*,*)
-       write(*,*) "GZ projectors: Lagrange Parameters -diagonal case-",info
+       write(*,*) "GZ projectors: Lagrange Parameters -diagonal case-"
        write(*,'(10F18.10)') lgr(1:Ns)
-       !<HARD DEBUG
-       ! do i=1,NS
-       !    write(*,'(10F18.10)') lgr_multip(i,:)
-       ! end do
-       !HARD DEBUG>
-
+       !
        err_dens=get_delta_proj_variational_density_diag(lgr)
-       !err_dens_full=get_delta_proj_variational_density_full(lgr_full)
        write(*,*) "GZ projectors: Variational density matrix error"
        write(*,'(10F18.10)') err_dens
-       !<HARD DEBUG
-       !write(*,'(16F7.3)') err_dens_full
-       !HARD DEBUG>
+       !
        write(*,*) "GZ projectors: Optimized Local Energy"
        write(*,'(10F18.10)') E_Hloc
        write(*,*)
     end if
-
-    !<HARD DEBUGGING
-    !stop
-    !HARD DEBUGGING>
-
     !
   contains
     !
     include 'self_minimization_GZproj_routines.f90'
     !
   end subroutine gz_projectors_minimization_nlep
-
-
-
-
-
-
-  
+  !
   subroutine free_gz_projectors_init(slater_derivatives,n0_target,E_Hloc,GZvect,lgr_multip,iverbose)
-    real(8),dimension(Ns,Ns),intent(in) :: slater_derivatives !input:  Slater Deter GZ energy derivatives
-    real(8),dimension(Ns),intent(in)           :: n0_target          !input:  Variational density matrix
-    real(8),dimension(Ns) :: lgr
-    real(8),dimension(Ns,Ns),intent(out):: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
-    real(8),dimension(Nphi)                          :: GZvect   !output: GZvector
-    real(8)                                           :: E_Hloc   !output: optimized local energy
-    real(8)                                           :: lgr_symm(1)
-    logical,optional                                  :: iverbose
-    real(8),dimension(Ns)            :: err_dens
-    real(8) :: delta_out
-    logical                                 :: iverbose_
-    integer                                           :: info,istate,i,j
+    real(8),dimension(Ns,Ns),intent(in)  :: slater_derivatives !input:  Slater Deter GZ energy derivatives
+    real(8),dimension(Ns),intent(in)     :: n0_target          !input:  Variational density matrix
+    real(8),dimension(Ns)                :: lgr
+    real(8),dimension(Ns,Ns),intent(out) :: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
+    real(8),dimension(Nphi)              :: GZvect   !output: GZvector
+    real(8)                              :: E_Hloc   !output: optimized local energy
+    real(8)                              :: lgr_symm(1)
+    logical,optional                     :: iverbose
+    real(8),dimension(Ns)                :: err_dens
+    real(8)                              :: delta_out
+    logical                              :: iverbose_
+    integer                              :: info,istate,i,j
 
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose    
     !
@@ -241,31 +205,26 @@ contains
 
 
 
-
-
-
-
-
   !+--------------------------------------------+!
   !+- CONSTRAINED MINIMIZATION (cmin) ROUTINES -+!
   !+--------------------------------------------+!
   ! slater
   subroutine slater_determinant_minimization_cmin(Rhop,n0_target,Estar,lgr_multip,slater_matrix_el,iverbose) 
-    real(8),dimension(Ns,Ns),intent(in)  :: Rhop         !input:  renrmalization matrix
-    real(8),dimension(Ns),intent(in)            :: n0_target    !input:  variational density matrix
-    real(8),intent(out)                                :: Estar        !output: Slater Deter GS energy
-    real(8),dimension(Ns),intent(out)           :: lgr_multip   !output: Slater Deter lagrange multipliers
+    real(8),dimension(Ns,Ns),intent(in)     :: Rhop         !input:  renrmalization matrix
+    real(8),dimension(Ns),intent(in)        :: n0_target    !input:  variational density matrix
+    real(8),intent(out)                     :: Estar        !output: Slater Deter GS energy
+    real(8),dimension(Ns),intent(out)       :: lgr_multip   !output: Slater Deter lagrange multipliers
     real(8),dimension(Ns,Ns,Lk),intent(out) :: slater_matrix_el !output: Slater Deter GS energy derivatives
-    logical,optional                                   :: iverbose     !input:  Verbosity level
+    logical,optional                        :: iverbose     !input:  Verbosity level
     !
-    real(8),dimension(Ns)                       :: lgr
-    real(8),dimension(Ns,Ns)             :: Hk,test_dens
-    real(8),dimension(Ns)                       :: ek,tmp_lgr,err_dens
-    integer                                            :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb
-    real(8),dimension(Ns)                       :: lgr_multip_vec
+    real(8),dimension(Ns)                   :: lgr
+    real(8),dimension(Ns,Ns)                :: Hk,test_dens
+    real(8),dimension(Ns)                   :: ek,tmp_lgr,err_dens
+    integer                                 :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb
+    real(8),dimension(Ns)                   :: lgr_multip_vec
     
-    real(8),dimension(Norb)                       :: lgr_orb,test_dens_orb
-    logical                                            :: iverbose_
+    real(8),dimension(Norb)                 :: lgr_orb,test_dens_orb
+    logical                                 :: iverbose_
     !
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose
     !
@@ -295,21 +254,21 @@ contains
   ! gz_projectors (lancelot subroutine)
   subroutine gz_projectors_minimization_cmin(slater_matrix_el,n0,GZvect_indep,GZenergy,GZproj_lgr_multip,GZmin_verbose)
     real(8),dimension(Ns,Ns,Lk),intent(in) :: slater_matrix_el
-    real(8),dimension(Ns),intent(in)              :: n0
-    real(8),dimension(Nphi),intent(inout)         :: GZvect_indep    
-    real(8),intent(inout)                                :: GZenergy
+    real(8),dimension(Ns),intent(in)       :: n0
+    real(8),dimension(Nphi),intent(inout)  :: GZvect_indep    
+    real(8),intent(inout)                  :: GZenergy
     real(8),dimension(Ns,Ns),intent(inout) :: GZproj_lgr_multip
-    logical                                              :: GZmin_verbose
-    integer                                              :: iter,iter_max,istate,i,iter_
-    integer                                              :: iorb,ispin,i_ind,ifock
+    logical                                :: GZmin_verbose
+    integer                                :: iter,iter_max,istate,i,iter_
+    integer                                :: iorb,ispin,i_ind,ifock
     !
     !LANCELOT VARIABLES
     !
-    integer                                              :: n_min,neq,nin,maxit,print_level,exit_code
-    real(8)                                              :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
-    real(8),allocatable                                  :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
-    integer                                              :: iunit,err_unit,ene_unit,Nsuccess    
-    external  :: energy_GZproj_functional   
+    integer                                :: n_min,neq,nin,maxit,print_level,exit_code
+    real(8)                                :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
+    real(8),allocatable                    :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
+    integer                                :: iunit,err_unit,ene_unit,Nsuccess    
+    external                               :: energy_GZproj_functional   
 
     if(allocated(slater_matrix_elements)) deallocate(slater_matrix_elements)
     if(allocated(vdm)) deallocate(vdm)

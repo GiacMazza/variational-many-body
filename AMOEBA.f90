@@ -1,10 +1,7 @@
 MODULE MIN_AMOEBA
   USE SF_IOTOOLS
 
-
-
 CONTAINS
-
 
   SUBROUTINE amoeba(p,y,ftol,func,iter,verbose)
     IMPLICIT NONE

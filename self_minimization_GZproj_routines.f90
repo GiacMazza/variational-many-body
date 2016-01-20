@@ -4,7 +4,7 @@ function get_delta_proj_variational_density_diag(lm_) result(delta_proj_variatio
   real(8),dimension(Ns)           :: delta_proj_variational_density_vec
   real(8),dimension(Ns,Ns) :: lm
   real(8),dimension(Ns,Ns) :: delta_proj_variational_density,proj_variational_density
-  real(8),dimension(Nphi,Nphi)          :: H_projectors,H_tmp
+  complex(8),dimension(Nphi,Nphi)          :: H_projectors,H_tmp
   real(8),dimension(Nphi)               :: H_eigens
   real(8) :: tmp_ene
 
@@ -62,7 +62,7 @@ function get_proj_variational_density_diag(lm_) result(proj_variational_density)
   real(8),dimension(:)           :: lm_
   real(8),dimension(Ns)   :: proj_variational_density
   real(8),dimension(Ns,Ns)   :: lm
-  real(8),dimension(Nphi,Nphi) :: H_projectors
+  complex(8),dimension(Nphi,Nphi) :: H_projectors
   real(8),dimension(Nphi)       :: H_eigens
   integer                        :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
   integer :: iphi,jphi
@@ -99,7 +99,7 @@ function get_delta_proj_variational_density_full(lm_) result(delta_proj_variatio
   real(8),dimension(Ns*Ns) :: delta_proj_variational_density_vec
   real(8),dimension(Ns,Ns) :: lm
   real(8),dimension(Ns,Ns) :: delta_proj_variational_density,proj_variational_density
-  real(8),dimension(Nphi,Nphi)         :: H_projectors
+  complex(8),dimension(Nphi,Nphi)         :: H_projectors
   real(8),dimension(Nphi)               :: H_eigens
   !
   integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
@@ -134,7 +134,7 @@ function get_proj_variational_density_full(lm_) result(proj_variational_density)
   real(8),dimension(:)                   :: lm_
   real(8),dimension(Ns,Ns) :: proj_variational_density
   real(8),dimension(Ns,Ns) :: lm
-  real(8),dimension(Nphi,Nphi)         :: H_projectors
+  complex(8),dimension(Nphi,Nphi)         :: H_projectors
   real(8),dimension(Nphi)               :: H_eigens
   integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
   integer :: iphi,jphi
@@ -167,7 +167,7 @@ function get_delta_free_proj_variational_density_diag(lm_) result(delta_proj_var
   real(8),dimension(Ns)           :: delta_proj_variational_density_vec
   real(8),dimension(Ns,Ns) :: lm
   real(8),dimension(Ns,Ns) :: delta_proj_variational_density,proj_variational_density
-  real(8),dimension(Nphi,Nphi)         :: H_projectors
+  complex(8),dimension(Nphi,Nphi)         :: H_projectors
   real(8),dimension(Nphi)               :: H_eigens
   integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
   integer :: iphi,jphi
@@ -209,9 +209,9 @@ function deltaVDM_proj(lm_) result(E_Hloc)
   real(8)                         :: E_Hloc
   real(8),dimension(Ns,Ns)        :: lm
   real(8),dimension(Ns,Ns)        :: delta_proj_variational_density,proj_variational_density
-  real(8),dimension(Nphi,Nphi)    :: H_projectors,H_tmp
+  complex(8),dimension(Nphi,Nphi)    :: H_projectors,H_tmp
   real(8),dimension(Nphi)         :: H_eigens
-  real(8),dimension(Nphi)         :: GZvect
+  complex(8),dimension(Nphi)         :: GZvect
   integer                         :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
   integer                         :: iphi,jphi
   real(8)                         :: tmp_ene

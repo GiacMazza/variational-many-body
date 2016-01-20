@@ -244,18 +244,18 @@ CONTAINS
 
 
   function trace_phi_basis(phi_vect,phi_trace) result(trace)
-    real(8),dimension(Nphi) :: phi_vect
-    real(8),dimension(Nphi,Nphi) :: phi_trace
+    complex(8),dimension(Nphi) :: phi_vect
+    complex(8),dimension(Nphi,Nphi) :: phi_trace
     real(8) :: trace
     integer :: iphi,jphi
     trace=0.d0
     do iphi=1,Nphi
        do jphi=1,Nphi
-          trace = trace + phi_vect(iphi)*phi_vect(jphi)*phi_trace(iphi,jphi)
+          trace = trace + conjg(phi_vect(iphi))*phi_vect(jphi)*phi_trace(iphi,jphi)
        end do
     end do
   end function trace_phi_basis
-
+  
 
 
 
@@ -280,35 +280,37 @@ CONTAINS
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_local_dens(is,js,:,:) = &
-               get_traces_basis_phiOphi(local_dens(is,js,:,:))
+               get_traces_basis_phiOphi(op_local_dens(is,js,:,:))
        end do
     end do
     !
     do iorb=1,Norb
        do jorb=1,Norb
           phi_traces_basis_dens_dens_orb(iorb,jorb,:,:) = &
-               get_traces_basis_phiOphi(dens_dens_orb(iorb,jorb,:,:))
+               get_traces_basis_phiOphi(op_dens_dens_orb(iorb,jorb,:,:))
+          !
           phi_traces_basis_spin_flip(iorb,jorb,:,:) = &
-               get_traces_basis_phiOphi(spin_flip(iorb,jorb,:,:))
+               get_traces_basis_phiOphi(op_spin_flip(iorb,jorb,:,:))
+          !
           phi_traces_basis_pair_hopping(iorb,jorb,:,:) = &
-               get_traces_basis_phiOphi(pair_hopping(iorb,jorb,:,:))
+               get_traces_basis_phiOphi(op_pair_hopping(iorb,jorb,:,:))
        end do
        phi_traces_basis_docc_orb(iorb,:,:) = &
-            get_traces_basis_phiOphi(docc(iorb,:,:))
+            get_traces_basis_phiOphi(op_docc(iorb,:,:))
     end do
     !
 
     !+- density constraints Tr(Phi+ Phi C_i) C_i=density matrix -+!
     allocate(phi_traces_basis_dens(Ns,Ns,Nphi,Nphi))
-    allocate(phi_traces_basis_Cdens(Ns,Ns,Nphi,Nphi))
+    !allocate(phi_traces_basis_Cdens(Ns,Ns,Nphi,Nphi))
 
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_dens(is,js,:,:) = &
-               get_traces_basis_phiphiO_s(local_dens(is,js,:,:))
+               get_traces_basis_phiphiO_s(op_local_dens(is,js,:,:))
           !
-          phi_traces_basis_Cdens(is,js,:,:) = &
-               get_traces_basis_phiphiO(local_dens(is,js,:,:)) !+- to be removed
+          ! phi_traces_basis_Cdens(is,js,:,:) = &
+          !      get_traces_basis_phiphiO(local_dens(is,js,:,:)) !+- to be removed
        end do
     end do
     !+- Hoppings -+!

@@ -1,9 +1,10 @@
 subroutine get_GZproj_ground_state(n0,slater_derivatives,lgr_multip,E_Hloc,GZvect) 
   real(8),dimension(Ns)           :: n0
-  real(8),dimension(Ns,Ns) :: slater_derivatives,lgr_multip
+  complex(8),dimension(Ns,Ns) :: slater_derivatives
+  real(8),dimension(Ns,Ns) :: lgr_multip
   real(8)                                :: E_Hloc
-  real(8),dimension(Nphi)               :: GZvect
-  real(8),dimension(Nphi,Nphi)         :: H_projectors
+  complex(8),dimension(Nphi)               :: GZvect
+  complex(8),dimension(Nphi,Nphi)         :: H_projectors
   real(8),dimension(Nphi)               :: H_eigens  
   integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
   integer                                :: iphi,jphi
@@ -35,10 +36,11 @@ end subroutine get_GZproj_ground_state
 
 subroutine get_GZproj_free_ground_state(n0,slater_derivatives,lgr_multip,E_Hloc,GZvect) 
   real(8),dimension(Ns)           :: n0
-  real(8),dimension(Ns,Ns) :: slater_derivatives,lgr_multip
+  complex(8),dimension(Ns,Ns) :: slater_derivatives
+  real(8),dimension(Ns,Ns) :: lgr_multip
   real(8)                                :: E_Hloc
-  real(8),dimension(nphi)               :: GZvect
-  real(8),dimension(Nphi,Nphi)         :: H_projectors
+  complex(8),dimension(nphi)               :: GZvect
+  complex(8),dimension(Nphi,Nphi)         :: H_projectors
   real(8),dimension(Nphi)               :: H_eigens
   integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
   integer                                :: iphi,jphi
@@ -70,11 +72,11 @@ end subroutine get_GZproj_free_ground_state
 
 
 subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)     
-  real(8),dimension(Ns,Ns),intent(in) :: Rhop
+  complex(8),dimension(Ns,Ns),intent(in) :: Rhop
   real(8),dimension(Ns),intent(in)           :: lm
   real(8)                                           :: Estar
-  real(8),dimension(Ns,Ns)            :: slater_derivatives
-  real(8),dimension(Ns,Ns)            :: Hk,tmp,Hk_bare,Hstar
+  complex(8),dimension(Ns,Ns)            :: slater_derivatives
+  complex(8),dimension(Ns,Ns)            :: Hk,tmp,Hk_bare,Hstar
   real(8),dimension(Ns)                      :: ek
   integer                                           :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik
   Estar=0.d0
@@ -126,11 +128,11 @@ end subroutine store_slater_ground_state
 
 
 subroutine store_slater_ground_state_cmin(Rhop,lm,Estar,slater_matrix_el)     
-  real(8),dimension(Ns,Ns),intent(in) :: Rhop
+  complex(8),dimension(Ns,Ns),intent(in) :: Rhop
   real(8),dimension(Ns),intent(in)           :: lm
   real(8)                                           :: Estar
-  real(8),dimension(Ns,Ns,Lk)            :: slater_matrix_el
-  real(8),dimension(Ns,Ns)            :: Hk,tmp,Hk_bare,Hstar
+  complex(8),dimension(Ns,Ns,Lk)            :: slater_matrix_el
+  complex(8),dimension(Ns,Ns)            :: Hk,tmp,Hk_bare,Hstar
   real(8),dimension(Ns)                      :: ek
   integer                                           :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik
   Estar=0.d0

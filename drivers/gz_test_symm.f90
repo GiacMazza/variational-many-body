@@ -26,6 +26,10 @@ program GUTZ_mb
   integer                            :: out_unit,iter
   integer                            :: lattice ! 2=square;3=cubic
 
+  real(8),dimension(:),allocatable :: epsik,hybik
+  integer :: Nx
+  real(8)                          :: Wband
+
 
 
 
@@ -47,10 +51,10 @@ program GUTZ_mb
   
   call initialize_local_fock_space
 
-  do i=1,nFock_indep
-     call bdecomp(fock_indep(i),fock_vec)
-     write(*,'(I2,A,20I3)') fock_indep(i),'|>',fock_vec(:)
-  end do
+  ! do i=1,nFock_indep
+  !    call bdecomp(fock_indep(i),fock_vec)
+  !    write(*,'(I2,A,20I3)') fock_indep(i),'|>',fock_vec(:)
+  ! end do
 
 
   !call enforce_su2_rotational_symmetry

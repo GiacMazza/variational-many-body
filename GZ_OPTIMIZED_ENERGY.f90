@@ -26,7 +26,8 @@ CONTAINS
     integer                                    :: iorb,jorb,istate,jstate
     integer :: ifock,iphi,jphi,ifock_
     !
-    real(8),dimension(Nphi) :: phi_vector_test,phi_vec
+    real(8),dimension(Nphi) :: phi_vector_test
+    complex(8),dimension(Nphi) :: phi_vec
     !
     optimization_flag=.true.
     allocate(GZ_opt_projector_diag(Nphi))
@@ -42,27 +43,27 @@ CONTAINS
     
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_opt_projector_diag,optimized_vdm)
     !    
-    phi_vector_test=GZ_opt_projector_diag
+    phi_vec=GZ_opt_projector_diag
     !
     
     !+- GET OBSERVABLES -+!
     ! physical density !
     allocate(gz_dens(Ns))
     do istate=1,Ns
-       gz_dens(istate) = trace_phi_basis(phi_vector_test,phi_traces_basis_local_dens(istate,istate,:,:))
+       gz_dens(istate) = trace_phi_basis(phi_vec,phi_traces_basis_local_dens(istate,istate,:,:))
     end do
 
     ! density-density same orbital -aka orbital doubly occupancy-!
     allocate(gz_docc(Norb))
     do iorb=1,Norb
-       gz_docc(iorb) = trace_phi_basis(phi_vector_test,phi_traces_basis_docc_orb(iorb,:,:))
+       gz_docc(iorb) = trace_phi_basis(phi_vec,phi_traces_basis_docc_orb(iorb,:,:))
     end do
 
     ! density-density different orbitals !
     allocate(gz_dens_dens_orb(Norb,Norb))
     do iorb=1,Norb
        do jorb=1,Norb
-          gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vector_test,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
+          gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
        end do
     end do
     !+-
@@ -150,13 +151,13 @@ CONTAINS
     real(8),dimension(:),intent(in)        :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                                :: GZ_energy !INPUT: Optimized GZ energy at fixed 
     real(8)                                :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
-    real(8),dimension(Ns,Ns) :: R_init        ! initial guess for the hopping renormalization matrix    
-    real(8),dimension(Ns,Ns) :: slater_derivatives    
-    real(8),dimension(Ns,Ns) :: R_iter,R_old ! hopping matrix renormalization (during iterations)
+    complex(8),dimension(Ns,Ns) :: R_init        ! initial guess for the hopping renormalization matrix    
+    complex(8),dimension(Ns,Ns) :: slater_derivatives    
+    complex(8),dimension(Ns,Ns) :: R_iter,R_old ! hopping matrix renormalization (during iterations)
     real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
-    real(8),dimension(Ns,Ns) :: GZproj_lgr_multip  ! GZ vector (during iterations)
+    real(8),dimension(Ns,Ns) :: GZproj_lgr_multip  ! 
     real(8)                                :: E_Hstar,E_Hloc
-    real(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)
+    complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)
     !
     integer                                :: istate,iter,jstate,ifock,jfock,iphi,jphi
     integer                                :: unit
@@ -250,13 +251,13 @@ CONTAINS
     real(8),dimension(:),intent(in)           :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                                   :: GZ_energy !INPUT: Optimized GZ energy at fixed 
     real(8)                                   :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
-    real(8),dimension(Nphi)                  :: GZvect_iter  ! GZ vector (during iterations)
+    complex(8),dimension(Nphi)                  :: GZvect_iter  ! GZ vector (during iterations)
 
-    real(8),dimension(Ns,Ns)    :: R_iter ! hopping matrix renormalization (during iterations)
+    complex(8),dimension(Ns,Ns)    :: R_iter ! hopping matrix renormalization (during iterations)
 
-    real(8),dimension(Ns,Ns)    :: R_init        ! initial guess for the hopping renormalization matrix    
+    complex(8),dimension(Ns,Ns)    :: R_init        ! initial guess for the hopping renormalization matrix    
     real(8),dimension(Ns)              :: R_diag
-    real(8),dimension(Ns,Ns,Lk) :: slater_matrix_el    
+    complex(8),dimension(Ns,Ns,Lk) :: slater_matrix_el    
 
     real(8),dimension(Ns)              :: slater_lgr_multip
     real(8),dimension(Ns,Ns)    :: GZproj_lgr_multip  
@@ -356,10 +357,10 @@ CONTAINS
   end function gz_energy_recursive_cmin
   !
   subroutine initialize_GZprojectors(GZvect_iter,n0)
-    real(8),dimension(Nphi) :: GZvect_iter
+    complex(8),dimension(Nphi) :: GZvect_iter
     real(8),dimension(Ns) :: n0
-    real(8),dimension(Ns,Ns) :: R_init        
-    real(8),dimension(Ns,Ns) :: slater_derivatives
+    complex(8),dimension(Ns,Ns) :: R_init        
+    complex(8),dimension(Ns,Ns) :: slater_derivatives
     real(8),dimension(Ns)           :: slater_lgr_multip
     real(8),dimension(Ns,Ns) :: GZproj_lgr_multip  
     real(8) :: E_Hstar,E_HLoc

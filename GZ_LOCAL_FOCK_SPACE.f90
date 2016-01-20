@@ -42,7 +42,7 @@ CONTAINS
     call build_local_observables
     !
     ! TO BE REMOVED ONCE SU(2) AND GENERAL ROTATIONS SYMMETRIES ARE DIRECTELY IMPLEMENTED
-    call get_spin_indep_states
+    !call get_spin_indep_states
     !
   end subroutine initialize_local_fock_space
 
@@ -170,24 +170,22 @@ CONTAINS
 
   subroutine build_local_observables  !+---> forse piu' corretto chiamarli local operators...
 
-    allocate(dens(Ns,nFock,nFock))
-    allocate(local_dens(Ns,Ns,nFock,nFock))
-    allocate(docc(Norb,nFock,nFock))
-    allocate(dens_dens_orb(Norb,Norb,nFock,nFock))
-    allocate(dens_dens_interaction(nFock,nFock))
-    allocate(spin_flip(Norb,Norb,nFock,nFock))
-    allocate(pair_hopping(Norb,Norb,nFock,nFock))
+    allocate(op_dens(Ns,nFock,nFock))
+    allocate(op_local_dens(Ns,Ns,nFock,nFock))
+    allocate(op_docc(Norb,nFock,nFock))
+    allocate(op_dens_dens_orb(Norb,Norb,nFock,nFock))
+    allocate(op_spin_flip(Norb,Norb,nFock,nFock))
+    allocate(op_pair_hopping(Norb,Norb,nFock,nFock))
 
     !    Uhubbard=density_density_interaction(CC,CA)    
     !dens_dens_interaction=rotationally_invariant_density_density(CC,CA)  !HERE MAY ADD SINGLET SPLITTING TERMS, SPIN FLIPS, PAIR HOPPINGS, etc...
-
-    docc          = local_doubly(CC,CA)
-    dens          = local_density(CC,CA)
-    local_dens    = local_density_matrix(CC,CA)
-    dens_dens_orb = local_density_density_orb(CC,CA)
-    spin_flip     = local_spin_flip(CC,CA)
-    pair_hopping  = local_pair_hopping(CC,CA)
-
+    op_docc          = local_doubly(CC,CA)
+    op_dens          = local_density(CC,CA)
+    op_local_dens    = local_density_matrix(CC,CA)
+    op_dens_dens_orb = local_density_density_orb(CC,CA)
+    op_spin_flip     = local_spin_flip(CC,CA)
+    op_pair_hopping  = local_pair_hopping(CC,CA)
+    
 
   end subroutine build_local_observables
 
@@ -212,48 +210,48 @@ CONTAINS
   end function sz_rotate
 
 
-  subroutine get_spin_indep_states
-    integer :: i_ind,i,iorb,istate
-    integer :: tmp_search(nFock),tmp_target(nFock)
-    integer :: ifock,isymm
-    integer :: check_maps
-    integer :: test_vec(Ns)
-    !+- get independent states under sz rotation symmetry -+!        
-    tmp_search=0
-    i_ind=0
-    do ifock=1,nFock       
-       tmp_target(ifock)=sz_rotate(ifock)              
-       if(tmp_search(ifock).ge.0) then
-          i_ind=i_ind+1
-          tmp_search(ifock)=ifock
-          if(tmp_target(ifock).ne.ifock) tmp_search(tmp_target(ifock)) = -1
-       end if
-    end do
-    nFock_indep=i_ind
-    allocate(fock_indep(nFock_indep),full2indep_fock(nFock),indep2full_fock(nFock_indep,2))
-    i_ind=0
-    do i=1,nFock
-       if(tmp_search(i).ge.0) then
-          i_ind=i_ind+1
-          fock_indep(i_ind) = tmp_search(i)
-       end if
-    end do
-    do i_ind=1,nFock_indep
-       full2indep_fock(fock_indep(i_ind))=i_ind       
-       full2indep_fock(tmp_target(fock_indep(i_ind)))=i_ind
-    end do
-    do i_ind=1,nFock_indep       
-       indep2full_fock(i_ind,1) = fock_indep(i_ind)
-       indep2full_fock(i_ind,2) = tmp_target(fock_indep(i_ind))
-    end do
-    !+- check maps +-!
-    do i_ind=1,nFock_indep
-       do isymm=1,2
-          check_maps=indep2full_fock(i_ind,isymm)
-          if(i_ind /= full2indep_fock(check_maps)) stop "WRONG MAPS"
-       end do
-    end do
-  end subroutine get_spin_indep_states
+  ! subroutine get_spin_indep_states
+  !   integer :: i_ind,i,iorb,istate
+  !   integer :: tmp_search(nFock),tmp_target(nFock)
+  !   integer :: ifock,isymm
+  !   integer :: check_maps
+  !   integer :: test_vec(Ns)
+  !   !+- get independent states under sz rotation symmetry -+!        
+  !   tmp_search=0
+  !   i_ind=0
+  !   do ifock=1,nFock       
+  !      tmp_target(ifock)=sz_rotate(ifock)              
+  !      if(tmp_search(ifock).ge.0) then
+  !         i_ind=i_ind+1
+  !         tmp_search(ifock)=ifock
+  !         if(tmp_target(ifock).ne.ifock) tmp_search(tmp_target(ifock)) = -1
+  !      end if
+  !   end do
+  !   nFock_indep=i_ind
+  !   allocate(fock_indep(nFock_indep),full2indep_fock(nFock),indep2full_fock(nFock_indep,2))
+  !   i_ind=0
+  !   do i=1,nFock
+  !      if(tmp_search(i).ge.0) then
+  !         i_ind=i_ind+1
+  !         fock_indep(i_ind) = tmp_search(i)
+  !      end if
+  !   end do
+  !   do i_ind=1,nFock_indep
+  !      full2indep_fock(fock_indep(i_ind))=i_ind       
+  !      full2indep_fock(tmp_target(fock_indep(i_ind)))=i_ind
+  !   end do
+  !   do i_ind=1,nFock_indep       
+  !      indep2full_fock(i_ind,1) = fock_indep(i_ind)
+  !      indep2full_fock(i_ind,2) = tmp_target(fock_indep(i_ind))
+  !   end do
+  !   !+- check maps +-!
+  !   do i_ind=1,nFock_indep
+  !      do isymm=1,2
+  !         check_maps=indep2full_fock(i_ind,isymm)
+  !         if(i_ind /= full2indep_fock(check_maps)) stop "WRONG MAPS"
+  !      end do
+  !   end do
+  ! end subroutine get_spin_indep_states
 
   ! Rotationally invariant Hubbard interaction !
   function rotationally_invariant_density_density(cc,ca) result(Oi)

@@ -34,6 +34,8 @@ CONTAINS
     !
     Nphi = get_dimension_phi_basis()
     !call build_matrix_basis
+
+
     call build_traces_matrix_basis
     !
   end subroutine init_variational_matrices
@@ -83,22 +85,17 @@ CONTAINS
 
 
     call get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
-
-
-
     call get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
 
     dim_phi=size(phi_fock,1)
     Nphi=dim_phi
 
-    
-    
     write(*,*) "NPHI",Nphi
     !    stop
     !
     allocate(phi_basis(dim_phi,nFock,nFock))
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    phi_basis = dreal(phi_fock)
+    phi_basis = phi_fock
     !
 
     !
@@ -120,12 +117,12 @@ CONTAINS
     do iphi=1,Nphi
        do ifock=1,nFock
           do jfock=1,nFock
-             phi_basis_dag(iphi,jfock,ifock)=phi_basis(iphi,ifock,jfock)
+             phi_basis_dag(iphi,jfock,ifock)=conjg(phi_basis(iphi,ifock,jfock))
           end do
        end do
-       write(*,*) iphi
     end do
     ! 
+    
     allocate(test_trace(Nphi,Nphi))
     test_trace=get_traces_basis_phiOphi(Id)
     
@@ -142,8 +139,8 @@ CONTAINS
        phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
     end do
     
-    ! test_trace=get_traces_basis_phiOphi(Id)
-    ! stop "Variational basis  TRACE-ORTHOGONAL"
+
+    !stop "Variational basis  TRACE-ORTHOGONAL"
     
     !
     ! do iphi=1,Nphi
@@ -277,12 +274,16 @@ CONTAINS
     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
 
+
+
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_local_dens(is,js,:,:) = &
                get_traces_basis_phiOphi(op_local_dens(is,js,:,:))
+          !write(*,*) is,js
        end do
     end do
+    
     !
     do iorb=1,Norb
        do jorb=1,Norb
@@ -334,7 +335,7 @@ CONTAINS
   function get_traces_basis_phiOphi(Oi) result(trace_matrix)
     real(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed
     real(8),dimension(Nphi,Nphi)   :: trace_matrix
-    real(8),dimension(nFock,nFock) :: tmp
+    complex(8),dimension(nFock,nFock) :: tmp
     integer                        :: kfock,iphi,jphi
     !
     trace_matrix=0.d0                

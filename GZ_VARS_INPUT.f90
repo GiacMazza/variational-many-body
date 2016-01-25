@@ -24,6 +24,10 @@ MODULE GZ_VARS_INPUT
   real(8) :: Rmix
   integer :: Niter_self
 
+
+  real(8) :: lanc_tolerance
+
+
 contains
 
   subroutine read_input(INPUTunit)

@@ -11,6 +11,12 @@ function get_delta_proj_variational_density_diag(lm_) result(delta_proj_variatio
   integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
   integer :: iphi,jphi
   !
+  !+- TEST SPARSE MATRIX
+  type(sparse_matrix) :: sparseH
+  logical :: test_sparse
+  integer :: isparse
+
+  !
   lm=0.d0
   do istate=1,Ns
      lm(istate,istate) = lm_(istate)
@@ -18,6 +24,7 @@ function get_delta_proj_variational_density_diag(lm_) result(delta_proj_variatio
   !
   proj_variational_density=0.d0
   !+- build up the local H_projectors -+!
+  H_projectors=zero
   H_projectors=phi_traces_basis_Hloc
   do istate=1,Ns
      do jstate=1,Ns
@@ -26,30 +33,40 @@ function get_delta_proj_variational_density_diag(lm_) result(delta_proj_variatio
      end do
   end do
   !
+  
+  !
+  ! call sp_init_matrix(sparseH,Nphi)
+  ! call sp_load_matrix(H_projectors,sparseH)
+  ! isparse=0
+  ! do iphi=1,Nphi
+  !    do jphi=1,Nphi
+  !       test_sparse = sp_inquire_element(sparseH,iphi,jphi)
+  !       if(test_sparse) isparse=isparse+1
+  !    end do
+  ! end do
+  ! write(*,*) 'I-sparse',isparse
+  ! stop
+  !
+  
   call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
   !
-  !<DEBUG
-  do iphi=1,Nphi
-     write(*,*) H_eigens(iphi)
-  end do
-  write(*,*)
-  tmp_ene=trace_phi_basis(H_projectors(:,1),phi_traces_basis_Hloc)
-  write(*,*) tmp_ene
-  write(*,*)
-  !DEBUG>
-
   !
   do istate=1,Ns
      do jstate=1,Ns
         !
         proj_variational_density(istate,jstate) = trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens(istate,jstate,:,:))
         !
+        
+        !<DEBUG
+        write(*,*) trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens(istate,jstate,:,:))
+        !DEBUG>
+
      end do
      !<DEBUG
-     write(*,*) lm_(istate),proj_variational_density(istate,istate)
+     !write(*,*) lm_(istate),proj_variational_density(istate,istate)
      !DEBUG>
   end do
-  !  stop
+!  stop
   
        
 
@@ -245,7 +262,6 @@ function deltaVDM_proj(lm_) result(E_Hloc)
 
   GZvect=H_projectors(1:Nphi,1)
   !
-
   E_Hloc = 0.d0
   do istate=1,Ns
      do jstate=1,Ns

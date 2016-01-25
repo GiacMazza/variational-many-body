@@ -71,6 +71,46 @@ end subroutine get_GZproj_free_ground_state
 
 
 
+subroutine get_GZproj_ground_state_fixR(n0,slater_derivatives,lgr_multip,E_Hloc,GZvect) 
+  real(8),dimension(Ns)           :: n0
+  complex(8),dimension(Ns,Ns) :: slater_derivatives
+  real(8),dimension(Ns,Ns,2) :: lgr_multip
+  real(8)                                :: E_Hloc
+  complex(8),dimension(Nphi)               :: GZvect
+  complex(8),dimension(Nphi,Nphi)         :: H_projectors
+  real(8),dimension(Nphi)               :: H_eigens  
+  integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+  integer                                :: iphi,jphi
+  !
+  !+- build up the local H_projectors -+!
+  H_projectors=phi_traces_basis_Hloc
+  do istate=1,Ns
+     do jstate=1,Ns
+        H_projectors = H_projectors + &
+             slater_derivatives(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)/sqrt(n0(jstate)*(1.d0-n0(jstate)))
+        H_projectors = H_projectors + lgr_multip(istate,jstate,1)*phi_traces_basis_dens(istate,jstate,:,:)
+        H_projectors = H_projectors + lgr_multip(istate,jstate,2)*phi_traces_basis_Rhop(istate,jstate,:,:)
+     end do
+  end do
+  !
+  call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
+  !
+  GZvect=H_projectors(1:Nphi,1)
+  !
+  E_Hloc=0.d0
+  do iphi=1,Nphi
+     do jphi=1,Nphi
+        E_Hloc=E_Hloc+trace_phi_basis(GZvect,phi_traces_basis_Hloc)
+     end do
+  end do
+  !
+end subroutine get_GZproj_ground_state_fixR
+
+
+
+
+
+
 subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)     
   complex(8),dimension(Ns,Ns),intent(in) :: Rhop
   real(8),dimension(Ns),intent(in)           :: lm

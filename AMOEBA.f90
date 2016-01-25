@@ -123,12 +123,12 @@ CONTAINS
     REAL(8), PARAMETER :: TINY=1.0d-10
     INTEGER :: ihi,ndim
     REAL(8), DIMENSION(size(p,2)) :: psum
-    if(verbose) then
-       unit=free_unit()
-       open(unit,file='amoeba_ER_verbose.out')
-    end if
+    ! if(verbose) then
+    !    unit=free_unit()
+    !    open(unit,file='amoeba_ER_verbose.out')
+    ! end if
     call amoeba_private
-    if(verbose) close(unit)
+    !if(verbose) close(unit)
   CONTAINS
     !BL
     SUBROUTINE amoeba_private
@@ -147,7 +147,7 @@ CONTAINS
          inhi=imaxloc(y(:))
          y(ihi)=ytmp
          rtol=2.0d0*abs(y(ihi)-y(ilo))/(abs(y(ihi))+abs(y(ilo))+TINY)
-         if(verbose) write(unit,'(5F18.10)') dble(iter),rtol,y(ihi),y(ilo)
+         write(40,'(5F18.10)') dble(iter),rtol,y(ihi),y(ilo)
          if (rtol < ftol) then
             call swap_r(y(1),y(ilo))
             call swap_rv(p(1,:),p(ilo,:))                        

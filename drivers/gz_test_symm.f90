@@ -8,6 +8,7 @@ program GUTZ_mb
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
   USE GZ_OPTIMIZED_ENERGY
+  USE GZ_EFFECTIVE_HOPPINGS
   !
 
   !
@@ -18,8 +19,11 @@ program GUTZ_mb
   !+- hamiltonian details -+!
   integer                            :: ispin,iorb,i,istate,jstate,ifock,jorb
   integer,dimension(:),allocatable   :: fock_vec
-  !  real(8),dimension(3)               :: GZene  
+  complex(8),dimension(:),allocatable               :: init_vec
   real(8),dimension(:),allocatable   :: variational_density_natural
+  real(8),dimension(:),allocatable   :: vdm_init,vdm_out
+  complex(8),dimension(:),allocatable   :: Rhop_init,Rhop_out
+  complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix
   real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
   !  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
   !  integer                            :: ix,iy,iz,ik,Nk
@@ -27,7 +31,7 @@ program GUTZ_mb
   integer                            :: lattice ! 2=square;3=cubic
 
   real(8),dimension(:),allocatable :: epsik,hybik
-  integer :: Nx
+  integer :: Nx,is
   real(8)                          :: Wband
 
 
@@ -72,6 +76,22 @@ program GUTZ_mb
 
   call build_lattice_model
 
+
+  !<TEST MINIMIZATION
+  allocate(vdm_init(Ns),vdm_out(Ns))
+  allocate(Rhop_init(Ns),Rhop_out(Ns),init_vec(Nphi),Rhop_init_matrix(Ns,Ns))
+  vdm_init=variational_density_natural_simplex(1,1:Ns)
+  init_vec=1.d0/sqrt(dble(Nphi))
+  Rhop_init_matrix=hopping_renormalization_normal(init_vec,vdm_init)  
+  do is=1,NS
+     Rhop_init(is) = Rhop_init_matrix(is,is)
+  end do
+  Rhop_init=one
+  call gz_optimization_vdm_Rhop(vdm_init,Rhop_init,vdm_out,Rhop_out)
+  stop
+  !TEST MINIMIZATION
+
+  !
   !
   call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)  
   !

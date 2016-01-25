@@ -4,7 +4,7 @@ MODULE GZ_OPTIMIZED_ENERGY
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_EFFECTIVE_HOPPINGS
-!  USE GZ_PROJECTORS
+  !  USE GZ_PROJECTORS
   USE GZ_MATRIX_BASIS
   USE GZ_ENERGY_MINIMIZATION
   USE MIN_AMOEBA
@@ -14,7 +14,9 @@ MODULE GZ_OPTIMIZED_ENERGY
   public :: gz_optimization_simplex
   public :: get_gz_ground_state_estimation
   logical,public :: optimization_flag
-
+  !
+  public :: gz_optimization_vdm_Rhop
+  !
 CONTAINS
 
   !+-----------------------------------------------------------------------------------------------------+!
@@ -40,12 +42,12 @@ CONTAINS
        energy=gz_energy_recursive_cmin(optimized_vdm)
     end select
     !
-    
+
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_opt_projector_diag,optimized_vdm)
     !    
     phi_vec=GZ_opt_projector_diag
     !
-    
+
     !+- GET OBSERVABLES -+!
     ! physical density !
     allocate(gz_dens(Ns))
@@ -70,6 +72,90 @@ CONTAINS
     ! place for other observables... SPINS,ISO-SPINS,...bla bla bla
     !+-
   end subroutine get_gz_ground_state_estimation
+
+
+
+
+
+  subroutine gz_optimization_vdm_Rhop(init_vdm,init_Rhop,opt_vdm,opt_Rhop) 
+    real(8),dimension(Ns),intent(inout)    :: init_vdm
+    complex(8),dimension(Ns),intent(inout) :: init_Rhop
+    real(8),dimension(Ns),intent(out)      :: opt_vdm
+    complex(8),dimension(Ns),intent(out)   :: opt_Rhop
+
+    real(8),dimension(3*Ns) :: xmin
+    real(8) :: Emin
+    integer :: is,iter
+    !
+    do is=1,Ns
+       xmin(is) = init_vdm(is)
+       xmin(is+Ns) = dreal(init_Rhop(is))
+       xmin(is+2*Ns) = dimag(init_Rhop(is))
+    end do
+    !    
+    write(*,*) "XMIN"
+    do is=1,3*Ns
+       write(*,*) xmin(is)
+    end do
+    Emin=gz_energy_vdm_Rhop(xmin)
+    write(*,*) Emin
+    !call fmin_cg(xmin,gz_energy_vdm_Rhop,iter,Emin)
+    !
+  end subroutine gz_optimization_vdm_Rhop
+
+
+
+  function gz_energy_vdm_Rhop(x) result(GZ_energy)
+    real(8),dimension(:) :: x
+    real(8)              :: GZ_energy
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+
+    
+    complex(8),dimension(Ns,Ns) :: slater_derivatives    
+    real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
+    real(8),dimension(Ns,Ns,2) :: GZproj_lgr_multip  ! 
+    real(8),dimension(Ns,Ns) :: GZproj_lgr_multip_  ! 
+    real(8)                                :: E_Hstar,E_Hloc
+    complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)
+
+    integer :: is
+    !
+    
+    !
+    if(size(x).ne.3*Ns) stop "gz_energy_vdm_Rhop/ wrong dimensions"
+    !
+    Rhop=zero
+    do is=1,Ns
+       vdm(is)=x(is)
+       Rhop(is,is)=x(is+Ns) + xi*x(is+2*Ns)
+       write(*,*) Rhop(is,is)
+    end do
+    !
+
+
+
+    call slater_determinant_minimization_nlep(Rhop,vdm,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
+
+    call gz_projectors_minimization_fixR(slater_derivatives,vdm,Rhop,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+    
+    !call gz_projectors_minimization_nlep_obs(slater_derivatives,vdm,E_Hloc,GZvect_iter,GZproj_lgr_multip_,GZmin_verbose)                   
+    
+    
+    GZ_energy=E_Hstar+E_Hloc
+
+    !
+  end function gz_energy_vdm_Rhop
+
+
+
+
+
+
+
+
+
+
 
   
   

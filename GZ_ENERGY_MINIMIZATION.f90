@@ -13,11 +13,17 @@ MODULE GZ_ENERGY_MINIMIZATION
   USE GZ_MATRIX_BASIS
   USE MIN_AMOEBA
   !
+  USE MATRIX_SPARSE
+  !
   implicit none
   private
   !
   public :: gz_projectors_minimization_nlep,slater_determinant_minimization_nlep
   public :: slater_determinant_minimization_cmin,gz_projectors_minimization_cmin
+
+
+  public :: gz_projectors_minimization_fixR
+  public :: gz_projectors_minimization_nlep_obs
 
   public :: free_gz_projectors_init
   !
@@ -159,6 +165,106 @@ contains
     include 'self_minimization_GZproj_routines.f90'
     !
   end subroutine gz_projectors_minimization_nlep_obs
+
+
+
+
+
+
+
+
+
+  subroutine gz_projectors_minimization_fixR(slater_derivatives,n0_target,R_target,E_Hloc,GZvect,lgr_multip,iverbose)
+    complex(8),dimension(Ns,Ns),intent(in)  :: slater_derivatives !input:  Slater Deter GZ energy derivatives
+    real(8),dimension(Ns),intent(in)     :: n0_target          !input:  Variational density matrix
+    complex(8),dimension(Ns,Ns),intent(in)  :: R_target          !input:  Renormalization matrices
+    real(8),dimension(2*Ns)                :: lgr
+    real(8),dimension(Ns) :: lgr_tmp
+    real(8),dimension(Ns,Ns,2)                :: lgr_multip
+    complex(8),dimension(nPhi)              :: GZvect   !output: GZvector
+    real(8)                              :: E_Hloc,Emin   !output: optimized local energy
+    real(8)                              :: lgr_symm(1)
+    logical,optional                     :: iverbose
+    real(8),dimension(2*Ns)                :: err_dens
+    real(8),dimension(Ns)                :: err_dens_tmp
+    real(8),dimension(Ns*Ns)             :: err_dens_full
+    real(8)                              :: off_constraints
+    real(8)                              :: delta_out
+    logical                              :: iverbose_
+    integer                              :: info,istate,i,j,iter
+    !+- amoeba_variables-+!
+    real(8),allocatable,dimension(:,:)   :: p
+    real(8),allocatable,dimension(:)     :: y
+    real(8)                              :: ftol
+    integer                              :: np,mp,i_vertex,j_vertex,i_dim,is
+
+    iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose    
+    !
+    lgr=0.d0; lgr_tmp=0.d0
+    do istate=1,Ns
+       lgr_tmp(istate)=(0.5d0-n0_target(istate))*2.d0
+    end do
+    
+    !
+
+    !call fsolve(constraints_deviation_tmp,lgr_tmp,tol=1.d-15,info=info)    
+    !call fsolve(get_delta_proj_variational_density_diag,lgr_tmp,tol=1.d-15,info=info)    
+
+
+    !Simplex minimization minimizing of the deviation from the variational target density no_target
+    NP=2*NS
+    MP=NP+1
+    allocate(y(MP),p(MP,NP))
+    !+- initialize simplex -+!
+    p(1,:) = 0.d0
+    do i=1,2*NS
+       do j=1,Ns
+          p(i+1,j) = (0.5d0-n0_target(j))!*dble(i)*0.1
+          p(i+1,j+Ns) = dble(i)*dble(j)*0.5
+       end do
+    end do
+    !
+    do i_vertex=1,MP
+       y(i_vertex)=constraints_deviation_amb(p(i_vertex,:))
+    end do
+    call amoeba_er(p(1:MP,1:NP),y(1:MP),1.d-8,constraints_deviation_amb,iter,verbose=.false.)
+    lgr=p(1,:); deallocate(y,p)
+        
+    !call fsolve(constraints_deviation,lgr,tol=1.d-15,info=info)    
+
+    !    
+    lgr_multip=0.d0
+    do istate=1,Ns
+       lgr_multip(istate,istate,1)=lgr(istate)
+       lgr_multip(istate,istate,2)=lgr(istate+Ns)
+    end do
+    call get_GZproj_ground_state_fixR(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect)
+    !
+    if(iverbose_) then
+       write(*,*)
+       write(*,*) "GZ projectors: Lagrange Parameters -diagonal case-"
+       write(*,'(10F18.10)') lgr
+       !
+       err_dens=constraints_deviation_amb(lgr)
+       !err_dens_tmp=get_delta_proj_variational_density_diag(lgr_tmp)
+       write(*,*) "GZ projectors: Variational density matrix error"
+       write(*,'(10F18.10)') err_dens
+       !
+       write(*,*) "GZ projectors: Optimized Local Energy"
+       write(*,'(10F18.10)') E_Hloc
+       write(*,*)
+    end if
+    !
+  contains
+    !
+    !include 'self_minimization_GZproj_routines.f90'
+    include 'fixR_min_routines.f90'
+    !
+  end subroutine gz_projectors_minimization_fixR
+
+
+
+
 
 
 

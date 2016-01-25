@@ -15,7 +15,7 @@ CONTAINS
     !
     do is=1,Ns
        do js=1,Ns
-          Rhop(is,js) = trace_phi_basis(phi,phi_traces_basis_Rhop(is,js,iphi,jphi))
+          Rhop(is,js) = trace_phi_basis(phi,phi_traces_basis_Rhop(is,js,:,:))
           Rhop(is,js) = Rhop(is,js)/sqrt(vdm_natural(js)*(1.d0-vdm_natural(js)))
        end do
     end do
@@ -26,7 +26,7 @@ CONTAINS
     !       do iphi=1,Nphi
     !          do jphi=1,Nphi
     !             Rhop(is,js) = &
-    !                  Rhop(is,js) + phi(iphi)*phi(jphi)*phi_traces_basis_Rhop(is,js,iphi,jphi)/sqrt(vdm_natural(js)*(1.d0-vdm_natural(js)))                           
+    !                  Rhop(is,js) + conjg(phi(iphi))*phi(jphi)*phi_traces_basis_Rhop(is,js,iphi,jphi)/sqrt(vdm_natural(js)*(1.d0-vdm_natural(js)))                           
     !          end do
     !       end do
     !    end do

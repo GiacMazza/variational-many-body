@@ -6,6 +6,7 @@ MODULE GZ_LOCAL_FOCK
   private
   !  
   public :: initialize_local_fock_space       
+  public :: build_local_hamiltonian
   !
 CONTAINS
   !
@@ -54,6 +55,10 @@ CONTAINS
     real(8),dimension(nFock,nFock) :: tmp
     real(8) :: mu_ph
     !
+    if(allocated(local_hamiltonian)) deallocate(local_hamiltonian)
+    if(allocated(local_hamiltonian_free)) deallocate(local_hamiltonian_free)
+    if(allocated(atomic_energy_levels)) deallocate(atomic_energy_levels)
+    
     allocate(local_hamiltonian(nFock,nFock),local_hamiltonian_free(nFock,nFock))
 
     !+- energy of the atomic levels -+!

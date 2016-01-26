@@ -58,7 +58,7 @@ function get_delta_proj_variational_density_diag(lm_) result(delta_proj_variatio
         !
         
         !<DEBUG
-        write(*,*) trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens(istate,jstate,:,:))
+        !write(*,*) trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens(istate,jstate,:,:))
         !DEBUG>
 
      end do

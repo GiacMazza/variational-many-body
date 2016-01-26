@@ -171,15 +171,14 @@ contains
 
 
 
-
-
-
+  !+- AS IT IS THIS ROUTINE IS WRONG, INDEED IN ORDER TO IMPLEMENT THE FIX-R MINIMIZATION NO SLATER DERIVATIVES HAVE TO BE CONSIDERED....I'LL COME BACK LATER ON THIS... -+!
   subroutine gz_projectors_minimization_fixR(slater_derivatives,n0_target,R_target,E_Hloc,GZvect,lgr_multip,iverbose)
     complex(8),dimension(Ns,Ns),intent(in)  :: slater_derivatives !input:  Slater Deter GZ energy derivatives
     real(8),dimension(Ns),intent(in)     :: n0_target          !input:  Variational density matrix
     complex(8),dimension(Ns,Ns),intent(in)  :: R_target          !input:  Renormalization matrices
     real(8),dimension(2*Ns)                :: lgr
     real(8),dimension(Ns) :: lgr_tmp
+    real(8),dimension(1) :: lgr_tmp_
     real(8),dimension(Ns,Ns,2)                :: lgr_multip
     complex(8),dimension(nPhi)              :: GZvect   !output: GZvector
     real(8)                              :: E_Hloc,Emin   !output: optimized local energy
@@ -203,11 +202,15 @@ contains
     lgr=0.d0; lgr_tmp=0.d0
     do istate=1,Ns
        lgr_tmp(istate)=(0.5d0-n0_target(istate))*2.d0
+       lgr(istate)=(0.5d0-n0_target(istate))*2.d0
+       !lgr(istate+Ns)=0.2d0
     end do
     
     !
-
-    !call fsolve(constraints_deviation_tmp,lgr_tmp,tol=1.d-15,info=info)    
+    lgr_tmp=0.d0
+    lgr_tmp_=0.d0
+    ! call fsolve(constraints_deviation_tmp,lgr_tmp_,tol=1.d-15,info=info)    
+    ! stop
     !call fsolve(get_delta_proj_variational_density_diag,lgr_tmp,tol=1.d-15,info=info)    
 
 
@@ -231,13 +234,14 @@ contains
     lgr=p(1,:); deallocate(y,p)
         
     !call fsolve(constraints_deviation,lgr,tol=1.d-15,info=info)    
-
+    
     !    
     lgr_multip=0.d0
     do istate=1,Ns
        lgr_multip(istate,istate,1)=lgr(istate)
-       lgr_multip(istate,istate,2)=lgr(istate+Ns)
+       lgr_multip(istate,istate,2)=0.d0!lgr(istate+Ns)
     end do
+    write(*,*) lgr_multip(:,:,1)
     call get_GZproj_ground_state_fixR(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect)
     !
     if(iverbose_) then
@@ -417,9 +421,8 @@ contains
     !
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose
     !
-    lgr=0.d0
-    call fsolve(get_delta_local_density_matrix_diag,lgr,tol=1.d-12,info=info)
-    !
+    lgr=0.d0    
+    call fsolve(get_delta_local_density_matrix_diag,lgr,tol=1.d-12,info=info)    
     call store_slater_ground_state_cmin(Rhop,lgr,Estar,slater_matrix_el)
     lgr_multip=lgr
     !

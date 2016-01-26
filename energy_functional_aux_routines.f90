@@ -89,7 +89,7 @@ subroutine get_GZproj_ground_state_fixR(n0,slater_derivatives,lgr_multip,E_Hloc,
         H_projectors = H_projectors + &
              slater_derivatives(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)/sqrt(n0(jstate)*(1.d0-n0(jstate)))
         H_projectors = H_projectors + lgr_multip(istate,jstate,1)*phi_traces_basis_dens(istate,jstate,:,:)
-        H_projectors = H_projectors + lgr_multip(istate,jstate,2)*phi_traces_basis_Rhop(istate,jstate,:,:)
+        !        H_projectors = H_projectors + lgr_multip(istate,jstate,2)*phi_traces_basis_Rhop(istate,jstate,:,:)
      end do
   end do
   !
@@ -97,13 +97,8 @@ subroutine get_GZproj_ground_state_fixR(n0,slater_derivatives,lgr_multip,E_Hloc,
   !
   GZvect=H_projectors(1:Nphi,1)
   !
-  E_Hloc=0.d0
-  do iphi=1,Nphi
-     do jphi=1,Nphi
-        E_Hloc=E_Hloc+trace_phi_basis(GZvect,phi_traces_basis_Hloc)
-     end do
-  end do
-  !
+  E_Hloc=E_Hloc+trace_phi_basis(GZvect,phi_traces_basis_Hloc)
+  !  
 end subroutine get_GZproj_ground_state_fixR
 
 

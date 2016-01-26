@@ -9,7 +9,7 @@ MODULE GZ_MATRIX_BASIS
   public :: init_variational_matrices
   public :: trace_phi_basis
   !
-  !public :: basis_O1xSU2_irr_reps
+  public :: get_traces_basis_phiOphi
   !
   !
   type intarray
@@ -93,24 +93,25 @@ CONTAINS
     write(*,*) "NPHI",Nphi
     !    stop
     !
-    allocate(phi_basis(dim_phi,nFock,nFock))
-    allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    phi_basis = phi_fock
+    ! allocate(phi_basis(dim_phi,nFock,nFock))
+    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    ! phi_basis = phi_fock
     !
 
     !
     !< tmp TEST
-    ! Nphi=nFock*nFock
-    ! dim_phi=Nphi
-    ! allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
-    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    ! iphi=0
-    ! do ifock=1,nFock
-    !    do jfock=1,nFock
-    !       iphi=iphi+1
-    !       phi_basis(iphi,ifock,jfock) = 1.d0
-    !    end do
-    ! end do
+    Nphi=nFock*nFock
+    dim_phi=Nphi
+    allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
+    allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    iphi=0
+    do ifock=1,nFock
+       write(*,*) ifock
+       do jfock=1,nFock
+          iphi=iphi+1
+          phi_basis(iphi,ifock,jfock) = 1.d0
+       end do
+    end do
     ! END TMP_TEST>
     !
 
@@ -243,7 +244,7 @@ CONTAINS
   function trace_phi_basis(phi_vect,phi_trace) result(trace)
     complex(8),dimension(Nphi) :: phi_vect
     complex(8),dimension(Nphi,Nphi) :: phi_trace
-    real(8) :: trace
+    complex(8) :: trace
     integer :: iphi,jphi
     trace=0.d0
     do iphi=1,Nphi
@@ -280,7 +281,7 @@ CONTAINS
        do js=1,Ns
           phi_traces_basis_local_dens(is,js,:,:) = &
                get_traces_basis_phiOphi(op_local_dens(is,js,:,:))
-          !write(*,*) is,js
+          write(*,*) is,js
        end do
     end do
     
@@ -298,6 +299,7 @@ CONTAINS
        end do
        phi_traces_basis_docc_orb(iorb,:,:) = &
             get_traces_basis_phiOphi(op_docc(iorb,:,:))
+       
     end do
     !
 
@@ -310,8 +312,8 @@ CONTAINS
           phi_traces_basis_dens(is,js,:,:) = &
                get_traces_basis_phiphiO_s(op_local_dens(is,js,:,:))
           !
-          ! phi_traces_basis_Cdens(is,js,:,:) = &
-          !      get_traces_basis_phiphiO(local_dens(is,js,:,:)) !+- to be removed
+          ! phi_traces_basis_dens(is,js,:,:) = &
+          !      get_traces_basis_phiphiO(op_local_dens(is,js,:,:))
        end do
     end do
     !+- Hoppings -+!
@@ -319,6 +321,7 @@ CONTAINS
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB_s(CA(is,:,:),CC(js,:,:)) 
+          !phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB(CA(is,:,:),CC(js,:,:)) 
        end do
     end do
   end subroutine build_traces_matrix_basis

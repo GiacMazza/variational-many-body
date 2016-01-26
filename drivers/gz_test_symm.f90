@@ -33,7 +33,8 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: epsik,hybik
   integer :: Nx,is
   real(8)                          :: Wband
-
+  !
+  real(8) :: tmp_emin
 
 
 
@@ -72,24 +73,29 @@ program GUTZ_mb
   !
   allocate(variational_density_natural_simplex(Ns+1,Ns))
   allocate(variational_density_natural(Ns))
-  call initialize_variational_density_simplex(variational_density_natural_simplex)
+  !call initialize_variational_density_simplex(variational_density_natural_simplex)
 
   call build_lattice_model
 
-
-  !<TEST MINIMIZATION
-  allocate(vdm_init(Ns),vdm_out(Ns))
-  allocate(Rhop_init(Ns),Rhop_out(Ns),init_vec(Nphi),Rhop_init_matrix(Ns,Ns))
-  vdm_init=variational_density_natural_simplex(1,1:Ns)
-  init_vec=1.d0/sqrt(dble(Nphi))
-  Rhop_init_matrix=hopping_renormalization_normal(init_vec,vdm_init)  
-  do is=1,NS
-     Rhop_init(is) = Rhop_init_matrix(is,is)
-  end do
-  Rhop_init=one
-  call gz_optimization_vdm_Rhop(vdm_init,Rhop_init,vdm_out,Rhop_out)
+  variational_density_natural_simplex(1,:)=0.5d0
+  tmp_emin=gz_energy_broyden(variational_density_natural_simplex(1,:))  
+  !tmp_emin=gz_energy_recursive_nlep(variational_density_natural_simplex(1,:))
   stop
+  !
+  !<TEST MINIMIZATION
+  ! allocate(vdm_init(Ns),vdm_out(Ns))
+  ! allocate(Rhop_init(Ns),Rhop_out(Ns),init_vec(Nphi),Rhop_init_matrix(Ns,Ns))
+  ! vdm_init=variational_density_natural_simplex(1,1:Ns)
+  ! init_vec=1.d0/sqrt(dble(Nphi))
+  ! Rhop_init_matrix=hopping_renormalization_normal(init_vec,vdm_init)  
+  ! do is=1,NS
+  !    Rhop_init(is) = Rhop_init_matrix(is,is)
+  ! end do
+  ! Rhop_init=one
+  ! call gz_optimization_vdm_Rhop(vdm_init,Rhop_init,vdm_out,Rhop_out)
+  ! stop
   !TEST MINIMIZATION
+  !
 
   !
   !

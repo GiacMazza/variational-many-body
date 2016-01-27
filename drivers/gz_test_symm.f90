@@ -77,6 +77,13 @@ program GUTZ_mb
 
   call build_lattice_model
 
+
+
+  !stop
+
+
+
+
   variational_density_natural_simplex(1,:)=0.5d0
   tmp_emin=gz_energy_broyden(variational_density_natural_simplex(1,:))  
   !tmp_emin=gz_energy_recursive_nlep(variational_density_natural_simplex(1,:))
@@ -114,24 +121,39 @@ CONTAINS
     real(8)                            :: ts,test_k,kx_,ky_,kz_,wini,wfin,de
     !
 
-
-    Lk=Nx
-    allocate(epsik(Lk),wtk(Lk),hybik(Lk))
+    ! Lk=Nx
+    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
     
-    wini=-Wband/2.d0
-    wfin= Wband/2.d0
-    epsik=linspace(wini,wfin,Lk,mesh=de)
-    !
-    test_k=0.d0
-    do ix=1,Lk
-       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       !wtk(ix) = 1.d0/Wband*de
-       if(ix==1.or.ix==Lk) wtk(ix)=0.d0
-       test_k=test_k+wtk(ix)
-       write(77,*) epsik(ix),wtk(ix)
+    ! wini=-Wband/2.d0
+    ! wfin= Wband/2.d0
+    ! epsik=linspace(wini,wfin,Lk,mesh=de)
+    ! !
+    ! test_k=0.d0
+    ! do ix=1,Lk
+    !    wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+    !    !wtk(ix) = 1.d0/Wband*de
+    !    if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+    !    test_k=test_k+wtk(ix)
+    !    write(77,*) epsik(ix),wtk(ix)
+    ! end do
+    ! hybik=0.d0
+    ! write(*,*) test_k,de
+
+
+    allocate(kx(Nx))
+    kx = linspace(0.d0,pi,Nx,.false.,.false.)
+    Lk=Nx*Nx*Nx
+    allocate(epsik(Lk),wtk(Lk))
+    ik=0
+    do ix=1,Nx
+       do iy=1,Nx
+          do iz=1,Nx
+             ik=ik+1
+             epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) !+- cfr lanata
+             wtk(ik) = 1.d0/dble(Lk)
+          end do
+       end do
     end do
-    hybik=0.d0
-    write(*,*) test_k,de
 
     allocate(Hk_tb(Ns,Ns,Lk))
     
@@ -144,6 +166,16 @@ CONTAINS
           end do
        end do
     end do
+    
+    !<EXTREMA RATIO TEST
+    e0test=0.d0
+    do ik=1,Lk
+       e0test = e0test + fermi_zero(epsik(ik),0.d0)*epsik(ik)*wtk(ik)
+    end do
+
+    !EXTREMA RATIO TEST>
+    
+
 
   end subroutine build_lattice_model
 

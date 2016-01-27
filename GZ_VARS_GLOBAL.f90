@@ -16,6 +16,10 @@ MODULE GZ_VARS_GLOBAL
   complex(8),dimension(:,:,:),allocatable :: phi_basis,phi_basis_dag
 
 
+  !<DEBUG
+  real(8) :: e0test
+  !DEBUG>
+
 
   
   !+--------------------+!

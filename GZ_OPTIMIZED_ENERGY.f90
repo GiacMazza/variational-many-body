@@ -313,38 +313,39 @@ CONTAINS
     !
     if(.not.bound) then
        !
-       
-       !<BAUSTELLE
-       ! R_init=0.d0 
-       ! do istate=1,Ns
-       !    R_init(istate,istate)=Rseed
-       ! end do
-       ! !
 
-       ! do is=1,Ns
-       !    R_broyden(is) = dreal(R_init(is,is))
-       !    R_real(is) = dreal(R_init(is,is))
-       !    R_broyden(is+Ns) = dimag(R_init(is,is))
-       ! end do
+       !<BAUSTELLE
+       R_init=0.d0 
+       do istate=1,Ns
+          R_init(istate,istate)=Rseed
+       end do
+       !
+
+       do is=1,Ns
+          R_broyden(is) = dreal(R_init(is,is))
+          R_real(is) = dreal(R_init(is,is))
+          R_broyden(is+Ns) = dimag(R_init(is,is))
+       end do
        !BAUSTELLE>
-       
+
        icall=0
 
-       Rseed=0.2d0
-       Uin =0.d0
-       do i=1,20
-          Rseed = Rseed - 0.01
-          !call fzero_broyden(root_functionU,Uin)
-          write(*,*) "root Uin",root_functionU(Uin)
-          write(*,*) "root 10.d0",root_functionU(10.d0)
-          Uin=fzero_brentq(root_functionU,Uin,10.d0)
-          write(55,*) Rseed,Uin
-       end do
-       stop
-       
-
+       ! Rseed=0.11d0
+       ! Uin =-0.1d0
+       ! do i=1,1
+       !    Rseed = Rseed - 0.01
+       !    !call fzero_broyden(root_functionU,Uin)
+       !    write(*,*) "root Uin",root_functionU(Uin)
+       !    write(*,*) "root 10.d0",root_functionU(10.d0)
+       !    !stop
+       !    Uin=fzero_brentq(root_functionU,Uin,10.d0)
+       !    write(55,*) Rseed,Uin
+       ! end do
        !
-       !call fzero_broyden(root_function,R_broyden)
+       ! stop
+       !
+       !
+       call fzero_broyden(root_function,R_broyden)
        !call fixed_point_sub(R_broyden,root_function,xtol=1.d-6)
        !call fmin_cg(R_broyden,min_function,iter,fmin)
        write(*,*) 'ICALL',icall
@@ -359,13 +360,16 @@ CONTAINS
 
        call slater_determinant_minimization_nlep(Ropt,n0,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
        !
-       call gz_projectors_minimization_nlep_obs(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+
+
+
+       call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
        !
        GZ_energy = E_Hstar + E_Hloc       
        !
 
 
-       
+
        !<BAUSTELLE
        ! write(opt_GZ_unit,*) n0
        ! write(opt_GZ_unit,*)
@@ -467,10 +471,11 @@ CONTAINS
       real(8)   :: f
       complex(8),dimension(Ns,Ns)     :: Rmatrix     
       complex(8),dimension(Ns,Ns)     :: slater_derivatives    
+      complex(8),dimension(Ns,Ns,Lk) :: slater_matrix_el    
       complex(8),dimension(Ns,Ns)     :: Rnew ! hopping matrix renormalization (during iterations)
       real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
       real(8),dimension(Ns,Ns)        :: GZproj_lgr_multip  ! 
-      real(8)                         :: E_Hstar,E_Hloc
+      real(8)                         :: E_Hstar,E_Hloc,GZ_energy
       complex(8),dimension(nPhi)      :: GZvect  ! GZ vector (during iterations)
       integer :: is
       !
@@ -480,8 +485,7 @@ CONTAINS
       do is=1,Ns
          Rmatrix(is,is) = Rseed
       end do
-      call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose=.true.)       
-      
+
       Uloc(1)=Uin
       Uloc(2)=Uin
       Ust=Uloc(1)
@@ -489,10 +493,28 @@ CONTAINS
       phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
       phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
 
-      !+----------------------------+!
-      !+- GZproj STEP MINIMIZATION -+!
-      !+----------------------------+!    
-      call gz_projectors_minimization_nlep_obs(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,iverbose=.true.)                   
+
+      call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose=.false.)       
+
+      !<DEBUG
+      ! write(*,*) 'slater derivatives ok'
+      ! slater_derivatives=zero
+      ! do is=1,Ns
+      !    slater_derivatives(is,is) = 2.d0*Rmatrix(is,is)*e0test
+      !    write(*,*) slater_derivatives(is,is)
+      ! end do
+      !DEBUG>
+
+      call gz_projectors_minimization_nlep_obs(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,iverbose=.false.)                   
+
+      !stop
+
+
+      ! call slater_determinant_minimization_cmin(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_matrix_el,iverbose=.false.)       
+      ! GZvect=1.d0/sqrt(dble(Nphi))
+      ! call gz_projectors_minimization_cmin(slater_matrix_el,n0,GZvect,GZ_energy,GZproj_lgr_multip,.true.)
+
+
       !
       Rnew=hopping_renormalization_normal(GZvect,n0)
       !      
@@ -556,11 +578,11 @@ CONTAINS
 
       write(*,*) "calling root funciton"
       do is=1,Ns
-         ! f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
-         ! f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
+         f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
+         f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
          !
-         f(is) = dreal(Rnew(is,is))
-         f(is+Ns) = dimag(Rnew(is,is))
+         ! f(is) = dreal(Rnew(is,is))
+         ! f(is+Ns) = dimag(Rnew(is,is))
 
          ! f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
          ! f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
@@ -661,9 +683,11 @@ CONTAINS
     real(8)                                :: E_Hstar,E_Hloc
     complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)
     !
-    integer                                :: istate,iter,jstate,ifock,jfock,iphi,jphi
+    integer                                :: istate,iter,jstate,ifock,jfock,iphi,jphi,is
     integer                                :: unit
     logical                                :: bound
+
+    
     !
     write(*,*) '********************'
     write(*,*) 'INPUT DENSITY',n0(:)
@@ -689,6 +713,18 @@ CONTAINS
           !+- SLATER STEP MINIMIZATION -+!
           !+----------------------------+!    
           call slater_determinant_minimization_nlep(R_iter,n0,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
+
+
+          !<DEBUG
+          slater_derivatives=zero
+          do is=1,Ns
+             slater_derivatives(is,is) = 2.d0*R_iter(is,is)*e0test
+             !write(*,*) slater_derivatives(is,is),R_iter(is,is),e0test
+          end do
+          !stop
+          !DEBUG>
+
+
           !+----------------------------+!
           !+- GZproj STEP MINIMIZATION -+!
           !+----------------------------+!    

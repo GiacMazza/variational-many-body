@@ -28,7 +28,7 @@ function get_delta_local_density_matrix_diag(lm_) result(delta_local_density_mat
         do jstate=1,Ns
            do kstate=1,Ns
               local_density_matrix(istate,jstate) = &
-                   local_density_matrix(istate,jstate) + fermi(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)
+                   local_density_matrix(istate,jstate) + fermi_zero(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)
            end do
         end do
      end do
@@ -70,7 +70,7 @@ function get_delta_local_density_matrix_full(lm_) result(delta_local_density_mat
         do jstate=1,Ns
            do kstate=1,Ns
               local_density_matrix(istate,jstate) = &
-                   local_density_matrix(istate,jstate) + fermi(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)                        
+                   local_density_matrix(istate,jstate) + fermi_zero(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)                        
            end do
         end do
      end do
@@ -117,7 +117,7 @@ function get_local_density_matrix_diag(lm_) result(local_density_matrix)
                  jstate=index(jspin,jorb)               
                  do kstate=1,Ns
                     local_density_matrix(istate,jstate) = &
-                         local_density_matrix(istate,jstate) + fermi(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)                        
+                         local_density_matrix(istate,jstate) + fermi_zero(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)                        
                  end do
               end do
            end do
@@ -152,7 +152,7 @@ function get_local_density_matrix_full(lm) result(local_density_matrix)
                  jstate=index(jspin,jorb)               
                  do kstate=1,Ns
                     local_density_matrix(istate,jstate) = &
-                         local_density_matrix(istate,jstate) + fermi(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)                        
+                         local_density_matrix(istate,jstate) + fermi_zero(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)                        
                  end do
               end do
            end do
@@ -197,7 +197,7 @@ function get_delta_local_density_matrix_orb(lm_) result(delta_local_density_matr
         do jstate=1,Ns
            do kstate=1,Ns
               local_density_matrix(istate,jstate) = &
-                   local_density_matrix(istate,jstate) + fermi(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)
+                   local_density_matrix(istate,jstate) + fermi_zero(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)
            end do
         end do
      end do

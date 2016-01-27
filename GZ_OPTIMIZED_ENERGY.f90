@@ -330,16 +330,21 @@ CONTAINS
        
        icall=0
 
-       Rseed=0.2d0
-       Uin =0.d0
-       do i=1,20
+       Rseed=0.31d0
+       Uin =-0.1d0
+       do i=1,30
           Rseed = Rseed - 0.01
           !call fzero_broyden(root_functionU,Uin)
           write(*,*) "root Uin",root_functionU(Uin)
           write(*,*) "root 10.d0",root_functionU(10.d0)
+          !stop
           Uin=fzero_brentq(root_functionU,Uin,10.d0)
           write(55,*) Rseed,Uin
        end do
+
+
+       
+
        stop
        
 
@@ -359,7 +364,7 @@ CONTAINS
 
        call slater_determinant_minimization_nlep(Ropt,n0,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
        !
-       call gz_projectors_minimization_nlep_obs(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+       call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
        !
        GZ_energy = E_Hstar + E_Hloc       
        !
@@ -467,10 +472,11 @@ CONTAINS
       real(8)   :: f
       complex(8),dimension(Ns,Ns)     :: Rmatrix     
       complex(8),dimension(Ns,Ns)     :: slater_derivatives    
+      complex(8),dimension(Ns,Ns,Lk) :: slater_matrix_el    
       complex(8),dimension(Ns,Ns)     :: Rnew ! hopping matrix renormalization (during iterations)
       real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
       real(8),dimension(Ns,Ns)        :: GZproj_lgr_multip  ! 
-      real(8)                         :: E_Hstar,E_Hloc
+      real(8)                         :: E_Hstar,E_Hloc,GZ_energy
       complex(8),dimension(nPhi)      :: GZvect  ! GZ vector (during iterations)
       integer :: is
       !
@@ -480,8 +486,7 @@ CONTAINS
       do is=1,Ns
          Rmatrix(is,is) = Rseed
       end do
-      call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose=.true.)       
-      
+
       Uloc(1)=Uin
       Uloc(2)=Uin
       Ust=Uloc(1)
@@ -489,10 +494,18 @@ CONTAINS
       phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
       phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
 
-      !+----------------------------+!
-      !+- GZproj STEP MINIMIZATION -+!
-      !+----------------------------+!    
-      call gz_projectors_minimization_nlep_obs(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,iverbose=.true.)                   
+
+      !      call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose=.true.)       
+      ! call gz_projectors_minimization_nlep_obs(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,iverbose=.true.)                   
+
+
+
+
+      call slater_determinant_minimization_cmin(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_matrix_el,iverbose=.false.)       
+      GZvect=1.d0/sqrt(dble(Nphi))
+      call gz_projectors_minimization_cmin(slater_matrix_el,n0,GZvect,GZ_energy,GZproj_lgr_multip,.true.)
+
+
       !
       Rnew=hopping_renormalization_normal(GZvect,n0)
       !      

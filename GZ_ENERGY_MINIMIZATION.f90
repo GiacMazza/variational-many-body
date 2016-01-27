@@ -105,7 +105,15 @@ contains
        !lgr(istate)=(n0_target(istate)-0.5d0)*2.d0
        lgr(istate)=(0.5d0-n0_target(istate))*2.d0
     end do
-    !lgr=0.d0
+    lgr=0.d0
+    
+    
+    !<DEBUG
+    write(*,*) '!+- DEBUG -+!'
+    write(*,*) get_delta_proj_variational_density_diag(lgr)
+    write(*,*) '!+---------+!'
+    !stop
+    !DEBUG>
     !
     call fsolve(get_delta_proj_variational_density_diag,lgr,tol=1.d-15,info=info)    
     !

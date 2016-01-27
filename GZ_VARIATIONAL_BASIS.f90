@@ -100,18 +100,29 @@ CONTAINS
 
     !
     !< tmp TEST
-    Nphi=nFock*nFock
+    ! Nphi=nFock*nFock
+    ! dim_phi=Nphi
+    ! allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
+    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    ! iphi=0
+    ! do ifock=1,nFock
+    !    write(*,*) ifock
+    !    do jfock=1,nFock
+    !       iphi=iphi+1
+    !       phi_basis(iphi,ifock,jfock) = 1.d0
+    !    end do
+    ! end do
+    Nphi=nFock
     dim_phi=Nphi
     allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
     iphi=0
     do ifock=1,nFock
-       write(*,*) ifock
-       do jfock=1,nFock
-          iphi=iphi+1
-          phi_basis(iphi,ifock,jfock) = 1.d0
-       end do
+       iphi=iphi+1
+       phi_basis(iphi,ifock,ifock) = 1.d0
     end do
+    
+
     ! END TMP_TEST>
     !
 

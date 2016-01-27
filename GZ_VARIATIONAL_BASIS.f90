@@ -9,7 +9,7 @@ MODULE GZ_MATRIX_BASIS
   public :: init_variational_matrices
   public :: trace_phi_basis
   !
-  !public :: basis_O1xSU2_irr_reps
+  public :: get_traces_basis_phiOphi
   !
   !
   type intarray
@@ -49,6 +49,9 @@ CONTAINS
     complex(8),dimension(:,:,:),allocatable :: phi_irr
     complex(8),dimension(:,:,:),allocatable :: phi_fock
 
+    complex(8),dimension(nFock,nFock) :: tmp_matrix
+    complex(8) :: tmp_trace
+
     real(8),dimension(nFock,nFock) :: Id
     real(8),dimension(:,:),allocatable :: test_trace
     !
@@ -56,13 +59,16 @@ CONTAINS
     forall(ifock=1:nFock) Id(ifock,ifock)=1.d0
 
 
-
-    !
-    call basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
+    select case(wf_symmetry)
+    case(0)
+       call basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
+    case(1)
+       call basis_O1cXSU2sXSU2c_irr_reps(irr_reps,equ_reps,Virr_reps)
+    end select
     !
     Nirr_reps=size(irr_reps,1)
     Nineq_reps=size(equ_reps,2)
-
+    !
     write(*,*) Nirr_reps,Nineq_reps
     !
     write(*,*) 'IRREDUCIBLE REPS'
@@ -79,36 +85,75 @@ CONTAINS
     call get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
     call get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
 
+
     dim_phi=size(phi_fock,1)
     Nphi=dim_phi
+
+    write(*,*) "NPHI",Nphi
+    !    stop
     !
-    allocate(phi_basis(dim_phi,nFock,nFock))
+    ! allocate(phi_basis(dim_phi,nFock,nFock))
+    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    ! phi_basis = phi_fock
+    !
+
+    !
+    !< tmp TEST
+    ! Nphi=nFock*nFock
+    ! dim_phi=Nphi
+    ! allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
+    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    ! iphi=0
+    ! do ifock=1,nFock
+    !    write(*,*) ifock
+    !    do jfock=1,nFock
+    !       iphi=iphi+1
+    !       phi_basis(iphi,ifock,jfock) = 1.d0
+    !    end do
+    ! end do
+    Nphi=nFock
+    dim_phi=Nphi
+    allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    phi_basis = dreal(phi_fock)
+    iphi=0
+    do ifock=1,nFock
+       iphi=iphi+1
+       phi_basis(iphi,ifock,ifock) = 1.d0
+    end do
     
+
+    ! END TMP_TEST>
+    !
+
     do iphi=1,Nphi
        do ifock=1,nFock
           do jfock=1,nFock
-             phi_basis_dag(iphi,jfock,ifock)=phi_basis(iphi,ifock,jfock)
+             phi_basis_dag(iphi,jfock,ifock)=conjg(phi_basis(iphi,ifock,jfock))
           end do
        end do
     end do
-    ! !
+    ! 
+    
     allocate(test_trace(Nphi,Nphi))
     test_trace=get_traces_basis_phiOphi(Id)
-    !
+    
+    !+- safe check on the matrix orthogonality
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          if(abs(test_trace(iphi,jphi)).gt.1.d-8.and.iphi.ne.jphi) &
+               stop "Variational basis not Trace-orthogonal"
+       end do
+    end do
+
     do iphi=1,Nphi
        phi_basis(iphi,:,:)     = phi_basis(iphi,:,:)/sqrt(test_trace(iphi,iphi))
        phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
     end do
-    test_trace=get_traces_basis_phiOphi(Id)
-    !<SAFE_CHECK
-    do iphi=1,Nphi
-       write(*,'(20F7.1)') test_trace(iphi,:)
-    end do
+    
 
-
-
+    !stop "Variational basis  TRACE-ORTHOGONAL"
+    
+    !
     ! do iphi=1,Nphi
     !    write(30,*) iphi!,indep2full_fock(iphi,:)
     !    do ifock=1,Nfock
@@ -120,7 +165,8 @@ CONTAINS
     ! do iphi=1,Nphi
     !    write(*,'(20F6.3)') test_trace(iphi,:)
     ! end do
-    write(*,*) "NPHI",Nphi
+    !
+    !write(*,*) "NPHI",Nphi
     
 
 
@@ -206,18 +252,18 @@ CONTAINS
 
 
   function trace_phi_basis(phi_vect,phi_trace) result(trace)
-    real(8),dimension(Nphi) :: phi_vect
-    real(8),dimension(Nphi,Nphi) :: phi_trace
-    real(8) :: trace
+    complex(8),dimension(Nphi) :: phi_vect
+    complex(8),dimension(Nphi,Nphi) :: phi_trace
+    complex(8) :: trace
     integer :: iphi,jphi
     trace=0.d0
     do iphi=1,Nphi
        do jphi=1,Nphi
-          trace = trace + phi_vect(iphi)*phi_vect(jphi)*phi_trace(iphi,jphi)
+          trace = trace + conjg(phi_vect(iphi))*phi_vect(jphi)*phi_trace(iphi,jphi)
        end do
     end do
   end function trace_phi_basis
-
+  
 
 
 
@@ -239,38 +285,45 @@ CONTAINS
     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
 
+
+
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_local_dens(is,js,:,:) = &
-               get_traces_basis_phiOphi(local_dens(is,js,:,:))
+               get_traces_basis_phiOphi(op_local_dens(is,js,:,:))
+          write(*,*) is,js
        end do
     end do
+    
     !
     do iorb=1,Norb
        do jorb=1,Norb
           phi_traces_basis_dens_dens_orb(iorb,jorb,:,:) = &
-               get_traces_basis_phiOphi(dens_dens_orb(iorb,jorb,:,:))
+               get_traces_basis_phiOphi(op_dens_dens_orb(iorb,jorb,:,:))
+          !
           phi_traces_basis_spin_flip(iorb,jorb,:,:) = &
-               get_traces_basis_phiOphi(spin_flip(iorb,jorb,:,:))
+               get_traces_basis_phiOphi(op_spin_flip(iorb,jorb,:,:))
+          !
           phi_traces_basis_pair_hopping(iorb,jorb,:,:) = &
-               get_traces_basis_phiOphi(pair_hopping(iorb,jorb,:,:))
+               get_traces_basis_phiOphi(op_pair_hopping(iorb,jorb,:,:))
        end do
        phi_traces_basis_docc_orb(iorb,:,:) = &
-            get_traces_basis_phiOphi(docc(iorb,:,:))
+            get_traces_basis_phiOphi(op_docc(iorb,:,:))
+       
     end do
     !
 
     !+- density constraints Tr(Phi+ Phi C_i) C_i=density matrix -+!
     allocate(phi_traces_basis_dens(Ns,Ns,Nphi,Nphi))
-    allocate(phi_traces_basis_Cdens(Ns,Ns,Nphi,Nphi))
+    !allocate(phi_traces_basis_Cdens(Ns,Ns,Nphi,Nphi))
 
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_dens(is,js,:,:) = &
-               get_traces_basis_phiphiO_s(local_dens(is,js,:,:))
+               get_traces_basis_phiphiO_s(op_local_dens(is,js,:,:))
           !
-          phi_traces_basis_Cdens(is,js,:,:) = &
-               get_traces_basis_phiphiO(local_dens(is,js,:,:)) !+- to be removed
+          ! phi_traces_basis_dens(is,js,:,:) = &
+          !      get_traces_basis_phiphiO(op_local_dens(is,js,:,:))
        end do
     end do
     !+- Hoppings -+!
@@ -294,7 +347,7 @@ CONTAINS
   function get_traces_basis_phiOphi(Oi) result(trace_matrix)
     real(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed
     real(8),dimension(Nphi,Nphi)   :: trace_matrix
-    real(8),dimension(nFock,nFock) :: tmp
+    complex(8),dimension(nFock,nFock) :: tmp
     integer                        :: kfock,iphi,jphi
     !
     trace_matrix=0.d0                
@@ -306,6 +359,9 @@ CONTAINS
           do kfock=1,nFock
              trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + tmp(kfock,kfock)                  
           end do
+          !<DEBUG
+          !write(*,*) iphi,jphi
+          !DEBUG>
        end do
     end do
     !

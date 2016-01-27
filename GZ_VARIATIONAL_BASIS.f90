@@ -8,19 +8,32 @@ MODULE GZ_MATRIX_BASIS
   !
   public :: init_variational_matrices
   public :: trace_phi_basis
-
-  public :: enforce_su2_rotational_symmetry
+  !
+  !public :: basis_O1xSU2_irr_reps
+  !
+  !
+  type intarray
+     private
+     integer,dimension(:),allocatable :: index
+  end type intarray
+  type local_multiplets
+     private
+     integer :: N_mult
+     integer :: size_mult
+     real(8),dimension(:,:),allocatable :: mult
+     integer,dimension(:),allocatable :: Nequiv_mult
+     type(intarray),dimension(:),allocatable :: Maps
+     integer,dimension(:),allocatable :: inv_map
+  end type local_multiplets
   !
 CONTAINS
-
+  !
   include 'symmetries.f90'
-  
+  !
   subroutine init_variational_matrices
     !
     Nphi = get_dimension_phi_basis()
-    !
-    call build_matrix_basis
-    !
+    !call build_matrix_basis
     call build_traces_matrix_basis
     !
   end subroutine init_variational_matrices
@@ -28,7 +41,98 @@ CONTAINS
 
   function get_dimension_phi_basis() result(dim_phi)
     integer :: dim_phi
-    dim_phi = nFock_indep
+    integer,dimension(:,:),allocatable :: irr_reps
+    integer,dimension(:,:),allocatable :: equ_reps
+    complex(8),dimension(nFock,nFock) :: Virr_reps
+    integer :: Nirr_reps,Nineq_reps,i,j,Neq,ifock,jfock,iphi,jphi
+
+    complex(8),dimension(:,:,:),allocatable :: phi_irr
+    complex(8),dimension(:,:,:),allocatable :: phi_fock
+
+    real(8),dimension(nFock,nFock) :: Id
+    real(8),dimension(:,:),allocatable :: test_trace
+    !
+    Id=0.d0; 
+    forall(ifock=1:nFock) Id(ifock,ifock)=1.d0
+
+
+
+    !
+    call basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
+    !
+    Nirr_reps=size(irr_reps,1)
+    Nineq_reps=size(equ_reps,2)
+
+    write(*,*) Nirr_reps,Nineq_reps
+    !
+    write(*,*) 'IRREDUCIBLE REPS'
+    do i=1,Nirr_reps
+       write(*,*) irr_reps(i,:)
+    end do
+    !
+    write(*,*) 'EQUIVALENT IRREDUCIBLE REPS'
+    do i=1,Nirr_reps
+       write(*,*) equ_reps(i,:)
+    end do
+
+
+    call get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
+    call get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
+
+    dim_phi=size(phi_fock,1)
+    Nphi=dim_phi
+    !
+    allocate(phi_basis(dim_phi,nFock,nFock))
+    allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    phi_basis = dreal(phi_fock)
+    
+    do iphi=1,Nphi
+       do ifock=1,nFock
+          do jfock=1,nFock
+             phi_basis_dag(iphi,jfock,ifock)=phi_basis(iphi,ifock,jfock)
+          end do
+       end do
+    end do
+    ! !
+    allocate(test_trace(Nphi,Nphi))
+    test_trace=get_traces_basis_phiOphi(Id)
+    !
+    do iphi=1,Nphi
+       phi_basis(iphi,:,:)     = phi_basis(iphi,:,:)/sqrt(test_trace(iphi,iphi))
+       phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
+    end do
+    test_trace=get_traces_basis_phiOphi(Id)
+    !<SAFE_CHECK
+    do iphi=1,Nphi
+       write(*,'(20F7.1)') test_trace(iphi,:)
+    end do
+
+
+
+    ! do iphi=1,Nphi
+    !    write(30,*) iphi!,indep2full_fock(iphi,:)
+    !    do ifock=1,Nfock
+    !       write(30,'(20F6.3)') phi_basis(iphi,ifock,:)
+    !    end do
+    ! end do
+    ! !SAFE_CHECK>
+    ! test_trace=get_traces_basis_phiOphi(Id)
+    ! do iphi=1,Nphi
+    !    write(*,'(20F6.3)') test_trace(iphi,:)
+    ! end do
+    write(*,*) "NPHI",Nphi
+    
+
+
+
+    !stop
+
+    !dim_phi = nFock_indep
+    !dim_phi=nFock
+    !< check full phi_matrix
+    !dim_phi = nFock*nfock
+    !>
+
   end function get_dimension_phi_basis
 
 
@@ -43,15 +147,31 @@ CONTAINS
     !
     allocate(phi_basis(Nphi,nFock,nFock),phi_basis_dag(Nphi,nFock,nFock))    
     phi_basis=0.d0
+    
     !
-    do iphi=1,Nphi       
-       do isymm=1,2
-          ifock = indep2full_fock(iphi,isymm)
-          phi_basis(iphi,ifock,ifock) = &
-               phi_basis(iphi,ifock,ifock) + 1.d0
+    ! do iphi=1,Nphi       
+    !    do isymm=1,2
+    !       ifock = indep2full_fock(iphi,isymm)
+    !       phi_basis(iphi,ifock,ifock) = &
+    !            phi_basis(iphi,ifock,ifock) + 1.d0
+    !    end do
+    ! end do
+    !
+
+    !
+    ! do ifock=1,nFock
+    !    phi_basis(ifock,ifock,ifock) = 1.d0
+    ! end do
+    !
+
+    phi_basis = 0.d0
+    do ifock=1,nFock
+       do jfock=1,nFock
+          iphi = (ifock-1)*nFock + jfock
+          phi_basis(iphi,ifock,jfock) = 1.d0
        end do
     end do
-    !
+    ! !
     do iphi=1,Nphi
        do ifock=1,nFock
           do jfock=1,nFock
@@ -59,7 +179,7 @@ CONTAINS
           end do
        end do
     end do
-    !
+    ! !
     allocate(test_trace(Nphi,Nphi))
     test_trace=get_traces_basis_phiOphi(Id)
     !
@@ -69,17 +189,19 @@ CONTAINS
     end do
     !<SAFE_CHECK
     do iphi=1,Nphi
-       write(30,*) iphi,indep2full_fock(iphi,:)
+       write(30,*) iphi!,indep2full_fock(iphi,:)
        do ifock=1,Nfock
           write(30,'(20F6.3)') phi_basis(iphi,ifock,:)
        end do
     end do
     !SAFE_CHECK>
-    ! test_trace=get_traces_basis_phiOphi(Id)
-    ! do iphi=1,Nphi
-    !    write(*,'(20F6.3)') test_trace(iphi,:)
-    ! end do
-    ! write(*,*) "HERE",Nphi
+    test_trace=get_traces_basis_phiOphi(Id)
+    do iphi=1,Nphi
+       write(*,'(20F6.3)') test_trace(iphi,:)
+    end do
+    write(*,*) "HERE",Nphi
+
+    !    stop
   end subroutine build_matrix_basis
 
 
@@ -102,6 +224,7 @@ CONTAINS
   subroutine build_traces_matrix_basis
     integer :: is,js,iorb,jorb
     !+- let's assume that the opertaors in Fock space have been already built
+
 
 
     !+- local operators Tr(Phi+ Oi Phi) -+!
@@ -145,20 +268,18 @@ CONTAINS
        do js=1,Ns
           phi_traces_basis_dens(is,js,:,:) = &
                get_traces_basis_phiphiO_s(local_dens(is,js,:,:))
+          !
           phi_traces_basis_Cdens(is,js,:,:) = &
-               get_traces_basis_phiphiO(local_dens(is,js,:,:))
+               get_traces_basis_phiphiO(local_dens(is,js,:,:)) !+- to be removed
        end do
     end do
-
     !+- Hoppings -+!
     allocate(phi_traces_basis_Rhop(Ns,Ns,Nphi,Nphi))
     do is=1,Ns
        do js=1,Ns
-          !phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB(CA(is,:,:),CC(js,:,:)) 
           phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB_s(CA(is,:,:),CC(js,:,:)) 
        end do
     end do
-
   end subroutine build_traces_matrix_basis
 
 
@@ -287,6 +408,6 @@ CONTAINS
     end do
     !
   end function get_traces_basis_phiAphiB_s
-  
+
   !
 END MODULE GZ_MATRIX_BASIS

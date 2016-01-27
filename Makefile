@@ -23,8 +23,8 @@ VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 OBJS=AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
 
 
-#GALLIBDIR  = /home/mazza/opt_local/galahad/objects/pc64.lnx.gfo/double
-GALLIBDIR  = /opt/galahad/objects/pc64.lnx.gfo/double
+GALLIBDIR  = /home/mazza/opt_local/galahad/objects/pc64.lnx.gfo/double
+#GALLIBDIR  = /opt/galahad/objects/pc64.lnx.gfo/double
 
 GALLIBS1   = -lgalahad -lgalahad_hsl 
 GALLIBS2   = -lgalahad_metis 
@@ -33,7 +33,7 @@ MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 
 #FFLAG +=-fpp -D_$(FPP)
 LIBDIR=/home/mazza/opt_local
-LIBDIR=/opt/
+#LIBDIR=/opt/
 
 INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib -I$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double -L$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)

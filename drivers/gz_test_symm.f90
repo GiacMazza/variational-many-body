@@ -18,13 +18,15 @@ program GUTZ_mb
   !+- hamiltonian details -+!
   integer                            :: ispin,iorb,i,istate,jstate,ifock,jorb
   integer,dimension(:),allocatable   :: fock_vec
-!  real(8),dimension(3)               :: GZene  
+  !  real(8),dimension(3)               :: GZene  
   real(8),dimension(:),allocatable   :: variational_density_natural
   real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
-!  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
-!  integer                            :: ix,iy,iz,ik,Nk
+  !  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
+  !  integer                            :: ix,iy,iz,ik,Nk
   integer                            :: out_unit,iter
   integer                            :: lattice ! 2=square;3=cubic
+
+
 
 
   !+- PARSE INPUT DRIVER -+!
@@ -51,11 +53,12 @@ program GUTZ_mb
   end do
 
 
-  call enforce_su2_rotational_symmetry
-  stop
+  !call enforce_su2_rotational_symmetry
+  ! call basis_O1xSU2_irr_reps
+  ! stop
   call init_variational_matrices
 
-
+  
   
   !call build_gz_local_traces_diag  
   !
@@ -120,25 +123,54 @@ CONTAINS
   
   subroutine print_output(vdm_simplex)
     real(8),dimension(Ns+1,Ns) :: vdm_simplex
-    integer :: out_unit,istate,iorb,iphi
+    integer :: out_unit,istate,iorb,iphi,ifock,jfock
     integer,dimension(Ns) :: fock_state
     real(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
 
+    real(8),dimension(nFock,nFock) :: test_full_phi
+
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
+
+    
     !<BUP
     ! do ifock=1,nFock
     !    call bdecomp(ifock,fock_state)
     !    write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(ifock),'#|',ifock,' >',fock_state(:)
     ! end do
-    do iphi=1,Nphi
-       ifock=indep2full_fock(iphi,1)
-       call bdecomp(ifock,fock_state)
-       write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(iphi),'#|',ifock,' >',fock_state(:)
-    end do
+    ! do iphi=1,Nphi
+    !    ifock=indep2full_fock(iphi,1)
+    !    call bdecomp(ifock,fock_state)
+    !    write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(iphi),'#|',ifock,' >',fock_state(:)
+    ! end do   
     !BUP>
-    close(out_unit)
+    
+    !+- CHANGE THE NAME OF GZ_opt_projector_diag -+!
+    test_full_phi=0.d0
+    do iphi=1,Nphi
+       write(*,*) iphi
+       do ifock=1,nFock
+          write(*,'(20F7.1)') phi_basis(iphi,ifock,:)
+       end do
+       write(*,*)
+       !
+       test_full_phi = test_full_phi + GZ_opt_projector_diag(iphi)*phi_basis(iphi,:,:)
+    end do
+    do ifock=1,nFock
+       do jfock=1,nFock
+          write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
+       end do
+    end do
+    
+    do iphi=1,Nphi
+       write(*,*) GZ_opt_projector_diag(iphi)
+    end do
+    close(out_unit)    
+    
+
+
+    
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_internal_energy.data')

@@ -345,8 +345,8 @@ CONTAINS
        ! stop
        !
        !
-       call fzero_broyden(root_function,R_broyden)
-       !call fixed_point_sub(R_broyden,root_function,xtol=1.d-6)
+       !call fzero_broyden(root_function,R_broyden)
+       call fixed_point_sub(R_broyden,root_function,xtol=1.d-6)
        !call fmin_cg(R_broyden,min_function,iter,fmin)
        write(*,*) 'ICALL',icall
        !
@@ -397,71 +397,7 @@ CONTAINS
     !TMP>
   contains
     !
-    subroutine fixed_point_sub(xin,func,itmax,xtol)
-      implicit none
-      real(8),dimension(:),intent(inout) :: xin
-      integer,optional :: itmax
-      real(8),optional :: xtol
-      integer :: itmax_=200
-      real(8) :: xtol_=1.d-8
-      real(8) :: tmp_test
-      integer :: dimX,i,iter
-      real(8),dimension(size(xin)) :: P0,P1,P2,D,P,Pold,relerr
-      real(8),dimension(:),allocatable :: Xarray
-      real(8) :: Xscalar
-      real(8) :: mix=0.1
-      logical :: check
-      interface 
-         function func(x_)
-           implicit none
-           real(8),dimension(:),intent(in) :: x_
-           real(8),dimension(size(x_))     :: func
-         end function func
-      end interface
-      !
-      if(present(xtol))  xtol_  = xtol
-      if(present(itmax)) itmax_ = itmax
-      dimX = size(xin)
-      allocate(Xarray(dimX))
-      Xarray = Xin
-      P0 = Xarray
-      Pold=P0
-      do iter=1,itmax_
-         !
-         P1 = func(P0)
-         P2 = func(P1)
-         D = P2 - 2.d0*P1 + P0
-         !
-         check=.true.
-         do i=1,dimX
-            if(D(i) == 0.d0) then
-               P(i) = P2(i)
-            else
-               P(i) = P0(i) - (P1(i)-P0(i))*(P1(i)-P0(i))/D(i)
-            end if
-            if(P0(i) == 0.d0) then
-               relerr(i) = P(i) 
-            else
-               relerr(i) = (P(i)-P0(i))/P0(i)
-            end if
-            if(abs(relerr(i)).gt.xtol_) check=.false.
-         end do
-         if(check) then
-            Xin=P
-            return
-         end if
-         !
-         P0=P
-         Pold=P
-         !
-      end do
-      write(*,*) "FIXED POINT:exceede number of iterations"
-    end subroutine fixed_point_sub
-
-
-
-
-
+    
     function root_functionU(Uin) result(f)
       real(8),intent(in) :: Uin
       !real(8),dimension(:) :: Rhop
@@ -489,9 +425,6 @@ CONTAINS
       call build_local_hamiltonian
       phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
       phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-
-
-
       call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose=.false.)       
 
       !<DEBUG
@@ -576,11 +509,11 @@ CONTAINS
 
       write(*,*) "calling root funciton"
       do is=1,Ns
-         f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
-         f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
+         ! f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
+         ! f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
          !
-         ! f(is) = dreal(Rnew(is,is))
-         ! f(is+Ns) = dimag(Rnew(is,is))
+         f(is) = dreal(Rnew(is,is))
+         f(is+Ns) = dimag(Rnew(is,is))
 
          ! f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
          ! f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
@@ -667,7 +600,7 @@ CONTAINS
 
 
 
-
+  
 
   function gz_energy_recursive_nlep(n0)   result(GZ_energy)
     real(8),dimension(:),intent(in)        :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    

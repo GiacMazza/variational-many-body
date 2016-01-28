@@ -48,6 +48,12 @@ program GUTZ_mb
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
+  
+  if(Norb.eq.1.and.wf_symmetry.eq.1) then
+     write(*,*) 'WARNING THE O(1) x SU(2)c x ORBITAL_ROTATION = O(1) x SU(2)c for the Norb=1 case!'
+     wf_symmetry=0
+  end if
+  
 
   !rescale Jhund couplings
   Jh = Jh*Uloc(1)

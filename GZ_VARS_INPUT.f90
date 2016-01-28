@@ -9,7 +9,7 @@ MODULE GZ_VARS_INPUT
   real(8)              :: Ust,Jh !intra-orbitals interactions
   real(8)              :: Jsf,Jph
   real(8)              :: xmu
-  real(8),parameter    :: beta=500.d0
+  real(8),parameter    :: beta=100000.d0
   
   !# Minimization flags  #!
   integer          :: lancelot_verbose
@@ -23,6 +23,10 @@ MODULE GZ_VARS_INPUT
   real(8) :: Rseed 
   real(8) :: Rmix
   integer :: Niter_self
+
+
+  real(8) :: lanc_tolerance
+
 
 contains
 

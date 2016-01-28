@@ -8,6 +8,7 @@ program GUTZ_mb
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
   USE GZ_OPTIMIZED_ENERGY
+  USE GZ_EFFECTIVE_HOPPINGS
   !
 
   !
@@ -18,14 +19,22 @@ program GUTZ_mb
   !+- hamiltonian details -+!
   integer                            :: ispin,iorb,i,istate,jstate,ifock,jorb
   integer,dimension(:),allocatable   :: fock_vec
-  !  real(8),dimension(3)               :: GZene  
+  complex(8),dimension(:),allocatable               :: init_vec
   real(8),dimension(:),allocatable   :: variational_density_natural
+  real(8),dimension(:),allocatable   :: vdm_init,vdm_out
+  complex(8),dimension(:),allocatable   :: Rhop_init,Rhop_out
+  complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix
   real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
   !  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
   !  integer                            :: ix,iy,iz,ik,Nk
   integer                            :: out_unit,iter
   integer                            :: lattice ! 2=square;3=cubic
 
+  real(8),dimension(:),allocatable :: epsik,hybik
+  integer :: Nx,is
+  real(8)                          :: Wband
+  !
+  real(8) :: tmp_emin
 
 
 
@@ -47,10 +56,10 @@ program GUTZ_mb
   
   call initialize_local_fock_space
 
-  do i=1,nFock_indep
-     call bdecomp(fock_indep(i),fock_vec)
-     write(*,'(I2,A,20I3)') fock_indep(i),'|>',fock_vec(:)
-  end do
+  ! do i=1,nFock_indep
+  !    call bdecomp(fock_indep(i),fock_vec)
+  !    write(*,'(I2,A,20I3)') fock_indep(i),'|>',fock_vec(:)
+  ! end do
 
 
   !call enforce_su2_rotational_symmetry
@@ -64,10 +73,38 @@ program GUTZ_mb
   !
   allocate(variational_density_natural_simplex(Ns+1,Ns))
   allocate(variational_density_natural(Ns))
-  call initialize_variational_density_simplex(variational_density_natural_simplex)
+  !call initialize_variational_density_simplex(variational_density_natural_simplex)
 
   call build_lattice_model
 
+
+
+  !stop
+
+
+
+
+  variational_density_natural_simplex(1,:)=0.5d0
+  !tmp_emin=gz_energy_broyden(variational_density_natural_simplex(1,:))  
+  tmp_emin=gz_energy_recursive_nlep(variational_density_natural_simplex(1,:))
+  stop
+  !
+  !<TEST MINIMIZATION
+  ! allocate(vdm_init(Ns),vdm_out(Ns))
+  ! allocate(Rhop_init(Ns),Rhop_out(Ns),init_vec(Nphi),Rhop_init_matrix(Ns,Ns))
+  ! vdm_init=variational_density_natural_simplex(1,1:Ns)
+  ! init_vec=1.d0/sqrt(dble(Nphi))
+  ! Rhop_init_matrix=hopping_renormalization_normal(init_vec,vdm_init)  
+  ! do is=1,NS
+  !    Rhop_init(is) = Rhop_init_matrix(is,is)
+  ! end do
+  ! Rhop_init=one
+  ! call gz_optimization_vdm_Rhop(vdm_init,Rhop_init,vdm_out,Rhop_out)
+  ! stop
+  !TEST MINIMIZATION
+  !
+
+  !
   !
   call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)  
   !
@@ -84,24 +121,39 @@ CONTAINS
     real(8)                            :: ts,test_k,kx_,ky_,kz_,wini,wfin,de
     !
 
-
-    Lk=Nx
-    allocate(epsik(Lk),wtk(Lk),hybik(Lk))
+    ! Lk=Nx
+    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
     
-    wini=-Wband/2.d0
-    wfin= Wband/2.d0
-    epsik=linspace(wini,wfin,Lk,mesh=de)
-    !
-    test_k=0.d0
-    do ix=1,Lk
-       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       !wtk(ix) = 1.d0/Wband*de
-       if(ix==1.or.ix==Lk) wtk(ix)=0.d0
-       test_k=test_k+wtk(ix)
-       write(77,*) epsik(ix),wtk(ix)
+    ! wini=-Wband/2.d0
+    ! wfin= Wband/2.d0
+    ! epsik=linspace(wini,wfin,Lk,mesh=de)
+    ! !
+    ! test_k=0.d0
+    ! do ix=1,Lk
+    !    wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+    !    !wtk(ix) = 1.d0/Wband*de
+    !    if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+    !    test_k=test_k+wtk(ix)
+    !    write(77,*) epsik(ix),wtk(ix)
+    ! end do
+    ! hybik=0.d0
+    ! write(*,*) test_k,de
+
+
+    allocate(kx(Nx))
+    kx = linspace(0.d0,pi,Nx,.false.,.false.)
+    Lk=Nx*Nx*Nx
+    allocate(epsik(Lk),wtk(Lk))
+    ik=0
+    do ix=1,Nx
+       do iy=1,Nx
+          do iz=1,Nx
+             ik=ik+1
+             epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) !+- cfr lanata
+             wtk(ik) = 1.d0/dble(Lk)
+          end do
+       end do
     end do
-    hybik=0.d0
-    write(*,*) test_k,de
 
     allocate(Hk_tb(Ns,Ns,Lk))
     
@@ -114,6 +166,16 @@ CONTAINS
           end do
        end do
     end do
+    
+    !<EXTREMA RATIO TEST
+    e0test=0.d0
+    do ik=1,Lk
+       e0test = e0test + fermi_zero(epsik(ik),0.d0)*epsik(ik)*wtk(ik)
+    end do
+
+    !EXTREMA RATIO TEST>
+    
+
 
   end subroutine build_lattice_model
 

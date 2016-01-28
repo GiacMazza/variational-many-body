@@ -16,6 +16,10 @@ MODULE GZ_AUX_FUNX
 
 
   public :: simultaneous_diag
+
+
+  public :: fermi_zero
+
   !
 CONTAINS
 
@@ -359,6 +363,18 @@ CONTAINS
     end function off_diag
     !
   end subroutine simultaneous_diag
+
+
+
+  function fermi_zero(x,b) result(f)
+    real(8) :: x,f,b
+    if(x.lt.0.d0) then
+       f=1.d0
+    else       
+       f=0.d0
+    end if
+    if(x==0.d0) f=0.5d0
+  end function fermi_zero
 
 
 

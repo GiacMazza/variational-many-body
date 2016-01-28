@@ -92,9 +92,9 @@ CONTAINS
     write(*,*) "NPHI",Nphi
     !    stop
     !
-    ! allocate(phi_basis(dim_phi,nFock,nFock))
-    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    ! phi_basis = phi_fock
+    allocate(phi_basis(dim_phi,nFock,nFock))
+    allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    phi_basis = phi_fock
     !
 
     !
@@ -111,15 +111,16 @@ CONTAINS
     !       phi_basis(iphi,ifock,jfock) = 1.d0
     !    end do
     ! end do
-    Nphi=nFock
-    dim_phi=Nphi
-    allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
-    allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    iphi=0
-    do ifock=1,nFock
-       iphi=iphi+1
-       phi_basis(iphi,ifock,ifock) = 1.d0
-    end do
+
+    ! Nphi=nFock
+    ! dim_phi=Nphi
+    ! allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
+    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    ! iphi=0
+    ! do ifock=1,nFock
+    !    iphi=iphi+1
+    !    phi_basis(iphi,ifock,ifock) = 1.d0
+    ! end do
     
 
     ! END TMP_TEST>

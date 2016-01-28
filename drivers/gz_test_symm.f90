@@ -79,6 +79,13 @@ program GUTZ_mb
 
   call build_lattice_model
 
+
+
+  !stop
+
+
+
+
   variational_density_natural_simplex(1,:)=0.5d0
   !tmp_emin=gz_energy_broyden(variational_density_natural_simplex(1,:))  
   tmp_emin=gz_energy_recursive_nlep(variational_density_natural_simplex(1,:))
@@ -161,6 +168,16 @@ CONTAINS
           end do
        end do
     end do
+    
+    !<EXTREMA RATIO TEST
+    e0test=0.d0
+    do ik=1,Lk
+       e0test = e0test + fermi_zero(epsik(ik),0.d0)*epsik(ik)*wtk(ik)
+    end do
+
+    !EXTREMA RATIO TEST>
+    
+
 
   end subroutine build_lattice_model
 

@@ -320,6 +320,30 @@ subroutine basis_O1cXSU2sXSU2c_irr_reps(irr_reps,equ_reps,Virr_reps)
   !
 end subroutine basis_O1cXSU2sXSU2c_irr_reps
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 subroutine basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)  
   !+-BASIS STRUCTURE FOR THE IRREDUCIBLE REPS OF THE GROUP O(1)c x SU(2)s on the local Fock space-+!
   complex(8),dimension(nFock,nFock)               :: Virr_reps ! trasnformation to the irreducible reps
@@ -352,7 +376,6 @@ subroutine basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
   integer                                         :: Nirr_reps,jtmp,Nineq_reps
   integer,dimension(:,:),allocatable              :: equ_reps_
   
-
   !+- build sigma pauli and levi-civita tensor -+!
   sigma_pauli=0.d0
   !
@@ -362,7 +385,6 @@ subroutine basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
   sigma_pauli(1,2,2) = -xi
   sigma_pauli(2,1,2) =  xi
   !
-
   sigma_pauli(1,1,3) =  one
   sigma_pauli(2,2,3) = -one
   ! 
@@ -392,7 +414,6 @@ subroutine basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
      end do
   end do
   !
-
 
   
   !< TEST JACOBI JOINT DIAGONALIZATION 
@@ -497,152 +518,6 @@ end subroutine basis_O1xSU2_irr_reps
 
 
 
-
-
-subroutine get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
-  integer,dimension(:,:),allocatable :: irr_reps
-  integer,dimension(:,:),allocatable :: equ_reps
-  integer,dimension(:),allocatable :: map_equ_reps
-  integer :: Nirr_reps,Nineq_reps,i,j,Neq,ireps,jreps,ieq,dim_phi,jeq
-  integer :: ifock,jfock,idim,jdim,reps_dim,imin,jmin,iphi
-  complex(8),dimension(:,:,:),allocatable :: phi_irr
-
-
-  if(allocated(phi_irr)) deallocate(phi_irr)
-  !
-  Nirr_reps=size(irr_reps,1)
-  Nineq_reps=size(equ_reps,2)
-  !
-  dim_phi=0
-  do i=1,Nineq_reps
-     Neq=0
-     do j=1,Nirr_reps
-        Neq=Neq+equ_reps(j,i)
-     end do
-     dim_phi = dim_phi + Neq*Neq
-  end do
-
-  allocate(phi_irr(dim_phi,nFock,nFock)) ; phi_irr=0.d0
-
-  iphi=0
-  do i=1,Nineq_reps
-     ieq=0
-     do j=1,Nirr_reps
-        ieq=ieq+equ_reps(j,i)
-     end do
-     Neq=ieq
-
-     ieq=0
-     allocate(map_equ_reps(Neq))
-     do j=1,Nirr_reps
-        ieq=ieq+equ_reps(j,i)
-        if(equ_reps(j,i).eq.1) map_equ_reps(ieq)=j
-     end do
-     !write(*,*) 'MAP',map_equ_reps
-
-     do ieq=1,Neq
-        do jeq=1,Neq
-           iphi=iphi+1
-           !write(*,*) iphi
-
-           ireps=map_equ_reps(ieq)
-           jreps=map_equ_reps(jeq)           
-           imin=irr_reps(ireps,1);jmin=irr_reps(jreps,1)
-           idim=irr_reps(ireps,3);jdim=irr_reps(jreps,3)
-           if(idim.ne.jdim) stop "Error: equivalent representations with different dimensions"
-           reps_dim=idim
-           !
-           do j=1,reps_dim
-              ifock=imin + (j-1)
-              jfock=jmin + (j-1)
-              !write(*,*) 'blocks identities',ifock,jfock              
-              phi_irr(iphi,ifock,jfock) = 1.d0
-           end do
-           !
-        end do
-     end do
-     ! write(*,*)
-     ! write(*,*)
-     deallocate(map_equ_reps)
-  end do
-  
-end subroutine get_matrix_basis_irr_reps
-
-
-
-
-subroutine get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
-  complex(8),dimension(:,:,:) :: phi_irr
-  complex(8),dimension(nFock,nFock) :: Virr_reps
-  complex(8),dimension(:,:,:),allocatable :: phi_fock,phi_fock_
-  integer :: Nphi,out_phi
-  integer,dimension(:),allocatable :: mask_out
-  logical :: flag
-  integer :: ifock,jfock,ii,jj,iphi,Nfin,i
-  real(8) :: tmp
-
-  Nphi = size(phi_irr,1)
-  if(allocated(phi_fock)) deallocate(phi_fock)
-  allocate(phi_fock_(Nphi,nFock,nFock))
-  allocate(mask_out(Nphi)) ; mask_out=0
-  !
-  out_phi=0
-  do iphi=1,nphi
-     tmp=0.d0
-     Nfin=0
-     flag=.false.
-     do ifock=1,nFock
-        do jfock=1,nFock
-           phi_fock_(iphi,ifock,jfock)=0.d0
-           do ii=1,nFock
-              do jj=1,nFock
-                 phi_fock_(iphi,ifock,jfock)= &
-                      phi_fock_(iphi,ifock,jfock) + &
-                                !Virr_reps(ii,ifock)*conjg(Virr_reps(jj,jfock))*phi_irr(iphi,ii,jj)
-                      Virr_reps(ifock,ii)*conjg(Virr_reps(jfock,jj))*phi_irr(iphi,ii,jj)
-              end do
-           end do
-           tmp = tmp + abs(dreal(phi_fock_(iphi,ifock,jfock)))**2.d0
-           if(abs(dreal(phi_fock_(iphi,ifock,jfock))).gt.1.d-10.and.ifock.ne.jfock) flag=.true.
-           if(abs(dreal(phi_fock_(iphi,ifock,jfock))).gt.1.d-10) then
-              Nfin=Nfin+1
-           end if
-        end do
-     end do
-
-     if(tmp.gt.1.d-8)  then
-        out_phi = out_phi+1
-        mask_out(iphi) = 1
-     end if
-
-
-     ! do ifock=1,nFock
-     !    write(*,'(20F7.2)') dreal(phi_fock(iphi,ifock,:))
-     ! end do
-     ! write(*,*)
-     ! write(*,*)
-
-  end do
-
-  !write(*,*) mask_out
-  !stop
-
-
-  allocate(phi_fock(out_phi,nFock,nFock))
-  out_phi=0
-  do iphi=1,Nphi
-     !
-     if(mask_out(iphi).eq.1) then
-        out_phi=out_phi+1
-        write(*,*) out_phi
-        phi_fock(out_phi,:,:)  = phi_fock_(iphi,:,:)
-        !
-     end if
-  end do
-
-
-
-end subroutine get_matrix_basis_original_fock
 
 
 
@@ -899,7 +774,6 @@ subroutine basisirr_reps
      S2 = S2 + matmul(Svec(:,:,i),Svec(:,:,i))
   end do
 
-
   Splus  = Svec(:,:,1) + xi*Svec(:,:,2)
   Sminus = Svec(:,:,1) - xi*Svec(:,:,2)
 
@@ -952,7 +826,6 @@ subroutine basisirr_reps
      end do
   end do
   !stop
-
 
   !< TEST JACOBI JOINT DIAGONALIZATION 
   ! tmp_matrix = Svec(:,:,2)
@@ -1372,7 +1245,6 @@ subroutine group_statesNS(eigenvalues)
 
 
 end subroutine group_statesNS
-
 
 
 

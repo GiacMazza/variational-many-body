@@ -24,8 +24,8 @@ MODULE GZ_VARS_INPUT
   real(8) :: Rmix
   integer :: Niter_self
 
-
-  real(8) :: lanc_tolerance
+  real(8) :: new_input
+  !real(8) :: lanc_tolerance
 
 
 contains
@@ -51,6 +51,8 @@ contains
     call parse_input_variable(Niter_self,"NITER_SELF",INPUTunit,default=100)
     call parse_input_variable(err_self,"ERR_SELF",INPUTunit,default=1.d-10)
     call parse_input_variable(amoeba_min_tol,"AMOEBA_MIN_TOL",INPUTunit,default=1.d-12)
+
+    call parse_input_variable(new_input,"NEW",INPUTunit,default=1.d-12)
 
 
 

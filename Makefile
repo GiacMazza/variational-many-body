@@ -31,7 +31,7 @@ GALLIBS2   = -lgalahad_metis
 
 MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 
-#FFLAG +=-fpp -D_$(FPP)
+#FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
 #LIBDIR=/home/mazza/opt_local
 LIBDIR=/opt/
 

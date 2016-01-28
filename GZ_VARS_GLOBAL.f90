@@ -10,8 +10,6 @@ MODULE GZ_VARS_GLOBAL
   !
   integer                            :: Nphi                ! dimension of the matrix basis for the GZprojectors
 
-
-
   !+- phi_basis
   complex(8),dimension(:,:,:),allocatable :: phi_basis,phi_basis_dag
 
@@ -132,6 +130,6 @@ MODULE GZ_VARS_GLOBAL
   
   ! real(8)                          :: Wband,Vhyb
   ! real(8),dimension(:),allocatable :: Eloc
-  
+
 
 END MODULE GZ_VARS_GLOBAL

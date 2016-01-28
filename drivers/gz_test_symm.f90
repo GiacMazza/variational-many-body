@@ -85,8 +85,8 @@ program GUTZ_mb
 
 
   variational_density_natural_simplex(1,:)=0.5d0
-  tmp_emin=gz_energy_broyden(variational_density_natural_simplex(1,:))  
-  !tmp_emin=gz_energy_recursive_nlep(variational_density_natural_simplex(1,:))
+  !tmp_emin=gz_energy_broyden(variational_density_natural_simplex(1,:))  
+  tmp_emin=gz_energy_recursive_nlep(variational_density_natural_simplex(1,:))
   stop
   !
   !<TEST MINIMIZATION

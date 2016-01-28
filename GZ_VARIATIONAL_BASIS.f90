@@ -112,6 +112,7 @@ CONTAINS
     !       phi_basis(iphi,ifock,jfock) = 1.d0
     !    end do
     ! end do
+
     ! Nphi=nFock
     ! dim_phi=Nphi
     ! allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0

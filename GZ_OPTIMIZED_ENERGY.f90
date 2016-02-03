@@ -1,24 +1,37 @@
 MODULE GZ_OPTIMIZED_ENERGY
   USE SCIFOR
+  !
   !USE SF_OPTIMIZE
+  !
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_EFFECTIVE_HOPPINGS
   USE GZ_LOCAL_FOCK  
+  !
+  USE LANCELOT_simple_double
+  !
   !  USE GZ_PROJECTORS
+  !
   USE GZ_MATRIX_BASIS
   USE GZ_ENERGY_MINIMIZATION
   USE MIN_AMOEBA
   implicit none
   private
 
-  public :: gz_optimization_simplex
+
   public :: get_gz_ground_state_estimation
   logical,public :: optimization_flag
   !
+  public :: gz_optimization_simplex
   public :: gz_optimization_vdm_Rhop
+  public :: gz_optimization_vdm
+
+
+  public :: gz_optimization_vdm_nlsq
+  !
   public :: gz_energy_broyden
   public :: gz_energy_recursive_nlep
+  public :: gz_energy_recursive_cmin
   !
 CONTAINS
 
@@ -81,6 +94,7 @@ CONTAINS
 
 
 
+  !+- TO FIX the fixR routine!!!
 
   subroutine gz_optimization_vdm_Rhop(init_vdm,init_Rhop,opt_vdm,opt_Rhop) 
     real(8),dimension(Ns),intent(inout)    :: init_vdm
@@ -145,17 +159,34 @@ CONTAINS
 
 
 
-
-
   subroutine gz_optimization_vdm(init_vdm,optimized_vdm)
-    real(8),dimension(Ns),intent(in)                :: init_vdm
-    real(8),dimension(Ns),intent(out)               :: optimized_vdm
-    integer :: iter
+    real(8),dimension(1),intent(in)                :: init_vdm
+    real(8),dimension(1),intent(out)               :: optimized_vdm
+    integer :: iter,unit_vdm_opt,icall
     real(8) :: GZ_energy
     !
     optimized_vdm=init_vdm
+
+    unit_vdm_opt=free_unit()
+    open(unit_vdm_opt,file='vdm_optimization.out'); icall=0
+    !
     call fmin_cg(optimized_vdm,gz_energy_vdm,iter,GZ_energy)
-    
+
+
+    opt_energy_unit=free_unit()
+    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+    opt_rhop_unit=free_unit()
+    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+    opt_GZ_unit=free_unit()
+    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+    if(GZmin_verbose) then
+       GZmin_unit=free_unit()
+       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+       GZmin_unit_=free_unit()
+       open(GZmin_unit_,file='GZ_proj_min.out')
+    end if
+
+
     !
   contains
 
@@ -173,11 +204,15 @@ CONTAINS
       complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)      
       integer :: is
       !
-      if(size(x).ne.Ns) stop "gz_energy_vdm/ wrong dimensions"
+      !if(size(x).ne.Ns) stop "gz_energy_vdm/ wrong dimensions"
       !
+
+
+
+
       Rhop=zero
       do is=1,Ns
-         vdm(is)=x(is)
+         vdm(is)=x(1)
       end do
       !
       select case(min_method)
@@ -188,10 +223,65 @@ CONTAINS
       case('bryd')
          GZ_energy=gz_energy_broyden(vdm)
       end select
-      !
+      !      
+      icall = icall + 1
+      write(unit_vdm_opt,'(20F18.10)') dble(icall),vdm,GZ_energy
+
+
     end function gz_energy_vdm
-    
+
   end subroutine gz_optimization_vdm
+
+
+
+
+
+  !+- TMP GALHAD
+
+  subroutine gz_optimization_vdm_nlsq(init_vdm,optimized_vdm)
+    real(8),dimension(Ns),intent(in)  :: init_vdm
+    real(8),dimension(Ns),intent(out) :: optimized_vdm
+    integer                           :: iter,unit_vdm_opt,icall
+    real(8)                           :: GZ_energy
+    !
+    !LANCELOT VARIABLES
+    !
+    integer                           :: n_min,neq,nin,maxit,print_level,exit_code
+    real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
+    real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess    
+    external                          :: energy_VS_vdm   
+
+    optimized_vdm=init_vdm
+
+    unit_vdm_opt=free_unit()
+    open(unit_vdm_opt,file='vdm_optimization.out'); icall=0
+    
+    !write(*,*) optimized_vdm ; stop
+
+
+    ! LANCELOT configuration parameters 
+    n_min       = Ns  ! number of minimization parameters
+    neq         = 0   ! number of equality constraints                   
+    nin         = 0           ! number of in-equality constraints                   
+    maxit       = 1000        ! maximum iteration number 
+    gradtol     = 1.d-7       ! maximum norm of the gradient at convergence 
+    feastol     = 1.d-7       ! maximum violation of parameters at convergence  
+    print_level = lancelot_verbose           ! verbosity
+    allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
+    bL = 1.d-10               ! lower bounds for minimization parameters
+    bU = 1.d0-bL                 ! upper bounds for minimization parameters          
+    !    
+    call lancelot_simple(n_min,optimized_vdm,GZ_energy,exit_code,my_fun=energy_VS_vdm, &
+         bl = bl, bu = bu,                                                                      &
+         neq = neq, nin = nin,                                                                  &
+         cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
+         gradtol = gradtol, feastol = feastol,                                                  &
+         print_level = print_level )
+    !+--------------------------------------------------------------------------------------+!    
+
+  end subroutine gz_optimization_vdm_nlsq
+
 
 
 
@@ -298,7 +388,7 @@ CONTAINS
     !
     real(8),dimension(2*Ns) :: test_brIN,test_brOUT
     !
-    real(8),dimension(2*Ns) :: R_broyden
+    real(8),dimension(2*Ns) :: R_broyden,test_f
     real(8),dimension(Ns) :: R_real
     real(8) :: Uin
     integer :: icall,info,i
@@ -321,34 +411,18 @@ CONTAINS
        end do
        !
 
+       !+- at some point I should update the routine such that all the matrix Rhop is considered
+       !   in the broyden solution of the fixed point problem...
        do is=1,Ns
-          R_broyden(is) = dreal(R_init(is,is))
-          R_real(is) = dreal(R_init(is,is))
-          R_broyden(is+Ns) = dimag(R_init(is,is))
+          R_broyden(is) = Rseed 
+          R_broyden(is+Ns) = 0.d0
        end do
        !BAUSTELLE>
 
        icall=0
 
-       ! Rseed=0.11d0
-       ! Uin =-0.1d0
-       ! do i=1,1
-       !    Rseed = Rseed - 0.01
-       !    !call fzero_broyden(root_functionU,Uin)
-       !    write(*,*) "root Uin",root_functionU(Uin)
-       !    write(*,*) "root 10.d0",root_functionU(10.d0)
-       !    !stop
-       !    Uin=fzero_brentq(root_functionU,Uin,10.d0)
-       !    write(55,*) Rseed,Uin
-       ! end do
        !
-       ! stop
-       !
-       !
-       !call fzero_broyden(root_function,R_broyden)
-       call fixed_point_sub(R_broyden,root_function,xtol=1.d-6)
-       !call fmin_cg(R_broyden,min_function,iter,fmin)
-       write(*,*) 'ICALL',icall
+       call fzero_broyden(root_function,R_broyden)
        !
        Ropt=zero
        Rseed=0.01d0
@@ -358,29 +432,26 @@ CONTAINS
           !Rseed = Rseed + R_diag(is)/dble(Ns)
        end do
 
+       !+- GET GROUND STATE ENERGY FOR THE OPTIMIZED RHOP -+!
        call slater_determinant_minimization_nlep(Ropt,n0,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
        !
-       call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+       select case(lgr_method)
+       case('amoeba')
+          call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+       case('fsolve')
+          call gz_projectors_minimization_nlep_fsolve(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+       end select
        !
+
        GZ_energy = E_Hstar + E_Hloc       
+
+       test_f = root_function(R_broyden)
+       write(*,*) 'ICALL',icall,test_f
+       write(*,*) 'BROYDEN ENERGY',GZ_energy
        !
 
 
-
-       !<BAUSTELLE
-       ! write(opt_GZ_unit,*) n0
-       ! write(opt_GZ_unit,*)
-       ! !
-       ! do iphi=1,Nphi
-       !    write(opt_GZ_unit,*) GZvect_iter(iphi)
-       ! end do
-       ! !
-       ! write(opt_GZ_unit,*)
-       ! write(opt_GZ_unit,*)
-       ! write(opt_energy_unit,*) n0,GZ_energy,E_Hloc,E_Hstar
-       ! write(opt_rhop_unit,*) n0,R_diag(1:Ns)
-       !BAUSTELLE>
-
+       !
 
     else
        GZ_energy=100.d0
@@ -393,92 +464,13 @@ CONTAINS
        GZ_opt_Eloc           = E_Hloc
     end if
     !<TMP    
-    write(*,*) 'broyden optimized energy',GZ_energy
+    !write(*,*) 'broyden optimized energy',GZ_energy
     !TMP>
   contains
     !
-    
-    function root_functionU(Uin) result(f)
-      real(8),intent(in) :: Uin
-      !real(8),dimension(:) :: Rhop
-      real(8)   :: f
-      complex(8),dimension(Ns,Ns)     :: Rmatrix     
-      complex(8),dimension(Ns,Ns)     :: slater_derivatives    
-      complex(8),dimension(Ns,Ns,Lk) :: slater_matrix_el    
-      complex(8),dimension(Ns,Ns)     :: Rnew ! hopping matrix renormalization (during iterations)
-      real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
-      real(8),dimension(Ns,Ns)        :: GZproj_lgr_multip  ! 
-      real(8)                         :: E_Hstar,E_Hloc,GZ_energy
-      complex(8),dimension(nPhi)      :: GZvect  ! GZ vector (during iterations)
-      integer :: is
-      !
-      !
-      icall = icall+1
-      Rmatrix=zero
-      do is=1,Ns
-         Rmatrix(is,is) = Rseed
-      end do
-
-      Uloc(1)=Uin
-      Uloc(2)=Uin
-      Ust=Uloc(1)
-      call build_local_hamiltonian
-      phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-      phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-      call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose=.false.)       
-
-      !<DEBUG
-      ! write(*,*) 'slater derivatives ok'
-      ! slater_derivatives=zero
-      ! do is=1,Ns
-      !    slater_derivatives(is,is) = 2.d0*Rmatrix(is,is)*e0test
-      !    write(*,*) slater_derivatives(is,is)
-      ! end do
-      !DEBUG>
-
-      call gz_projectors_minimization_nlep_obs(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,iverbose=.false.)                   
-
-      !stop
-
-
-      ! call slater_determinant_minimization_cmin(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_matrix_el,iverbose=.false.)       
-      ! GZvect=1.d0/sqrt(dble(Nphi))
-      ! call gz_projectors_minimization_cmin(slater_matrix_el,n0,GZvect,GZ_energy,GZproj_lgr_multip,.true.)
-
-
-      !
-      Rnew=hopping_renormalization_normal(GZvect,n0)
-      !      
-      f=0.d0
-      do is=1,Ns
-         !
-         !f = f + dreal(Rnew(is,is)-Rmatrix(is,is))
-         !f = f + dimag(Rnew(is,is)-Rmatrix(is,is))**2.d0
-         !f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
-         !
-         !<DEBUG
-         !write(*,*) f(is),f(is+Ns),Rmatrix(is,is),Rnew(is,is)
-         !DEBUG>
-      end do
-      f = f + dreal(Rnew(1,1)-Rmatrix(1,1))
-      write(*,*)  Uin,Rnew(1,1),Rmatrix(1,1)
-      ! write(*,*) "---------"
-      ! write(*,*) "---------"
-      ! write(*,*) "---------"
-      !
-    end function root_functionU
-
-
-
-
-
-
-
-
 
     function root_function(Rhop) result(f)
       real(8),dimension(:),intent(in) :: Rhop
-      !real(8),dimension(:) :: Rhop
       real(8),dimension(size(Rhop))   :: f
       complex(8),dimension(Ns,Ns)     :: Rmatrix     
       complex(8),dimension(Ns,Ns)     :: slater_derivatives    
@@ -489,8 +481,6 @@ CONTAINS
       complex(8),dimension(nPhi)      :: GZvect  ! GZ vector (during iterations)
       integer :: is
       !
-      write(*,*) 'entering root finding'
-
       if(size(Rhop).ne.2*Ns) stop "root function/wrong dimensions in Rhop"
       !
       icall = icall+1
@@ -498,94 +488,33 @@ CONTAINS
       do is=1,Ns
          Rmatrix(is,is) = Rhop(is) +xi*Rhop(is+Ns)
       end do
-      call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose=.true.)       
+      call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)
       !+----------------------------+!
       !+- GZproj STEP MINIMIZATION -+!
       !+----------------------------+!    
-      call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,iverbose=.true.)                   
+      select case(lgr_method)
+      case('amoeba')
+         call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,GZmin_verbose)   
+      case('fsolve')
+         call gz_projectors_minimization_nlep_fsolve(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,GZmin_verbose)   
+      end select
       !
       Rnew=hopping_renormalization_normal(GZvect,n0)
       !      
 
-      write(*,*) "calling root funciton"
-      do is=1,Ns
-         ! f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
-         ! f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
-         !
-         f(is) = dreal(Rnew(is,is))
-         f(is+Ns) = dimag(Rnew(is,is))
+      !
 
-         ! f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
-         ! f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
-         !
-         !<DEBUG
-         write(*,*) f(is),f(is+Ns),Rmatrix(is,is),Rnew(is,is)
-         !write(*,*) f(is),Rmatrix(is,is),Rnew(is,is)
-         !DEBUG>
+      do is=1,Ns
+         f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
+         f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
       end do
+
+      !<DEBUG
       write(44,*) icall,f(1),dreal(Rnew(1,1))
-      write(*,*) "---------"
-      write(*,*) "---------"
-      write(*,*) "---------"
+      !DEBUG>
       !
     end function root_function
 
-
-
-    function min_function(Rhop) result(f)
-      !real(8),dimension(:),intent(in) :: Rhop
-      real(8),dimension(:) :: Rhop
-      real(8)   :: f
-      complex(8),dimension(Ns,Ns)     :: Rmatrix     
-      complex(8),dimension(Ns,Ns)     :: slater_derivatives    
-      complex(8),dimension(Ns,Ns)     :: Rnew ! hopping matrix renormalization (during iterations)
-      real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
-      real(8),dimension(Ns,Ns)        :: GZproj_lgr_multip  ! 
-      real(8)                         :: E_Hstar,E_Hloc
-      complex(8),dimension(nPhi)      :: GZvect  ! GZ vector (during iterations)
-      integer :: is
-      !
-      write(*,*) 'entering root finding'
-
-      if(size(Rhop).ne.2*Ns) stop "root function/wrong dimensions in Rhop"
-      !
-      icall = icall+1
-      Rmatrix=zero
-      do is=1,Ns
-         Rmatrix(is,is) = Rhop(is) +xi*Rhop(is+Ns)
-      end do
-      call slater_determinant_minimization_nlep(Rmatrix,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose=.true.)       
-      !+----------------------------+!
-      !+- GZproj STEP MINIMIZATION -+!
-      !+----------------------------+!    
-      call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect,GZproj_lgr_multip,iverbose=.true.)                   
-      !
-      Rnew=hopping_renormalization_normal(GZvect,n0)
-      !      
-
-      write(*,*) "calling min funciton"
-      f=0.d0
-      do is=1,Ns
-         ! f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
-         ! f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
-         !
-         !f(is) = abs(dreal(Rnew(is,is)))
-         f = f + dreal(Rnew(is,is)-Rmatrix(is,is))**2.d0         
-         f = f + dimag(Rnew(is,is)-Rmatrix(is,is))**2.d0
-         ! f(is) = dreal(Rnew(is,is)-Rmatrix(is,is))
-         ! f(is+Ns) = dimag(Rnew(is,is)-Rmatrix(is,is))         
-         !
-         !<DEBUG
-         !write(*,*) f(is),f(is+Ns),Rmatrix(is,is),Rnew(is,is)
-         !write(*,*) f(is),Rmatrix(is,is),Rnew(is,is)
-         !DEBUG>
-      end do
-      write(44,*) icall,f
-      write(*,*) "---------"
-      write(*,*) "---------"
-      write(*,*) "---------"
-      !
-    end function min_function
 
 
 
@@ -600,7 +529,7 @@ CONTAINS
 
 
 
-  
+
 
   function gz_energy_recursive_nlep(n0)   result(GZ_energy)
     real(8),dimension(:),intent(in)        :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
@@ -618,7 +547,7 @@ CONTAINS
     integer                                :: unit
     logical                                :: bound
 
-    
+
     !
     write(*,*) '********************'
     write(*,*) 'INPUT DENSITY',n0(:)
@@ -645,7 +574,6 @@ CONTAINS
           !+----------------------------+!    
           call slater_determinant_minimization_nlep(R_iter,n0,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
 
-
           !<DEBUG
           slater_derivatives=zero
           do is=1,Ns
@@ -655,11 +583,18 @@ CONTAINS
           !stop
           !DEBUG>
 
-
           !+----------------------------+!
           !+- GZproj STEP MINIMIZATION -+!
           !+----------------------------+!    
-          call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+
+          select case(lgr_method)
+          case('amoeba')
+             call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)   
+          case('fsolve')
+             call gz_projectors_minimization_nlep_fsolve(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)   
+          end select
+          !call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+          !          call gz_projectors_minimization_nlep_fsolve(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
           R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
           do istate=1,Ns
@@ -850,4 +785,44 @@ CONTAINS
   end subroutine initialize_GZprojectors
 
 END MODULE GZ_OPTIMIZED_ENERGY
-  
+
+
+
+
+subroutine energy_VS_vdm(x,GZ_energy,i) 
+  USE GZ_VARS_GLOBAL
+  USE GZ_OPTIMIZED_ENERGY
+  !USE GZ_PROJECTORS
+  USE GZ_MATRIX_BASIS 
+  implicit none
+
+  real(8),intent(in) :: x(:)
+  real(8),intent(out)              :: GZ_energy
+  integer,intent(in),optional :: i
+  real(8),dimension(Ns) :: vdm
+  complex(8),dimension(Ns,Ns) :: Rhop
+  complex(8),dimension(Ns,Ns) :: slater_derivatives    
+  real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
+  real(8),dimension(Ns,Ns,2) :: GZproj_lgr_multip  ! 
+  real(8),dimension(Ns,Ns) :: GZproj_lgr_multip_  ! 
+  real(8)                                :: E_Hstar,E_Hloc
+  complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)      
+  integer :: is
+  !
+  !if(size(x).ne.Ns) stop "gz_energy_vdm/ wrong dimensions"
+  !
+  Rhop=zero
+  do is=1,Ns
+     vdm(is)=x(is)
+  end do
+  !
+  select case(min_method)
+  case('nlep')
+     GZ_energy=gz_energy_recursive_nlep(vdm)
+  case('cmin')
+     GZ_energy=gz_energy_recursive_cmin(vdm)
+  case('bryd')
+     GZ_energy=gz_energy_broyden(vdm)
+  end select
+  !      
+end subroutine energy_VS_vdm

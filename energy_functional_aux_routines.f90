@@ -140,8 +140,12 @@ subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)
                  jstate=index(jspin,jorb)               
                  tmp(istate,jstate)=0.d0
                  do kstate=1,Ns
-                    tmp(istate,jstate) = tmp(istate,jstate) + Hk(istate,kstate)*heaviside(-1.d0*ek(kstate))*conjg(Hk(jstate,kstate))
-                    Estar = Estar + Hk(istate,kstate)*Hk(jstate,kstate)*Hstar(istate,jstate)*heaviside(-1.d0*ek(kstate))*wtk(ik)
+                    tmp(istate,jstate) = tmp(istate,jstate) + Hk(istate,kstate)*fermi(ek(kstate),beta)*conjg(Hk(jstate,kstate))
+                    Estar = Estar + Hk(istate,kstate)*Hk(jstate,kstate)*Hstar(istate,jstate)*fermi(ek(kstate),beta)*wtk(ik)
+
+                    ! tmp(istate,jstate) = tmp(istate,jstate) + Hk(istate,kstate)*heaviside(-1.d0*ek(kstate))*conjg(Hk(jstate,kstate))
+                    ! Estar = Estar + Hk(istate,kstate)*Hk(jstate,kstate)*Hstar(istate,jstate)*heaviside(-1.d0*ek(kstate))*wtk(ik)
+
                  end do
               end do
            end do
@@ -159,10 +163,10 @@ subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)
   end do
 
   !<DEBUG
-  write(*,*) 'slater derivatives probably wrong!'
-  do istate=1,Ns
-     write(*,'(6F18.10)') slater_derivatives(istate,1:Ns)
-  end do
+  ! write(*,*) 'slater derivatives probably wrong!'
+  ! do istate=1,Ns
+  !    write(*,'(6F18.10)') slater_derivatives(istate,1:Ns)
+  ! end do
   !DEBUG>
 
 end subroutine store_slater_ground_state
@@ -205,9 +209,14 @@ subroutine store_slater_ground_state_cmin(Rhop,lm,Estar,slater_matrix_el)
                  tmp(istate,jstate)=0.d0
                  slater_matrix_el(istate,jstate,ik)=0.d0
                  do kstate=1,Ns
-                    Estar = Estar + Hk(istate,kstate)*Hk(jstate,kstate)*Hstar(istate,jstate)*heaviside(-1.d0*ek(kstate))*wtk(ik)
+                    Estar = Estar + Hk(istate,kstate)*Hk(jstate,kstate)*Hstar(istate,jstate)*fermi(ek(kstate),beta)*wtk(ik)
                     slater_matrix_el(istate,jstate,ik) = slater_matrix_el(istate,jstate,ik) + &
-                         Hk(istate,kstate)*Hk(jstate,kstate)*heaviside(-1.d0*ek(kstate))
+                         Hk(istate,kstate)*Hk(jstate,kstate)*fermi(ek(kstate),beta)
+
+                    ! Estar = Estar + Hk(istate,kstate)*Hk(jstate,kstate)*Hstar(istate,jstate)*heaviside(-1.d0*ek(kstate))*wtk(ik)
+                    ! slater_matrix_el(istate,jstate,ik) = slater_matrix_el(istate,jstate,ik) + &
+                    !      Hk(istate,kstate)*Hk(jstate,kstate)*heaviside(-1.d0*ek(kstate))
+
                  end do
               end do
            end do

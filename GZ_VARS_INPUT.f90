@@ -9,13 +9,14 @@ MODULE GZ_VARS_INPUT
   real(8)              :: Ust,Jh !intra-orbitals interactions
   real(8)              :: Jsf,Jph
   real(8)              :: xmu
-  real(8),parameter    :: beta=100000.d0
+  real(8),parameter    :: beta=1000.d0
   
   !# Minimization flags  #!
   integer          :: lancelot_verbose
   logical          :: amoeba_verbose
   logical          :: GZmin_verbose
   character(len=4) :: min_method
+  character(len=6) :: lgr_method
   integer          :: wf_symmetry
   !integer :: okkkkk
   real(8)   :: amoeba_min_tol
@@ -24,8 +25,7 @@ MODULE GZ_VARS_INPUT
   real(8) :: Rmix
   integer :: Niter_self
   
-  !real(8) :: new_input
-  !real(8) :: lanc_tolerance
+
 
 
 contains
@@ -46,6 +46,7 @@ contains
     call parse_input_variable(amoeba_verbose,"AMOEBA_VERBOSE",INPUTunit,default=.false.)
     call parse_input_variable(GZmin_verbose,"GZMIN_VERBOSE",INPUTunit,default=.false.)
     call parse_input_variable(min_method,"MIN_METHOD",INPUTunit,default='nlep')
+    call parse_input_variable(lgr_method,"LGR_METHOD",INPUTunit,default='amoeba')
     call parse_input_variable(Rseed,"RSEED",INPUTunit,default=1.d0)
     call parse_input_variable(Rmix,"RMIX",INPUTunit,default=1.d0)
     call parse_input_variable(Niter_self,"NITER_SELF",INPUTunit,default=100)

@@ -108,7 +108,7 @@ end subroutine get_GZproj_ground_state_fixR
 
 subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)     
   complex(8),dimension(Ns,Ns),intent(in) :: Rhop
-  real(8),dimension(Ns),intent(in)           :: lm
+  real(8),dimension(Ns,Ns),intent(in)           :: lm
   real(8)                                           :: Estar
   complex(8),dimension(Ns,Ns)            :: slater_derivatives
   complex(8),dimension(Ns,Ns)            :: Hk,tmp,Hk_bare,Hstar
@@ -116,7 +116,13 @@ subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)
   integer                                           :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik
   Estar=0.d0
   slater_derivatives=0.d0
+  !<DEBUG
+  write(*,*) size(lm,1),size(lm,2),size(Hk,1),size(Hk,2)
+  write(*,*) Rhop
+  !DEBUG>
+  
   do ik=1,Lk
+     !write(*,*) ik     
      Hk=0.d0
      ek=0.d0
      !
@@ -125,12 +131,26 @@ subroutine store_slater_ground_state(Rhop,lm,Estar,slater_derivatives)
      Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop,Hk)
      Hstar=Hk
+     !<DEBUG     
+     ! write(*,*) 'IK',ik
+     ! write(*,*) Rhop
+     ! write(*,*) 'IK',ik
+     !DEBUG>
      ! add Lagrange multipliers !
-     do istate=1,Ns
-        Hk(istate,istate)=Hk(istate,istate)+lm(istate)             
-     end do
+     
+     !do istate=1,Ns
+     !        Hk(istate,istate)=Hk(istate,istate)+lm(istate,istate)             
+     !end do
+
+!     Hk=Hk+lm
+
      ! diagonalize hamiltonian !
      call  matrix_diagonalize(Hk,ek,'V','L')
+
+     !<DEBUG     
+     write(*,*) 'IK',ik
+     !DEBUG>
+
      ! store slater determinant matrix elements
      do iorb=1,Norb
         do ispin=1,2

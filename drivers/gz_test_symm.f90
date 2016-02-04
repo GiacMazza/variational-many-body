@@ -61,16 +61,22 @@ program GUTZ_mb
   !
   
   call initialize_local_fock_space
+  
 
-  ! do i=1,nFock_indep
-  !    call bdecomp(fock_indep(i),fock_vec)
-  !    write(*,'(I2,A,20I3)') fock_indep(i),'|>',fock_vec(:)
-  ! end do
+  
+  !+- CONSTRAINTS THE VARIATIONAL DENSITY MATRIX -+!
+  Nvdm=1
+  allocate(vdm_map(Ns),vdm_c_map(Ns,Ns))
+  do is=1,Ns
+     vdm_map(is) = 1
+  end do
+  Nvdm_c = 1
+  vdm_c_map=0
+  do is=1,Ns
+     vdm_c_map(is,is) = 1
+  end do
+  !+-----------------------------------------------+!
 
-
-  !call enforce_su2_rotational_symmetry
-  ! call basis_O1xSU2_irr_reps
-  ! stop
   call init_variational_matrices
 
   
@@ -92,9 +98,11 @@ program GUTZ_mb
   !stop
   !call gz_optimization_vdm(vdm_init,vdm_out)
   call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
-  !stop
   
+  write(*,*) "DAJE; quanto e' vera la madonna"
 
+
+  stop
   
 
   !variational_density_natural_simplex(1,:)=0.5d0

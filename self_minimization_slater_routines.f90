@@ -1,3 +1,75 @@
+function get_delta_local_density_matrix(lm_) result(delta)
+  implicit none
+  real(8),dimension(:)   :: lm_
+  real(8)                :: delta
+  real(8),dimension(Ns)  :: delta_local_density_matrix_vec
+  real(8),dimension(Ns*Ns)  :: delta_local_density_matrix_vec_
+  real(8),dimension(Ns,Ns)  :: lm
+  real(8),dimension(Ns,Ns)  :: delta_local_density_matrix,local_density_matrix
+  real(8),dimension(Ns,Ns) :: Hk,tmp
+  real(8),dimension(Ns)          :: ek
+  integer                              :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,imap
+  !
+  lm=0.d0
+  do istate=1,Ns
+     do jstate=1,Ns
+        imap = vdm_c_map(istate,jstate)
+        if(imap.gt.0) lm(istate,jstate)=lm_(imap)
+        !<DEBUG
+        write(*,*) lm(istate,jstate),imap
+        !DEBUG>
+     end do
+  end do
+  !
+  local_density_matrix=0.d0
+
+
+  do ik=1,Lk
+     !     Hk=0.d0
+     ek=0.d0
+     !<DEBUG
+     write(*,*) ik,ek
+     !DEBUG>
+
+
+     ! hopping renormalization !
+  !    Hk=matmul(Hk_tb(:,:,ik),Rhop)
+  !    Hk=matmul(Rhop,Hk)
+  !    ! add Lagrange multipliers !
+  !    Hk=Hk+lm                     
+  !    ! diagonalize hamiltonian !
+  !    call  matrix_diagonalize(Hk,ek,'V','L')
+  !    !compute local density matrix
+  !    do istate=1,Ns
+  !       do jstate=1,Ns
+  !          do kstate=1,Ns
+  !             !
+  !             local_density_matrix(istate,jstate) = &
+  !                  local_density_matrix(istate,jstate) + fermi(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)
+  !             !
+  !          end do
+  !       end do
+  !    end do
+  end do
+  ! return variation of local density matrix with respect to the target values
+  !  delta_local_density_matrix = local_density_matrix
+  ! do istate=1,Ns
+  !    delta_local_density_matrix(istate,istate) = delta_local_density_matrix(istate,istate) - n0_target(istate)      
+  ! end do
+  delta=0.d0
+  ! do istate=1,Ns
+  !    do jstate=1,Ns
+  !       delta = delta + abs(delta_local_density_matrix(istate,jstate))**2.d0
+  !    end do
+  ! end do
+end function get_delta_local_density_matrix
+
+
+
+
+
+
+
 function get_delta_local_density_matrix_diag(lm_) result(delta_local_density_matrix_vec)
   real(8),dimension(:)  :: lm_
   real(8),dimension(Ns)  :: delta_local_density_matrix_vec
@@ -48,7 +120,7 @@ function get_delta_local_density_matrix_diag(lm_) result(delta_local_density_mat
 end function get_delta_local_density_matrix_diag
 !
 function get_delta_local_density_matrix_full(lm_) result(delta_local_density_matrix_vec)
-  real(8),dimension(:)  :: lm_
+  real(8),dimension(:,:)  :: lm_
   real(8),dimension(Ns,Ns)  :: lm_full
   real(8),dimension(Ns*Ns)  :: delta_local_density_matrix_vec
   real(8),dimension(Ns,Ns)  :: lm
@@ -57,7 +129,8 @@ function get_delta_local_density_matrix_full(lm_) result(delta_local_density_mat
   real(8),dimension(Ns)          :: ek
   integer                              :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik
   !
-  call vec2mat_stride(lm_,lm)
+  !call vec2mat_stride(lm_,lm)
+  lm=lm_
   local_density_matrix=0.d0
   do ik=1,Lk
      Hk=0.d0

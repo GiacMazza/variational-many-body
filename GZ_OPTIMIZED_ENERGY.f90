@@ -233,11 +233,7 @@ CONTAINS
   end subroutine gz_optimization_vdm
 
 
-
-
-
   !+- TMP GALHAD
-
   subroutine gz_optimization_vdm_nlsq(init_vdm,optimized_vdm)
     real(8),dimension(Ns),intent(in)  :: init_vdm
     real(8),dimension(Ns),intent(out) :: optimized_vdm
@@ -256,12 +252,26 @@ CONTAINS
 
     unit_vdm_opt=free_unit()
     open(unit_vdm_opt,file='vdm_optimization.out'); icall=0
+
+
+    opt_energy_unit=free_unit()
+    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+    opt_rhop_unit=free_unit()
+    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+    opt_GZ_unit=free_unit()
+    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+    if(GZmin_verbose) then
+       GZmin_unit=free_unit()
+       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+       GZmin_unit_=free_unit()
+       open(GZmin_unit_,file='GZ_proj_min.out')
+    end if
+
+
     
-    !write(*,*) optimized_vdm ; stop
-
-
     ! LANCELOT configuration parameters 
-    n_min       = Ns  ! number of minimization parameters
+    !n_min       = Ns  ! number of minimization parameters  
+    n_min       = Nvdm  ! number of minimization parameters  
     neq         = 0   ! number of equality constraints                   
     nin         = 0           ! number of in-equality constraints                   
     maxit       = 1000        ! maximum iteration number 
@@ -269,7 +279,7 @@ CONTAINS
     feastol     = 1.d-7       ! maximum violation of parameters at convergence  
     print_level = lancelot_verbose           ! verbosity
     allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
-    bL = 1.d-10               ! lower bounds for minimization parameters
+    bL = 3.d-1               ! lower bounds for minimization parameters
     bU = 1.d0-bL                 ! upper bounds for minimization parameters          
     !    
     call lancelot_simple(n_min,optimized_vdm,GZ_energy,exit_code,my_fun=energy_VS_vdm, &
@@ -553,10 +563,12 @@ CONTAINS
     write(*,*) 'INPUT DENSITY',n0(:)
     bound=.false.
     do istate=1,Ns
-       if(n0(istate).le.1.d-10.or.n0(istate).ge.1.d0-1.d-10) bound=.true.
+       if(n0(istate).lt.1.d-11.or.n0(istate).gt.1.d0-1.d-11) bound=.true.
     end do
     !
     if(.not.bound) then
+       
+       !+- initialize Rhop accordin to a given wanted symmetry
        R_init=0.d0 
        do istate=1,Ns
           R_init(istate,istate)=Rseed
@@ -572,14 +584,20 @@ CONTAINS
           !+----------------------------+!
           !+- SLATER STEP MINIMIZATION -+!
           !+----------------------------+!    
+
+          !<DEBUG
+          !write(*,*) R_iter
+          !DEBUG>
+          
+
           call slater_determinant_minimization_nlep(R_iter,n0,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
 
           !<DEBUG
-          slater_derivatives=zero
-          do is=1,Ns
-             slater_derivatives(is,is) = 2.d0*R_iter(is,is)*e0test
-             !write(*,*) slater_derivatives(is,is),R_iter(is,is),e0test
-          end do
+          ! slater_derivatives=zero
+          ! do is=1,Ns
+          !    slater_derivatives(is,is) = 2.d0*R_iter(is,is)*e0test
+          !    !write(*,*) slater_derivatives(is,is),R_iter(is,is),e0test
+          ! end do
           !stop
           !DEBUG>
 
@@ -593,8 +611,7 @@ CONTAINS
           case('fsolve')
              call gz_projectors_minimization_nlep_fsolve(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)   
           end select
-          !call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
-          !          call gz_projectors_minimization_nlep_fsolve(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
+          
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
           R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
           do istate=1,Ns
@@ -612,7 +629,7 @@ CONTAINS
           end if
           if(energy_err.lt.err_self) exit
           !<DEBUG
-          write(33,*) r_diag(1)
+          !write(33,*) r_diag(1)
           !DEBUG>
 
        end do
@@ -807,14 +824,20 @@ subroutine energy_VS_vdm(x,GZ_energy,i)
   real(8),dimension(Ns,Ns) :: GZproj_lgr_multip_  ! 
   real(8)                                :: E_Hstar,E_Hloc
   complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)      
-  integer :: is
+  integer :: is,imap
   !
-  !if(size(x).ne.Ns) stop "gz_energy_vdm/ wrong dimensions"
+  !if(size(x).ne.Ns) stop "gz_energy_vdm/ wrong dimensions"  
+  !size(x) == Nmin
+  !
+  do is=1,Ns
+     imap = vdm_map(is)
+     vdm(is) = x(imap)
+  end do
   !
   Rhop=zero
-  do is=1,Ns
-     vdm(is)=x(is)
-  end do
+  ! do is=1,Ns
+  !    vdm(is)=x(is)
+  ! end do
   !
   select case(min_method)
   case('nlep')

@@ -44,38 +44,66 @@ contains
     complex(8),dimension(Ns,Ns),intent(in)  :: Rhop         !input:  renrmalization matrix
     real(8),dimension(Ns),intent(in)     :: n0_target    !input:  variational density matrix
     real(8),intent(out)                  :: Estar        !output: Slater Deter GS energy
-    real(8),dimension(Ns),intent(out)    :: lgr_multip   !output: Slater Deter lagrange multipliers
+    !
+    !real(8),dimension(Ns),intent(out)    :: lgr_multip   !output: Slater Deter lagrange multipliers
+    real(8),dimension(Ns,Ns),intent(out)    :: lgr_multip   !output: Slater Deter lagrange multipliers
+    real(8),dimension(Nvdm_c)                :: lgr     !+- real indeendent lgr_vector -+!
+    
     complex(8),dimension(Ns,Ns),intent(out) :: slater_derivatives !output: Slater Deter GS energy derivatives
     logical,optional                     :: iverbose     !input:  Verbosity level
     !
-    real(8),dimension(Ns)                :: lgr
+    
     complex(8),dimension(Ns,Ns)             :: Hk
-    real(8),dimension(Ns)                :: ek,tmp_lgr,err_dens
-    integer                              :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb
+    real(8),dimension(Ns)                :: tmp_lgr,err_dens
+    integer                              :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb,iter,imap,is
     real(8),dimension(Ns)                :: lgr_multip_vec
     logical                              :: iverbose_
+    real(8)  :: delta
 
     iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose
     !
-    do istate=1,Ns
-       lgr(istate)=(0.5d0-n0_target(istate))*2.d0
-    end do
+    
     lgr=0.d0
-    call fsolve(get_delta_local_density_matrix_diag,lgr,tol=1.d-12,info=info)
-    call store_slater_ground_state(Rhop,lgr,Estar,slater_derivatives)
-    lgr_multip=lgr
+    tmp_lgr=0.d0
+    !call fmin_cg(lgr,get_delta_local_density_matrix,iter,delta)
+    delta = get_delta_local_density_matrix(tmp_lgr)
+    !
+    !<DEBUG
+    !write(*,*) 'DELTA',delta,lgr
+    !stop
+    !DEBUG>
+    !
+    !call fsolve(get_delta_local_density_matrix_diag,lgr,tol=1.d-12,info=info)
+    lgr_multip=0.d0
+    do istate=1,Ns
+       do jstate=1,Ns
+          imap = vdm_c_map(istate,jstate)
+          if(imap.gt.0) lgr_multip(istate,jstate)=lgr(imap)
+          write(*,*) lgr_multip(istate,jstate),imap
+       end do
+    end do
+
+    !<DEBUG
+    write(*,*) Rhop
+    !DEBUG>
+
+    call store_slater_ground_state(Rhop,lgr_multip,Estar,slater_derivatives)
+    stop    
     !
     if(iverbose_) then
        write(*,*)
        write(*,*) "Slater Determinant: Lagrange Multipliers - diagonal form -"
-       write(*,'(20F18.10)') lgr_multip
+       do is=1,Ns
+          write(*,'(20F18.10)') lgr_multip(is,:)
+       end do
        write(*,*) "Slater Determinant: Variational density error"
-       err_dens=get_delta_local_density_matrix_diag(lgr_multip)
-       write(*,"(20F18.10)") err_dens
+       !err_dens=get_delta_local_density_matrix_full(lgr_multip)
+       write(*,"(20F18.10)") delta
        write(*,*) "Slater Determinant: Ground State energy"
        write(*,"(20F18.10)") Estar
        write(*,*)
     end if
+    stop
     !
   contains    
     !

@@ -6,10 +6,17 @@ MODULE GZ_VARS_GLOBAL
   !+- RELEVANT DIMENSIONS -+!
   integer                            :: nFock               ! dimension of the local Fock space = 2^{2*Norb}   
   integer                            :: Ns                  ! number of local energy levels = 2*Norb
-  integer                            :: state_dim           ! dimension of a single Fock state  |(\up,\dn)_1,...,(\up,\dn)_Norb> ===> Ns = 2*Norb  
+  integer                              :: state_dim           ! dimension of a single Fock state  |(\up,\dn)_1,...,(\up,\dn)_Norb> ===> Ns = 2*Norb  
+
+  !+- VARIATIONAL DENSITY MATRIX DETAILS -+!
+  integer                              :: Nvdm  !number of independent entries in the variational density matrix in the natural basis 1< Nvdm <= Ns
+  integer,dimension(:),allocatable     :: vdm_map
+  integer                              :: Nvdm_c!number of independent constraints for the density matrix 1< Nvdm <= Ns*Ns  
+  integer,dimension(:,:),allocatable   :: vdm_c_map
+  
   !
   integer                            :: Nphi                ! dimension of the matrix basis for the GZprojectors
-
+  
   !+- phi_basis
   complex(8),dimension(:,:,:),allocatable :: phi_basis,phi_basis_dag
 
@@ -23,14 +30,7 @@ MODULE GZ_VARS_GLOBAL
   !+--------------------+!
   !+- LOCAL FOCK SPACE -+!
   !+--------------------+!
-
-
-  !integer                            :: nFock_indep         ! dimension of the independent Fock space ----> this is related to the constrained minimization w/ Galahad   
-  !
   integer,dimension(:,:),allocatable :: index               ! ispin,iorb  to  istate=1,Ns
-  !integer,dimension(:),allocatable   :: fock_indep          ! store the fock independent states
-  !integer,dimension(:),allocatable   :: full2indep_fock     ! map fock state to the corresponding independent one
-  !integer,dimension(:,:),allocatable :: indep2full_fock     ! map independent fock states to the full fock space
 
   !+---------------------------+!
   !+- GUTZWILLER WAVEFUNCTION -+!

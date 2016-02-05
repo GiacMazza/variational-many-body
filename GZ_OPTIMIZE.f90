@@ -24,64 +24,85 @@ CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
   !+- PURPOSE: Minimize the GUTZWILLER ENERGY FUNCTIONAL WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
   !+-----------------------------------------------------------------------------------------------------+!
-
-  
+  !
   !+- TO FIX the fixR routine!!!
   subroutine gz_optimization_vdm_Rhop_nlsq(init_vdm,init_Rhop,opt_vdm,opt_Rhop) 
-    real(8),dimension(Ns),intent(inout)    :: init_vdm
-    complex(8),dimension(Ns),intent(inout) :: init_Rhop
-    real(8),dimension(Ns),intent(out)      :: opt_vdm
-    complex(8),dimension(Ns),intent(out)   :: opt_Rhop
+    real(8),dimension(Nvdm),intent(inout)    :: init_vdm
+    complex(8),dimension(Nvdm_c),intent(inout) :: init_Rhop
+    real(8),dimension(Nvdm),intent(out)      :: opt_vdm
+    complex(8),dimension(Nvdm_c),intent(out)   :: opt_Rhop
 
-    real(8),dimension(3*Ns) :: xmin
-    real(8) :: Emin
+    real(8),dimension(Nvdm+2*Nvdm_c) :: xmin
+    real(8) :: GZ_energy
     integer :: is,iter
+
     !
-    do is=1,Ns
-       xmin(is) = init_vdm(is)
-       xmin(is+Ns) = dreal(init_Rhop(is))
-       xmin(is+2*Ns) = dimag(init_Rhop(is))
+    !LANCELOT VARIABLES
+    !
+    integer                           :: n_min,neq,nin,maxit,print_level,exit_code
+    real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
+    real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess    
+
+
+    do is=1,Nvdm
+       xmin(is) = init_vdm(is)       
+    end do
+    
+    do is=1,Nvdm_c
+       xmin(is+Nvdm) = dreal(init_Rhop(is))
+       xmin(is+2*Nvdm) = dimag(init_Rhop(is))
+    end do
+    
+    
+
+
+    opt_energy_unit=free_unit()
+    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+    opt_rhop_unit=free_unit()
+    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+    opt_GZ_unit=free_unit()
+    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+    if(GZmin_verbose) then
+       GZmin_unit=free_unit()
+       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+       GZmin_unit_=free_unit()
+       open(GZmin_unit_,file='GZ_proj_min.out')
+    end if
+
+
+
+    ! LANCELOT configuration parameters 
+    !n_min       = Ns  ! number of minimization parameters  
+    n_min       = Nvdm+2*Nvdm_c  ! number of minimization parameters  
+    neq         = 0   ! number of equality constraints                   
+    nin         = 0           ! number of in-equality constraints                   
+    maxit       = 1000        ! maximum iteration number 
+    gradtol     = 1.d-7       ! maximum norm of the gradient at convergence 
+    feastol     = 1.d-7       ! maximum violation of parameters at convergence  
+    print_level = lancelot_verbose           ! verbosity
+    allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
+    do is=1,Nvdm
+       bL(is) = 3.d-1               ! lower bounds for minimization parameters
+       bU(is) = 1.d0-bL(is)                 ! upper bounds for minimization parameters          
+    end do
+    do is=1,Nvdm_c
+       bL(is+Nvdm) = 0.d0               ! lower bounds for minimization parameters
+       bU(is+Nvdm) = 1.d0                 ! upper bounds for minimization parameters          
+
+       bL(is+2*Nvdm) = 0.d0               ! lower bounds for minimization parameters
+       bU(is+2*Nvdm) = 0.d0                 ! upper bounds for minimization parameters          
+
     end do
     !    
-    write(*,*) "XMIN"
-    do is=1,3*Ns
-       write(*,*) xmin(is)
-    end do
-    Emin=gz_energy_vdm_Rhop(xmin)
-    write(*,*) Emin
-    !call fmin_cg(xmin,gz_energy_vdm_Rhop,iter,Emin)
-    !
-  contains
-    !
-    function gz_energy_vdm_Rhop(x) result(GZ_energy)
-      real(8),dimension(:) :: x
-      real(8)              :: GZ_energy
-      real(8),dimension(Ns) :: vdm
-      complex(8),dimension(Ns,Ns) :: Rhop
-      complex(8),dimension(Ns,Ns) :: slater_derivatives    
-      real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
-      real(8),dimension(Ns,Ns,2) :: GZproj_lgr_multip  ! 
-      real(8),dimension(Ns,Ns) :: GZproj_lgr_multip_  ! 
-      real(8)                                :: E_Hstar,E_Hloc
-      complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)      
-      integer :: is
-      !
-      if(size(x).ne.3*Ns) stop "gz_energy_vdm_Rhop/ wrong dimensions"
-      !
-      Rhop=zero
-      do is=1,Ns
-         vdm(is)=x(is)
-         Rhop(is,is)=x(is+Ns) + xi*x(is+2*Ns)
-         write(*,*) Rhop(is,is)
-      end do
-      !
-!      call slater_determinant_minimization_nlep(Rhop,vdm,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
-      !
-!      call gz_projectors_minimization_fixR(slater_derivatives,vdm,Rhop,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)                   
-      !
-      GZ_energy=E_Hstar+E_Hloc
-      !
-    end function gz_energy_vdm_Rhop
+    call lancelot_simple(n_min,xmin,GZ_energy,exit_code,my_fun=gz_get_energy_vdm_Rhop, &
+         bl = bl, bu = bu,                                                                      &
+         neq = neq, nin = nin,                                                                  &
+         cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
+         gradtol = gradtol, feastol = feastol,                                                  &
+         print_level = print_level )
+    !+--------------------------------------------------------------------------------------+!    
+
   end subroutine gz_optimization_vdm_Rhop_nlsq
   
 

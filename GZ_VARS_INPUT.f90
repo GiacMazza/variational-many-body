@@ -6,7 +6,8 @@ MODULE GZ_VARS_INPUT
 
   integer              :: Norb                ! number of orbitals
   real(8),dimension(3) :: Uloc   !local interactions
-  real(8)              :: Ust,Jh !intra-orbitals interactions
+  real(8)              :: Ust
+  real(8)              ::  Jh !hund's coupling
   real(8)              :: Jsf,Jph
   real(8)              :: xmu
   real(8),parameter    :: beta=500.d0

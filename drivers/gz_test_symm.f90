@@ -8,6 +8,7 @@ program GUTZ_mb
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
   USE GZ_OPTIMIZED_ENERGY
+  USE GZ_ENERGY_MINIMIZATION
   USE GZ_EFFECTIVE_HOPPINGS
   !
   USE GZ_MATRIX_BASIS
@@ -20,6 +21,7 @@ program GUTZ_mb
   complex(8),dimension(:),allocatable               :: init_vec
   real(8),dimension(:),allocatable   :: variational_density_natural
   real(8),dimension(:),allocatable   :: vdm_init,vdm_out
+  complex(8),dimension(:),allocatable   :: R_init,R_out
   complex(8),dimension(:),allocatable   :: Rhop_init,Rhop_out
   complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix
   real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
@@ -87,16 +89,30 @@ program GUTZ_mb
   allocate(variational_density_natural(Ns))
   call initialize_variational_density_simplex(variational_density_natural_simplex)
   call build_lattice_model
+  !
 
-  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)    
-  stop
+  allocate(Rhop_init_matrix(Ns,Ns))
+  variational_density_natural = variational_density_natural_simplex(3,1:Ns)
+  Rhop_init_matrix=zero
+  do is=1,Ns
+     Rhop_init_matrix(is,is) = 1.d0
+  end do
+  !  tmp_emin = gz_energy_vdm_Rhop(variational_density_natural,Rhop_init_matrix)
+  !tmp_emin = gz_energy_vdm(variational_density_natural)
+
+
+
+!  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)    
+!  stop
   
-  allocate(vdm_init(1),vdm_out(1))
+  allocate(vdm_init(1),vdm_out(1),R_init(1),R_out(1))
 
-  vdm_init = 0.32176d0!variational_density_natural_simplex(Ns,1)
+  vdm_init = 0.42176d0!variational_density_natural_simplex(Ns,1)
+  R_init = 0.5d0
   !stop
   !call gz_optimization_vdm(vdm_init,vdm_out)
-  call gz_optimization_vdm_nlsq(vdm_init,vdm_out)  
+  !call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
+  call gz_optimization_vdm_Rhop_nlsq(vdm_init,R_init,vdm_out,R_out)
   write(*,*) "DAJE; quanto e' vera la madonna"
   
   

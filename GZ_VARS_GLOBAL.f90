@@ -26,6 +26,8 @@ MODULE GZ_VARS_GLOBAL
   !DEBUG>
 
 
+  logical :: optimization_flag
+
   
   !+--------------------+!
   !+- LOCAL FOCK SPACE -+!

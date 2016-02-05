@@ -323,3 +323,80 @@
 
 
   end function gz_energy_broyden
+
+
+
+
+
+  subroutine gz_optimization_vdm(init_vdm,optimized_vdm)
+    real(8),dimension(1),intent(in)                :: init_vdm
+    real(8),dimension(1),intent(out)               :: optimized_vdm
+    integer :: iter,unit_vdm_opt,icall
+    real(8) :: GZ_energy
+    !
+    optimized_vdm=init_vdm
+
+    unit_vdm_opt=free_unit()
+    open(unit_vdm_opt,file='vdm_optimization.out'); icall=0
+    !
+    call fmin_cg(optimized_vdm,gz_energy_vdm,iter,GZ_energy)
+
+
+    opt_energy_unit=free_unit()
+    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+    opt_rhop_unit=free_unit()
+    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+    opt_GZ_unit=free_unit()
+    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+    if(GZmin_verbose) then
+       GZmin_unit=free_unit()
+       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+       GZmin_unit_=free_unit()
+       open(GZmin_unit_,file='GZ_proj_min.out')
+    end if
+
+
+    !
+  contains
+
+
+    function gz_energy_vdm(x) result(GZ_energy)
+      real(8),dimension(:) :: x
+      real(8)              :: GZ_energy
+      real(8),dimension(Ns) :: vdm
+      complex(8),dimension(Ns,Ns) :: Rhop
+      complex(8),dimension(Ns,Ns) :: slater_derivatives    
+      real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
+      real(8),dimension(Ns,Ns,2) :: GZproj_lgr_multip  ! 
+      real(8),dimension(Ns,Ns) :: GZproj_lgr_multip_  ! 
+      real(8)                                :: E_Hstar,E_Hloc
+      complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)      
+      integer :: is
+      !
+      !if(size(x).ne.Ns) stop "gz_energy_vdm/ wrong dimensions"
+      !
+
+
+
+
+      Rhop=zero
+      do is=1,Ns
+         vdm(is)=x(1)
+      end do
+      !
+      select case(min_method)
+      case('nlep')
+         GZ_energy=gz_energy_recursive_nlep(vdm)
+      case('cmin')
+         GZ_energy=gz_energy_recursive_cmin(vdm)
+      case('bryd')
+         GZ_energy=gz_energy_broyden(vdm)
+      end select
+      !      
+      icall = icall + 1
+      write(unit_vdm_opt,'(20F18.10)') dble(icall),vdm,GZ_energy
+
+
+    end function gz_energy_vdm
+
+  end subroutine gz_optimization_vdm

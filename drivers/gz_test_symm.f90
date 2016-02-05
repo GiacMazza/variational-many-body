@@ -86,25 +86,20 @@ program GUTZ_mb
   allocate(variational_density_natural_simplex(Ns+1,Ns))
   allocate(variational_density_natural(Ns))
   call initialize_variational_density_simplex(variational_density_natural_simplex)
-
   call build_lattice_model
 
-  !call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)  
-
-
-  allocate(vdm_init(1),vdm_out(1))
-
-  vdm_init = variational_density_natural_simplex(Ns,:)
-  !stop
-  !call gz_optimization_vdm(vdm_init,vdm_out)
-  call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
-  
-  write(*,*) "DAJE; quanto e' vera la madonna"
-
-
+  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)    
   stop
   
+  allocate(vdm_init(1),vdm_out(1))
 
+  vdm_init = 0.32176d0!variational_density_natural_simplex(Ns,1)
+  !stop
+  !call gz_optimization_vdm(vdm_init,vdm_out)
+  call gz_optimization_vdm_nlsq(vdm_init,vdm_out)  
+  write(*,*) "DAJE; quanto e' vera la madonna"
+  
+  
   !variational_density_natural_simplex(1,:)=0.5d0
   !
   !tmp_emin=gz_energy_broyden(variational_density_natural_simplex(1,:))  

@@ -13,6 +13,10 @@ MODULE GZ_VARS_GLOBAL
   integer,dimension(:),allocatable     :: vdm_map
   integer                              :: Nvdm_c!number of independent constraints for the density matrix 1< Nvdm <= Ns*Ns  
   integer,dimension(:,:),allocatable   :: vdm_c_map
+
+  integer :: Nopt_diag,Nopt_odiag
+  integer,dimension(:,:),allocatable :: opt_map
+
   
   !
   integer                            :: Nphi                ! dimension of the matrix basis for the GZprojectors

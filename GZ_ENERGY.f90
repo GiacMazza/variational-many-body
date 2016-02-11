@@ -26,10 +26,41 @@ MODULE GZ_ENERGY_MINIMIZATION
   public :: gz_energy_vdm,gz_energy_vdm_Rhop
   !
   public :: gz_energy_root_full
+
+  !
+  public :: slater_determinant_minimization     !+- ALL THE 3 can be overloaded
+  public :: slater_determinant_minimization_nlep  !+- to be called 
+  public :: slater_determinant_minimization_cmin  !  slater_minimization (!+- mini+lgr_params)
+  !
+
+                                             !+- ALL THE 3 SHOULD BE OVERLAODED AND called
+                                             !   minimization at fixed constraints
+  public :: get_slater_ground_state          !+a
+  public :: store_slater_ground_state        !+b  difference btween (a)and(b) is only that one 
+  !                                               computes only the slater derivatives while 
+                                             !    the other computes also the occupations
+                                             !    to be overloaded and called get_slater_ground_state
+  public :: store_slater_ground_state_cmin   !tbc to get_slater_ground_state_cmin
+
+
+  
+  
+  public :: gz_projectors_minimization_nlep  !+- these two can be overloaded and called
+  public :: gz_projectors_minimization_cmin  !   minimization
+  !
+  public :: get_GZproj_ground_state          !+- these two should be called minimization
+  public :: get_GZproj_ground_state_fixR     !   at fixed constraints constraints 
+                                             !   (the second one at fixed R too)
+
+
 contains
   !
   include "slater_min_routines.f90"
   include "gzproj_min_routines.f90"
+
+  
+
+
   !
   !+- basically a post-processing routine... -+!
   subroutine get_gz_ground_state_estimation(optimized_vdm)
@@ -116,151 +147,39 @@ contains
     xin(2)=1.d0
     xin(3)=0.d0
 
-    write(*,*) 
-    delta = opt_function(xin) 
 
 
     n_min       = 3*Nvdm_c  ! number of minimization parameters  
-    neq         = 0   ! number of equality constraints                   
-    nin         = 0           ! number of in-equality constraints                   
-    maxit       = 100        ! maximum iteration number 
-    gradtol     = 1.d-7       ! maximum norm of the gradient at convergence 
-    feastol     = 1.d-7       ! maximum violation of parameters at convergence  
+    neq         = 0         ! number of equality constraints                   
+    nin         = 0         ! number of in-equality constraints                   
+    maxit       = 100       ! maximum iteration number 
+    gradtol     = 1.d-7     ! maximum norm of the gradient at convergence 
+    feastol     = 1.d-7     ! maximum violation of parameters at convergence  
     print_level = lancelot_verbose           ! verbosity
     allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
     do is=1,Nvdm
-       bL(is) = -0.01d0               ! lower bounds for minimization parameters
-       bU(is) = 0.01d0                 ! upper bounds for minimization parameters          
+       bL(is) = -2.d0               ! lower bounds for minimization parameters
+       bU(is) = 2.d0                ! upper bounds for minimization parameters          
     end do
     do is=1,Nvdm_c
-       bL(is+Nvdm_c) = 1.d-1               ! lower bounds for minimization parameters
+       !
+       bL(is+Nvdm_c) = 1.d-10               ! lower bounds for minimization parameters
        bU(is+Nvdm_c) = 1.d0                 ! upper bounds for minimization parameters          
-       
+       !
        bL(is+2*Nvdm_c) = 0.d0               ! lower bounds for minimization parameters
        bU(is+2*Nvdm_c) = 0.d0                 ! upper bounds for minimization parameters          
+       !
     end do
     !    
-    ! call lancelot_simple(n_min,xin,delta,exit_code,my_fun=sub_opt_function, &
-    !      bl = bl, bu = bu,                                                                      &
-    !      neq = neq, nin = nin,                                                                  &
-    !      cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
-    !      gradtol = gradtol, feastol = feastol,                                                  &
-    !      print_level = print_level )
+    call lancelot_simple(n_min,xin,delta,exit_code,my_fun=sub_opt_function, &
+         bl = bl, bu = bu,                                                                      &
+         neq = neq, nin = nin,                                                                  &
+         cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
+         gradtol = gradtol, feastol = feastol,                                                  &
+         print_level = print_level )
     !+--------------------------------------------------------------------------------------+!    
 
-
-
-    call fmin_cg(xin,opt_function,iter,delta)
-
-    write(*,*) delta
-
   contains
-
-    function opt_function(x) result(delta_opt)
-      real(8),dimension(:) :: x      
-      real(8) :: delta_opt
-
-      real(8)                                :: E_Hstar,E_Hloc
-      complex(8),dimension(Nphi) :: GZvect
-
-      complex(8),dimension(Ns,Ns) :: Rhop,Rhop_GZproj
-      complex(8),dimension(Ns,Ns) :: slater_derivatives
-      real(8),dimension(Ns,Ns)    :: slater_lgr_multip
-      real(8),dimension(Ns,Ns)    :: proj_lgr_multip
-      complex(8),dimension(Ns,Ns)    :: Rhop_lgr_multip
-      real(8),dimension(Ns,Ns) :: n0_slater,n0_GZproj
-      real(8),dimension(Ns) :: n0_diag
-      real(8) :: tmp
-      integer :: imap,is,js
-
-
-      slater_lgr_multip=0.d0
-      proj_lgr_multip=0.d0
-      Rhop = zero
-      do is=1,Ns
-         do js=1,Ns
-            imap = vdm_c_map(is,js)
-            if(imap.gt.0) then
-               slater_lgr_multip(is,js)=x(imap)
-               Rhop(is,js) = x(imap + Nvdm_c) !+ xi*x(imap + Nvdm_c + 1)
-            end if
-         end do
-      end do
-      !
-      call get_slater_ground_state(Rhop,slater_lgr_multip,E_Hstar,n0_slater,slater_derivatives)
-      !
-      ! do is=1,Ns
-      !    write(*,*) dreal(Rhop(is,:))
-      ! end do      
-      !
-      
-
-      write(*,*)
-      do is=1,Ns
-         do js=1,Ns
-            if(abs(slater_derivatives(is,js)).gt.1.d-10.and.n0_slater(is,is).gt.1.d-10) then
-               Rhop_lgr_multip(is,js) = slater_derivatives(is,js)/sqrt(n0_slater(js,js)*(1.d0-n0_slater(js,js)))
-            else
-               Rhop_lgr_multip(is,js) = 0.d0
-            end if
-         end do
-         write(*,*) dreal(slater_derivatives(is,:))
-      end do
-      write(*,*)
-      !
-      do is=1,Ns
-         tmp = 0.d0
-         do js=1,Ns
-            tmp = tmp + dreal(Rhop_lgr_multip(js,is)*Rhop(js,is))
-         end do
-         if(tmp.gt.1.d-10.and.n0_slater(is,is).gt.1.d-10) then
-            proj_lgr_multip(is,is) = -1.d0*slater_lgr_multip(is,is) - &
-                 0.5d0*(1.d0-2.d0*n0_slater(is,is))/sqrt(n0_slater(is,is)*(1.d0-n0_slater(is,is)))*tmp 
-         else
-            proj_lgr_multip(is,is) = -1.d0*slater_lgr_multip(is,is)
-         end if
-      end do
-      
-      ! do is=1,Ns
-      !    write(*,*) proj_lgr_multip(is,:)
-      ! end do
-
-      do is=1,Ns
-         n0_diag(is) = n0_slater(is,is)
-      end do
-      !      
-      call get_GZproj_ground_state(n0_diag,slater_derivatives,proj_lgr_multip,E_Hloc,GZvect)
-      !
-      n0_GZproj = 0.d0
-      do is=1,Ns
-         do js=1,Ns
-            n0_GZproj(is,js) = trace_phi_basis(GZvect,phi_traces_basis_dens(is,js,:,:))
-            Rhop_GZProj(is,js) = trace_phi_basis(GZvect,phi_traces_basis_Rhop(is,js,:,:))
-            Rhop_GZProj(is,js) = Rhop_GZProj(is,js)/sqrt(n0_diag(js)*(1.d0-n0_diag(js)))
-         end do
-      end do
-
-
-
-      !
-      delta_opt = 0.d0
-      do is=1,Ns
-         do js=1,Ns
-            if(is.ne.js) then
-               delta_opt = delta_opt +  abs(n0_slater(is,js))**2.d0
-               delta_opt = delta_opt +  abs(n0_GZproj(is,js))**2.d0
-            else
-               delta_opt = delta_opt + abs(n0_slater(is,js)-n0_GZproj(is,js))**2.d0               
-            end if
-            delta_opt = delta_opt + abs(Rhop_GZproj(is,js)-Rhop(is,js))**2.d0
-         end do
-      end do
-
-      write(*,*) x,delta_opt
-    end function opt_function
-
-
-
 
 
     subroutine sub_opt_function(x,delta_opt,i) 
@@ -298,15 +217,21 @@ contains
       !
       call get_slater_ground_state(Rhop,slater_lgr_multip,E_Hstar,n0_slater,slater_derivatives)
       !
-      ! do is=1,Ns
-      !    write(*,*) dreal(Rhop(is,:))
-      ! end do      
+
       !
       do is=1,Ns
          do js=1,Ns
-            Rhop_lgr_multip(is,js) = slater_derivatives(is,js)/sqrt(n0_slater(js,js)*(1.d0-n0_slater(js,js)))
+            if(abs(n0_slater(js,js)).gt.1.d-10) then
+               Rhop_lgr_multip(is,js) = slater_derivatives(is,js)/sqrt(n0_slater(js,js)*(1.d0-n0_slater(js,js)))
+            else
+               Rhop_lgr_multip(is,js) = 0.d0
+            end if
          end do
-         !write(*,*) dreal(Rhop_lgr_multip(is,:))
+         !
+         write(*,*)
+         write(*,*) dreal(Rhop_lgr_multip(is,:))
+         write(*,*)
+         !
       end do
       !
       do is=1,Ns
@@ -314,18 +239,22 @@ contains
          do js=1,Ns
             tmp = tmp + dreal(Rhop_lgr_multip(js,is)*Rhop(js,is))
          end do
-         proj_lgr_multip(is,is) = -1.d0*slater_lgr_multip(is,is) - &
-              0.5d0*(1.d0-2.d0*n0_slater(is,is))/sqrt(n0_slater(is,is)*(1.d0-n0_slater(is,is)))*tmp 
+         if(abs(n0_slater(is,is)).gt.1.d-10) then
+            proj_lgr_multip(is,is) = -1.d0*slater_lgr_multip(is,is) + &
+                 0.5d0*(1.d0-2.d0*n0_slater(is,is))/sqrt(n0_slater(is,is)*(1.d0-n0_slater(is,is)))*tmp 
+         else
+            proj_lgr_multip(is,is) = -1.d0*slater_lgr_multip(is,is)
+         end if
       end do
 
       ! do is=1,Ns
       !    write(*,*) n0_slater(is,:)
       ! end do
-      write(*,*)
-      do is=1,Ns
-         write(*,*) n0_slater(is,:)
-      end do
-      write(*,*)
+      ! write(*,*)
+      ! do is=1,Ns
+      !    write(*,*) n0_slater(is,:)
+      ! end do
+      ! write(*,*)
 
 
       ! do is=1,Ns
@@ -336,14 +265,14 @@ contains
          n0_diag(is) = n0_slater(is,is)
       end do
       !      
-      call get_GZproj_ground_state(n0_diag,slater_derivatives,proj_lgr_multip,E_Hloc,GZvect)
+      call get_GZproj_ground_state_(n0_diag,proj_lgr_multip,Rhop_lgr_multip,E_Hloc,GZvect)
       !
       n0_GZproj = 0.d0
       do is=1,Ns
          do js=1,Ns
             n0_GZproj(is,js) = trace_phi_basis(GZvect,phi_traces_basis_dens(is,js,:,:))
             Rhop_GZProj(is,js) = trace_phi_basis(GZvect,phi_traces_basis_Rhop(is,js,:,:))
-            Rhop_GZProj(is,js) = Rhop_GZProj(is,js)/sqrt(n0_diag(js)*(1.d0-n0_diag(js)))
+            Rhop_GZProj(is,js) = Rhop_GZProj(is,js)
          end do
       end do
 
@@ -359,7 +288,19 @@ contains
             else
                delta_opt = delta_opt + abs(n0_slater(is,js)-n0_GZproj(is,js))**2.d0               
             end if
-            delta_opt = delta_opt + abs(Rhop_GZproj(is,js)-Rhop(is,js))**2.d0
+            delta_opt = delta_opt + abs(Rhop_GZproj(is,js)-Rhop(is,js)*sqrt(n0_diag(js)*(1.d0-n0_diag(js))))**2.d0
+
+            if(is.eq.js) then
+               write(*,*)
+               write(*,*) is,js
+               write(*,*) abs(Rhop_GZproj(is,js)-Rhop(is,js))
+               write(*,*) Rhop_GZproj(is,js),Rhop(is,js)               
+               write(*,*) abs(n0_slater(is,js)-n0_GZproj(is,js))
+               write(*,*) abs(n0_slater(is,js))
+               write(*,*) abs(n0_GZproj(is,js))
+               write(*,*)
+            end if
+
          end do
       end do
 
@@ -376,6 +317,8 @@ contains
   !
 
 
+  !+- TO BE MODIFIED
+
   function gz_energy_vdm_Rhop(vdm,Rhop) result(GZ_energy)
     real(8),dimension(Ns) :: vdm
     complex(8),dimension(Ns,Ns) :: Rhop
@@ -387,9 +330,9 @@ contains
     complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)      
     integer :: is
     !
-    call slater_determinant_minimization(Rhop,vdm,E_Hstar,slater_lgr_multip,GZmin_verbose)          
+    !call slater_determinant_minimization(Rhop,vdm,E_Hstar,slater_lgr_multip,GZmin_verbose)          
     !
-    call gz_projectors_minimization_fixR(vdm,Rhop,E_Hloc,GZvect_iter,GZproj_lgr_multip(:,:,1),GZproj_lgr_multip(:,:,2),GZmin_verbose)            
+    !call gz_projectors_minimization_fixR(vdm,Rhop,E_Hloc,GZvect_iter,GZproj_lgr_multip(:,:,1),GZproj_lgr_multip(:,:,2),GZmin_verbose)            
 
     !
     GZ_energy=E_Hstar+E_Hloc
@@ -463,7 +406,6 @@ contains
 
 
 
-  
 
 
 
@@ -472,7 +414,8 @@ contains
 
 
 
-  
+
+
   function gz_energy_recursive_nlep(n0)   result(GZ_energy)
     real(8),dimension(:),intent(in) :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                         :: GZ_energy !INPUT: Optimized GZ energy at fixed 

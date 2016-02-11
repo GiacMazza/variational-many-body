@@ -10,7 +10,7 @@ MODULE GZ_VARS_INPUT
   real(8)              ::  Jh !hund's coupling
   real(8)              :: Jsf,Jph
   real(8)              :: xmu
-  real(8),parameter    :: beta=500.d0
+  real(8),parameter    :: beta=1000.d0
   
   !# Minimization flags  #!
   integer          :: lancelot_verbose

@@ -1,8 +1,11 @@
+!+- OBSOLETE ROUTINE TO BE REMOVED
+
 subroutine gz_projectors_minimization_fixR(n0_target,R_target,E_Hloc,GZvect,lgr_multip_dens,lgr_multip_Rhop,iverbose)
   real(8),dimension(Ns),intent(in)     :: n0_target          !input:  Variational density matrix
   complex(8),dimension(Ns,Ns),intent(in)  :: R_target          !input:  Renormalization matrices
   real(8),dimension(2*Nvdm_c)                :: lgr
-  real(8),dimension(Ns,Ns)                :: lgr_multip_dens,lgr_multip_Rhop
+  real(8),dimension(Ns,Ns)                :: lgr_multip_dens
+  complex(8),dimension(Ns,Ns)                :: lgr_multip_Rhop
   complex(8),dimension(nPhi)              :: GZvect   !output: GZvector
   real(8)                              :: E_Hloc,Emin   !output: optimized local energy
   real(8)                              :: lgr_symm(1)
@@ -92,7 +95,7 @@ contains
     ! write(*,*) lm_Rhop
     ! !DEBUG>
     !stop
-    
+
     proj_variational_density=0.d0
     !+- build up the local H_projectors -+!
     H_projectors=zero
@@ -118,7 +121,7 @@ contains
           proj_Rhop(istate,jstate) = &
                trace_phi_basis(H_projectors(:,1),phi_traces_basis_Rhop(istate,jstate,:,:))
 
-          
+
           proj_Rhop(istate,jstate) = proj_Rhop(istate,jstate) - & 
                R_target(istate,jstate)*sqrt(n0_target(jstate)*(1.d0-n0_target(jstate)))  !+-CHECK WELL
        end do
@@ -713,8 +716,46 @@ subroutine get_GZproj_ground_state(n0,slater_derivatives,lgr_multip,E_Hloc,GZvec
         H_projectors = H_projectors + lgr_multip(istate,jstate)*phi_traces_basis_dens(istate,jstate,:,:)
      end do
   end do
-  
+  !
+  call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
+  !
+  GZvect=H_projectors(1:Nphi,1)
+  !
+  E_Hloc=0.d0
+  do iphi=1,Nphi
+     do jphi=1,Nphi
+        E_Hloc=E_Hloc+GZvect(iphi)*phi_traces_basis_Hloc(iphi,jphi)*GZvect(jphi)
+     end do
+  end do
+  !
+end subroutine get_GZproj_ground_state
+
+
+
+
+
+subroutine get_GZproj_ground_state_(n0,dens_lgr,Rhop_lgr,E_Hloc,GZvect) 
+  real(8),dimension(Ns)           :: n0
+  complex(8),dimension(Ns,Ns) :: Rhop_lgr
+  real(8),dimension(Ns,Ns) :: dens_lgr
+  real(8)                                :: E_Hloc
+  complex(8),dimension(Nphi)               :: GZvect
+  complex(8),dimension(Nphi,Nphi)         :: H_projectors
+  real(8),dimension(Nphi)               :: H_eigens  
+  integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+  integer                                :: iphi,jphi
+  !
+  !+- build up the local H_projectors -+!
+  H_projectors=phi_traces_basis_Hloc
+  do istate=1,Ns
+     do jstate=1,Ns
+        H_projectors = H_projectors + dens_lgr(istate,jstate)*phi_traces_basis_dens(istate,jstate,:,:)
+        H_projectors = H_projectors + Rhop_lgr(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)
+     end do
+  end do
+
   !<DEBUG
+  write(*,*) 'STO QUA'
   !write(*,*) lgr_multip
   !DEBUG>
 
@@ -730,7 +771,8 @@ subroutine get_GZproj_ground_state(n0,slater_derivatives,lgr_multip,E_Hloc,GZvec
      end do
   end do
   !
-end subroutine get_GZproj_ground_state
+end subroutine get_GZproj_ground_state_
+
 
 
 
@@ -773,7 +815,8 @@ end subroutine get_GZproj_free_ground_state
 
 subroutine get_GZproj_ground_state_fixR(n0,lgr_multip_dens,lgr_multip_Rhop,E_Hloc,GZvect) 
   real(8),dimension(Ns)           :: n0
-  real(8),dimension(Ns,Ns) :: lgr_multip_dens,lgr_multip_Rhop
+  real(8),dimension(Ns,Ns) :: lgr_multip_dens
+  complex(8),dimension(Ns,Ns) :: lgr_multip_Rhop
   real(8)                                :: E_Hloc
   complex(8),dimension(Nphi)               :: GZvect
   complex(8),dimension(Nphi,Nphi)         :: H_projectors

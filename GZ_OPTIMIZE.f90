@@ -18,92 +18,91 @@ MODULE GZ_OPTIMIZED_ENERGY
   !public :: gz_optimization_simplex_vdm_R  !+- simplex minimization w/ respect to the vdm and R (to be CODED)
   !
   public :: gz_optimization_vdm_nlsq !+- constrained optimization w/ respect to the vdm  
-  public :: gz_optimization_vdm_Rhop_nlsq !+- constrained optimization w/ respect to the vdm & Rhop (to be CODED)
+  public :: gz_optimization_vdm_Rhop !+- constrained optimization w/ respect to the vdm & Rhop (to be CODED)
   !
 CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
   !+- PURPOSE: Minimize the GUTZWILLER ENERGY FUNCTIONAL WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
   !+-----------------------------------------------------------------------------------------------------+!
+  include 'gz_optimization.f90'
+  
   !
-  !+- TO FIX the fixR routine!!!
-  subroutine gz_optimization_vdm_Rhop_nlsq(init_vdm,init_Rhop,opt_vdm,opt_Rhop) 
+  subroutine gz_optimization_vdm_Rhop(init_vdm,init_Rhop,opt_vdm,opt_Rhop) 
     real(8),dimension(Nvdm),intent(inout)    :: init_vdm
     complex(8),dimension(Nvdm_c),intent(inout) :: init_Rhop
     real(8),dimension(Nvdm),intent(out)      :: opt_vdm
     complex(8),dimension(Nvdm_c),intent(out)   :: opt_Rhop
 
-    real(8),dimension(Nvdm+2*Nvdm_c) :: xmin
-    real(8) :: GZ_energy
-    integer :: is,iter
 
-    !
-    !LANCELOT VARIABLES
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    real(8) :: delta
+    integer :: iter    !
     !
     integer                           :: n_min,neq,nin,maxit,print_level,exit_code
     real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
     real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
-    integer                           :: iunit,err_unit,ene_unit,Nsuccess    
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess  
+    !real(8),dimension(3*Nvdm_c) :: xin
+    real(8),dimension(:),allocatable  :: xin
+    integer :: Nopt,iopt,Nslater_lgr,NRhop,Nproj_lgr
+    integer :: is,js,imap
 
-
-    do is=1,Nvdm
-       xmin(is) = init_vdm(is)       
+    Nslater_lgr = Nopt_diag + Nopt_odiag
+    NRhop = Nopt_diag + Nopt_odiag
+    Nproj_lgr = Nopt_odiag
+    !
+    Nopt = Nslater_lgr + 2*NRhop + Nproj_lgr
+    allocate(xin(Nopt))    
+    !+- initialize slater_density_constraints
+    iopt=0
+    do is=1,Ns
+       do js=1,Ns
+          imap = opt_map(is,js)
+          if(imap.gt.0) then
+             !iopt = iopt + 1
+             xin(imap) = 0.d0             
+             xin(imap+Nslater_lgr) = 1.d0
+             xin(imap+Nslater_lgr+NRhop) = 0.d0
+             if(is.ne.js) xin(iopt+Nslater_lgr+2*NRhop) = 0.d0
+          end if
+       end do
     end do
-    
-    do is=1,Nvdm_c
-       xmin(is+Nvdm) = dreal(init_Rhop(is))
-       xmin(is+2*Nvdm) = dimag(init_Rhop(is))
-    end do
-    
-    
-
-
-    opt_energy_unit=free_unit()
-    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
-    opt_rhop_unit=free_unit()
-    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
-    opt_GZ_unit=free_unit()
-    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
-    if(GZmin_verbose) then
-       GZmin_unit=free_unit()
-       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
-       GZmin_unit_=free_unit()
-       open(GZmin_unit_,file='GZ_proj_min.out')
-    end if
-
-
-
-    ! LANCELOT configuration parameters 
-    !n_min       = Ns  ! number of minimization parameters  
-    n_min       = Nvdm+2*Nvdm_c  ! number of minimization parameters  
-    neq         = 0   ! number of equality constraints                   
-    nin         = 0           ! number of in-equality constraints                   
-    maxit       = 1000        ! maximum iteration number 
-    gradtol     = 1.d-7       ! maximum norm of the gradient at convergence 
-    feastol     = 1.d-7       ! maximum violation of parameters at convergence  
+    !
+    n_min       = Nopt  ! number of minimization parameters  
+    neq         = 0         ! number of equality constraints                   
+    nin         = 0         ! number of in-equality constraints                   
+    maxit       = 100       ! maximum iteration number 
+    gradtol     = 1.d-7     ! maximum norm of the gradient at convergence 
+    feastol     = 1.d-7     ! maximum violation of parameters at convergence  
     print_level = lancelot_verbose           ! verbosity
     allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
     do is=1,Nvdm
-       bL(is) = 3.d-1               ! lower bounds for minimization parameters
-       bU(is) = 1.d0-bL(is)                 ! upper bounds for minimization parameters          
+       bL(is) = -2.d0               ! lower bounds for minimization parameters
+       bU(is) = 2.d0                ! upper bounds for minimization parameters          
     end do
     do is=1,Nvdm_c
-       bL(is+Nvdm) = 0.d0               ! lower bounds for minimization parameters
-       bU(is+Nvdm) = 1.d0                 ! upper bounds for minimization parameters          
-
-       bL(is+2*Nvdm) = 0.d0               ! lower bounds for minimization parameters
-       bU(is+2*Nvdm) = 0.d0                 ! upper bounds for minimization parameters          
-
+       !
+       bL(is+Nvdm_c) = 1.d-10               ! lower bounds for minimization parameters
+       bU(is+Nvdm_c) = 1.d0                 ! upper bounds for minimization parameters          
+       !
+       bL(is+2*Nvdm_c) = 0.d0               ! lower bounds for minimization parameters
+       bU(is+2*Nvdm_c) = 0.d0                 ! upper bounds for minimization parameters          
+       !
     end do
     !    
-    call lancelot_simple(n_min,xmin,GZ_energy,exit_code,my_fun=gz_get_energy_vdm_Rhop, &
+
+    delta=1.d0
+    call lancelot_simple(n_min,xin,delta,exit_code,my_fun=R_VDM_free_opt_function, &
          bl = bl, bu = bu,                                                                      &
          neq = neq, nin = nin,                                                                  &
          cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
          gradtol = gradtol, feastol = feastol,                                                  &
          print_level = print_level )
     !+--------------------------------------------------------------------------------------+!    
+    write(*,*) delta
 
-  end subroutine gz_optimization_vdm_Rhop_nlsq
+  end subroutine gz_optimization_vdm_Rhop
   
 
   !+---------------------------------------------------------------------------+!

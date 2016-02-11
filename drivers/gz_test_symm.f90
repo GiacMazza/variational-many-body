@@ -79,6 +79,17 @@ program GUTZ_mb
   end do
   !+-----------------------------------------------+!
 
+
+  Nopt_diag=1
+  Nopt_odiag=0  
+  allocate(opt_map(Ns,Ns))
+  
+  opt_map = 0
+  do is=1,Ns
+     opt_map(is,is) = 1
+  end do
+
+
   call init_variational_matrices
 
   
@@ -104,12 +115,12 @@ program GUTZ_mb
   
   allocate(vdm_init(1),vdm_out(1),R_init(1),R_out(1))
 
-  vdm_init = 0.42176d0!variational_density_natural_simplex(Ns,1)
+  vdm_init = 0.4213!variational_density_natural_simplex(Ns,1)
   R_init = 0.5d0
   !stop
   !call gz_optimization_vdm(vdm_init,vdm_out)
-  call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
-  !call gz_optimization_vdm_Rhop_nlsq(vdm_init,R_init,vdm_out,R_out)
+  !call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
+  call gz_optimization_vdm_Rhop(vdm_init,R_init,vdm_out,R_out)
   !call gz_energy_root_full
   write(*,*) "DAJE; quanto e' vera la madonna"
   

@@ -426,8 +426,6 @@ contains
     write(*,*) vdm
     write(*,*) Rhop
     !stop
-    GZ_energy = gz_energy_vdm_Rhop(vdm,Rhop)
-    !      
   end subroutine gz_get_energy_vdm_Rhop
 
 
@@ -710,13 +708,6 @@ contains
     call slater_determinant_minimization_nlep(R_init,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose)
     call free_gz_projectors_init(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose)    
   end subroutine initialize_GZprojectors
-
-
-
-
-
-
-
   !
   !+- AS IT IS THIS ROUTINE IS WRONG, INDEED IN ORDER TO IMPLEMENT THE FIX-R MINIMIZATION NO SLATER DERIVATIVES HAVE TO BE CONSIDERED....I'LL COME BACK LATER ON THIS... -+!
   !

@@ -26,7 +26,7 @@ subroutine slater_determinant_minimization(Rhop,n0_target,Estar,lgr_multip,iverb
         imap = vdm_c_map(istate,jstate)
         if(imap.gt.0) lgr_multip(istate,jstate)=lgr(imap)
      end do
-  end do
+  end do  
   call store_slater_ground_state(Rhop,lgr_multip,Estar)
   !
   if(iverbose_) then
@@ -99,12 +99,10 @@ contains
           delta = delta + abs(delta_local_density_matrix(istate,jstate))**2.d0
        end do
     end do
-  end function get_delta_local_density_matrix
+  end function get_delta_local_density_matrix  
   !include 'self_minimization_slater_routines.f90'
   !
 end subroutine slater_determinant_minimization
-
-
 
 
 

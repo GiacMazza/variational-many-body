@@ -80,6 +80,7 @@ contains
        end do
     end do
     !
+
     !<DEBUG
     ! write(*,*) 'lm_dens'
     ! write(*,*) lm_dens
@@ -116,6 +117,7 @@ contains
 
           proj_Rhop(istate,jstate) = &
                trace_phi_basis(H_projectors(:,1),phi_traces_basis_Rhop(istate,jstate,:,:))
+
           
           proj_Rhop(istate,jstate) = proj_Rhop(istate,jstate) - & 
                R_target(istate,jstate)*sqrt(n0_target(jstate)*(1.d0-n0_target(jstate)))  !+-CHECK WELL

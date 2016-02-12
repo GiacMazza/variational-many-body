@@ -20,18 +20,6 @@ CONTAINS
        end do
     end do
 
-    ! do is=1,Ns
-    !    do js=1,Ns
-    !       Rhop(is,js) = 0.d0
-    !       do iphi=1,Nphi
-    !          do jphi=1,Nphi
-    !             Rhop(is,js) = &
-    !                  Rhop(is,js) + conjg(phi(iphi))*phi(jphi)*phi_traces_basis_Rhop(is,js,iphi,jphi)/sqrt(vdm_natural(js)*(1.d0-vdm_natural(js)))                           
-    !          end do
-    !       end do
-    !    end do
-    ! end do
-
   end function hopping_renormalization_normal
 
   !

@@ -122,8 +122,15 @@ program GUTZ_mb
   !call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
   call gz_optimization_vdm_Rhop(vdm_init,R_init,vdm_out,R_out)
   !call gz_energy_root_full
+
+
+  call get_gz_ground_state(GZ_vector)
+
+  call print_output(variational_density_natural_simplex)
+
   write(*,*) "DAJE; quanto e' vera la madonna"
   
+
   
   !variational_density_natural_simplex(1,:)=0.5d0
   !
@@ -148,8 +155,8 @@ program GUTZ_mb
   !
 
   !
-  !
-  call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)  
+  call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)    !
+
   !
   call get_gz_ground_state_estimation(variational_density_natural)
   !
@@ -235,30 +242,17 @@ CONTAINS
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
-
-    
-    !<BUP
-    ! do ifock=1,nFock
-    !    call bdecomp(ifock,fock_state)
-    !    write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(ifock),'#|',ifock,' >',fock_state(:)
-    ! end do
-    ! do iphi=1,Nphi
-    !    ifock=indep2full_fock(iphi,1)
-    !    call bdecomp(ifock,fock_state)
-    !    write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(iphi),'#|',ifock,' >',fock_state(:)
-    ! end do   
-    !BUP>
     
     !+- CHANGE THE NAME OF GZ_opt_projector_diag -+!
     test_full_phi=0.d0
     do iphi=1,Nphi
-       write(*,*) iphi
-       do ifock=1,nFock
-          write(*,'(20F7.1)') phi_basis(iphi,ifock,:)
-       end do
-       write(*,*)
+       ! write(*,*) iphi
+       ! do ifock=1,nFock
+       !    write(*,'(20F7.1)') phi_basis(iphi,ifock,:)
+       ! end do
+       ! write(*,*)
        !
-       test_full_phi = test_full_phi + GZ_opt_projector_diag(iphi)*phi_basis(iphi,:,:)
+       test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
     end do
     do ifock=1,nFock
        do jfock=1,nFock
@@ -267,7 +261,7 @@ CONTAINS
     end do
     
     do iphi=1,Nphi
-       write(*,*) GZ_opt_projector_diag(iphi)
+       write(*,*) GZ_vector(iphi)
     end do
     close(out_unit)    
     
@@ -282,7 +276,13 @@ CONTAINS
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_variational_density_matrix.data')
-    write(out_unit,'(20F18.10)') variational_density_natural(1:Ns)
+    !write(out_unit,'(20F18.10)') variational_density_natural(1:Ns)
+    do istate=1,Ns
+       tmp(istate)=GZ_opt_VDM(istate,istate)
+       write(out_unit,'(20F18.10)') GZ_opt_VDM(istate,:)
+    end do
+    write(out_unit,*) ! on the last line store the diagonal elements
+    write(out_unit,'(20F18.10)') tmp(1:Ns)
     close(out_unit)
     !
     out_unit=free_unit()

@@ -320,7 +320,7 @@ CONTAINS
 
     do is=1,Ns
        do js=1,Ns
-          phi_traces_basis_dens(is,js,:,:) = &
+          phi_traces_basis_dens(is,js,:,:) = &    !+- probably is more correct to call this global variable !+- phi_traces_basis_vdm
                get_traces_basis_phiphiO_s(op_local_dens(is,js,:,:))
           !
           ! phi_traces_basis_dens(is,js,:,:) = &

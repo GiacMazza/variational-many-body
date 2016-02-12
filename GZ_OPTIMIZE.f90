@@ -14,18 +14,19 @@ MODULE GZ_OPTIMIZED_ENERGY
   implicit none
   private
   !
-  public :: gz_optimization_vdm_simplex  !+- simplex minimization w/ respect to the vdm
-  !public :: gz_optimization_simplex_vdm_R  !+- simplex minimization w/ respect to the vdm and R (to be CODED)
-  !
-  public :: gz_optimization_vdm_nlsq !+- constrained optimization w/ respect to the vdm  
-  public :: gz_optimization_vdm_Rhop !+- constrained optimization w/ respect to the vdm & Rhop (to be CODED)
+
+  !+- OPTIMIZATION ROUTINES w/ respect the VariationalDensityMatrix (VDM) -+!
+  public :: gz_optimization_vdm_simplex   ! Simplex method (AMOEBA.f90)  !
+  public :: gz_optimization_vdm_nlsq      !+- constrained NonLinearLeastSquare method (GALHAD)
+  
+  !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
+  public :: gz_optimization_vdm_Rhop 
   !
 CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
   !+- PURPOSE: Minimize the GUTZWILLER ENERGY FUNCTIONAL WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
   !+-----------------------------------------------------------------------------------------------------+!
   include 'gz_optimization.f90'
-  
   !
   subroutine gz_optimization_vdm_Rhop(init_vdm,init_Rhop,opt_vdm,opt_Rhop) 
     real(8),dimension(Nvdm),intent(inout)    :: init_vdm
@@ -43,8 +44,8 @@ CONTAINS
     real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
     real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
     integer                           :: iunit,err_unit,ene_unit,Nsuccess  
-    !real(8),dimension(3*Nvdm_c) :: xin
-    real(8),dimension(:),allocatable  :: xin
+    !real(8),dimension(3*Nvdm_c) :: xmin
+    real(8),dimension(:),allocatable  :: xmin
     integer :: Nopt,iopt,Nslater_lgr,NRhop,Nproj_lgr
     integer :: is,js,imap
 
@@ -53,18 +54,18 @@ CONTAINS
     Nproj_lgr = Nopt_odiag
     !
     Nopt = Nslater_lgr + 2*NRhop + Nproj_lgr
-    allocate(xin(Nopt))    
+    allocate(xmin(Nopt))    
     !+- initialize slater_density_constraints
+
     iopt=0
     do is=1,Ns
        do js=1,Ns
           imap = opt_map(is,js)
           if(imap.gt.0) then
-             !iopt = iopt + 1
-             xin(imap) = 0.d0             
-             xin(imap+Nslater_lgr) = 1.d0
-             xin(imap+Nslater_lgr+NRhop) = 0.d0
-             if(is.ne.js) xin(iopt+Nslater_lgr+2*NRhop) = 0.d0
+             xmin(imap) = 0.d0             
+             xmin(imap+Nslater_lgr) = 1.d0
+             xmin(imap+Nslater_lgr+NRhop) = 0.d0
+             if(is.ne.js) xmin(iopt+Nslater_lgr+2*NRhop) = 0.d0
           end if
        end do
     end do
@@ -93,7 +94,7 @@ CONTAINS
     !    
 
     delta=1.d0
-    call lancelot_simple(n_min,xin,delta,exit_code,my_fun=R_VDM_free_opt_function, &
+    call lancelot_simple(n_min,xmin,delta,exit_code,my_fun=R_VDM_free_opt_function, &
          bl = bl, bu = bu,                                                                      &
          neq = neq, nin = nin,                                                                  &
          cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
@@ -101,6 +102,10 @@ CONTAINS
          print_level = print_level )
     !+--------------------------------------------------------------------------------------+!    
     write(*,*) delta
+
+    optimization_flag=.true.
+    allocate(GZ_vector(Nphi))
+    call R_VDM_free_opt_function(xmin,delta)
 
   end subroutine gz_optimization_vdm_Rhop
   
@@ -163,6 +168,10 @@ CONTAINS
          print_level = print_level )
     !+--------------------------------------------------------------------------------------+!    
 
+    optimization_flag=.true.
+    allocate(GZ_vector(Nphi))
+    call gz_get_energy_vdm(optimized_vdm,GZ_energy)
+
   end subroutine gz_optimization_vdm_nlsq
 
 
@@ -184,9 +193,10 @@ CONTAINS
     real(8),allocatable,dimension(:)                       :: y
     real(8)                                                :: ftol
     integer                                                :: np,mp,i_vertex,j_vertex,i_dim,iter
-    integer,allocatable,dimension(:)                       :: idum
-    integer                                                :: tmp_dum
-    real(8)                                                :: rnd,tot_dens,tmp_pol
+    !integer,allocatable,dimension(:)                       :: idum
+    !integer                                                :: tmp_dum
+    !real(8)                                                :: rnd,tot_dens
+    real(8)                                                :: GZ_energy
     integer                                                :: amoeba_unit    
     !+-------------------+!
     optimization_flag=.false.
@@ -231,7 +241,12 @@ CONTAINS
     write(amoeba_unit,*) 
     deallocate(y,p)
     close(amoeba_unit)
-    close(opt_energy_unit)
+    close(opt_energy_unit)    
+    !
+    optimization_flag=.true.
+    allocate(GZ_vector(Nphi))
+    GZ_energy = gz_energy_vdm(optimized_vdm)
+    !
   end subroutine gz_optimization_vdm_simplex
 
 

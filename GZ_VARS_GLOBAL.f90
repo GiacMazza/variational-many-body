@@ -71,38 +71,20 @@ MODULE GZ_VARS_GLOBAL
 
   
   
-  ! real(8),allocatable                :: gz_docc(:)           ! Double occupancy (1:Norb)
-  ! real(8),allocatable                :: gz_dens_dens_orb(:,:)  ! density_density different orbitals (1:Norb,1:Norb)
-  ! real(8),allocatable                :: gz_dens(:)           ! local density    (1:Ns)
 
-
-
-  ! real(8),allocatable                :: docc(:,:,:)              ! Double occupancy (Norb,:,:)
-  ! real(8),allocatable                :: dens(:,:,:)              ! local density    (1:Ns,:,:)
-  ! real(8),allocatable                :: dens_dens_orb(:,:,:,:)     ! local density    (Norb,Norb,:,:)
-  ! real(8),allocatable                :: spin_flip(:,:,:,:)     ! spin_flip    (Norb,Norb,:,:)
-  ! real(8),allocatable                :: pair_hopping(:,:,:,:)     ! pair_hopping    (Norb,Norb,:,:)
-  
-
-
-
-
-  
-  !# Gutzwiller renormalization factors #!
-  !complex(8),allocatable             :: Rhop_c(:,:)         ! renormalization factors real
-
-  !real(8),allocatable                :: Rhop_diag(:)        ! reormalization factors diagonal imag    
-  !complex(8),allocatable             :: Phi_c(:,:)          ! gz_projectors -full- real
-  !real(8),allocatable                :: Phi_r(:,:)          ! gz_projectors -full- imag
-  !real(8),allocatable                :: phi_gz(:)           ! gz_projectors diagonal
+  !+- OPTIMIZED QUANTITIES -+!
+  complex(8),allocatable                :: GZ_vector(:)  !+- CHANGE NAME TO THIS GUY
+  !# Slater Determinant #!
+  complex(8),dimension(:,:,:),allocatable :: GZ_opt_slater   ! (Ns,Ns,Lk) aka <c^+_{k\alpha} c_{k\beta}> \alpha,\beta=1,Ns
   
   real(8)                            :: GZ_opt_energy,GZ_opt_kinetic,GZ_opt_Eloc
-  complex(8),allocatable                :: GZ_opt_Rhop(:,:)         ! reormalization factors  
-  complex(8),allocatable                :: GZ_opt_projector_diag(:)  !+- CHANGE NAME TO THIS GUY
+  complex(8),allocatable             :: GZ_opt_Rhop(:,:)         
+  real(8),allocatable                :: GZ_opt_vdm(:,:)         
   
 
-  !# Slater Determinant #!
-  complex(8),dimension(:,:,:),allocatable :: slater_matrix_elements   ! (Ns,Ns,Lk) aka <c^+_{k\alpha} c_{k\beta}> \alpha,\beta=1,Ns
+
+
+
   complex(8),dimension(:,:),allocatable   :: slater_ground_state_deriv   ! (Ns,Ns) aka d<H*>/R_{\alpha,\beta} \alpha,\beta=1,Ns
   
   !# Observables #!

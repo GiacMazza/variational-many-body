@@ -400,3 +400,58 @@
     end function gz_energy_vdm
 
   end subroutine gz_optimization_vdm
+
+
+  subroutine gz_get_energy_vdm_Rhop(x,GZ_energy,i) 
+    real(8),intent(in) :: x(:)
+    real(8),intent(out)              :: GZ_energy
+    integer,intent(in),optional :: i
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    complex(8),dimension(Ns,Ns) :: slater_derivatives    
+    real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
+    real(8),dimension(Ns,Ns,2) :: GZproj_lgr_multip  ! 
+    real(8),dimension(Ns,Ns) :: GZproj_lgr_multip_  ! 
+    real(8)                                :: E_Hstar,E_Hloc
+    complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)      
+    integer :: is,js,imap
+    !
+    Rhop=zero
+    do is=1,Ns
+       imap = vdm_map(is)
+       vdm(is) = x(imap)
+       do js=1,Ns
+          imap = vdm_c_map(is,js)
+          if(imap.gt.0) Rhop(is,js) = x(imap+Nvdm) + xi*x(imap+2*Nvdm)
+       end do
+    end do
+    !
+
+    write(*,*) vdm
+    write(*,*) Rhop
+    !stop
+  end subroutine gz_get_energy_vdm_Rhop
+
+
+
+
+
+  function gz_energy_vdm_Rhop(vdm,Rhop) result(GZ_energy)
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    real(8)              :: GZ_energy
+    real(8),dimension(Ns,Ns)           :: slater_lgr_multip,R_diag
+    real(8),dimension(Ns,Ns,2) :: GZproj_lgr_multip  ! 
+    real(8),dimension(Ns,Ns) :: GZproj_lgr_multip_  ! 
+    real(8)                                :: E_Hstar,E_Hloc
+    complex(8),dimension(nPhi)               :: GZvect_iter  ! GZ vector (during iterations)      
+    integer :: is
+    !
+    !call slater_determinant_minimization(Rhop,vdm,E_Hstar,slater_lgr_multip,GZmin_verbose)          
+    !
+    !call gz_projectors_minimization_fixR(vdm,Rhop,E_Hloc,GZvect_iter,GZproj_lgr_multip(:,:,1),GZproj_lgr_multip(:,:,2),GZmin_verbose)            
+
+    !
+    GZ_energy=E_Hstar+E_Hloc
+    !
+  end function gz_energy_vdm_Rhop

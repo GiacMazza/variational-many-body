@@ -58,12 +58,11 @@ contains
     integer                                    :: iorb,jorb,istate,jstate
     integer :: ifock,iphi,jphi,ifock_,is,js
     !
-    real(8),dimension(Nphi) :: phi_vector_test
-    
+    real(8),dimension(Nphi) :: phi_vector_test    
     !
-    allocate(GZ_opt_Rhop(Ns,Ns))
-    allocate(GZ_opt_VDM(Ns,Ns))
-    allocate(GZ_opt_slater(Ns,Ns,Lk))
+    if(.not.allocated(GZ_opt_Rhop)) allocate(GZ_opt_Rhop(Ns,Ns))
+    if(.not.allocated(GZ_opt_VDM)) allocate(GZ_opt_VDM(Ns,Ns))
+    if(.not.allocated(GZ_opt_slater)) allocate(GZ_opt_slater(Ns,Ns,Lk))
     !
     do is=1,Ns
        do js=1,Ns
@@ -72,32 +71,28 @@ contains
        n0(is) = GZ_opt_VDM(is,is)
     end do
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
-
+    !
     !<DEBUG
-    write(*,*) GZ_opt_VDM
-    write(*,*)
-    write(*,*) GZ_opt_Rhop
-    !DEBUG>
-    !stop
-
-    ! call slater_minimization_lgr(GZ_opt_Rhop,n0,E_Hstar,slater_lgr_multip,&
-    !      slater_matrix_el=GZ_opt_slater)       
-
+    ! write(*,*) GZ_opt_VDM
+    ! write(*,*)
+    ! write(*,*) GZ_opt_Rhop
+    !DEBUG>    
+    !
     call slater_minimization_lgr(GZ_opt_Rhop,n0,E_Hstar,slater_lgr_multip,iverbose=.true.)
-
+    !    
     !+- GET OBSERVABLES -+!
     ! physical density !
-    allocate(gz_dens(Ns))
+    if(.not.allocated(gz_dens)) allocate(gz_dens(Ns))
     do istate=1,Ns
        gz_dens(istate) = trace_phi_basis(phi_vec,phi_traces_basis_local_dens(istate,istate,:,:))
     end do
     ! density-density same orbital -aka orbital doubly occupancy-!
-    allocate(gz_docc(Norb))
+    if(.not.allocated(gz_docc)) allocate(gz_docc(Norb))
     do iorb=1,Norb
        gz_docc(iorb) = trace_phi_basis(phi_vec,phi_traces_basis_docc_orb(iorb,:,:))
     end do
     ! density-density different orbitals !
-    allocate(gz_dens_dens_orb(Norb,Norb))
+    if(.not.allocated(gz_dens_dens_orb)) allocate(gz_dens_dens_orb(Norb,Norb))
     do iorb=1,Norb
        do jorb=1,Norb
           gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
@@ -196,8 +191,9 @@ contains
     integer :: is,imap
     !
     do is=1,Ns
-       imap = vdm_map(is)
-       vdm(is) = x(imap)
+       !imap = vdm_map(is)
+       imap = opt_map(is,is)       
+       if(imap.gt.0) vdm(is) = x(imap)
     end do
     !
     GZ_energy = gz_energy_vdm(vdm)
@@ -205,7 +201,7 @@ contains
   end subroutine gz_get_energy_vdm
 
 
-  
+
 
 
 
@@ -230,7 +226,7 @@ contains
     write(*,*) 'INPUT DENSITY',n0(:)
     bound=.false.
     do istate=1,Ns
-       if(n0(istate).lt.1.d-11.or.n0(istate).gt.1.d0-1.d-11) bound=.true.
+       if(n0(istate).lt.0.d0.or.n0(istate).gt.1.d0) bound=.true.
     end do
     !
     if(.not.bound) then
@@ -250,7 +246,6 @@ contains
           !+----------------------------+!
           !+- SLATER STEP MINIMIZATION -+!
           !+----------------------------+!    
-          !call slater_determinant_minimization_nlep(R_iter,n0,E_Hstar,slater_lgr_multip,slater_derivatives,GZmin_verbose)       
           call slater_minimization_lgr(R_iter,n0,E_Hstar,slater_lgr_multip, &
                slater_derivatives=slater_derivatives,iverbose=GZmin_verbose)       
           !+----------------------------+!
@@ -258,13 +253,16 @@ contains
           !+----------------------------+!    
           select case(lgr_method)
           case('amoeba')
-!             call gz_projectors_minimization_nlep(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)   
              call gz_proj_minimization_lgr(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)   
           case('fsolve')
              call gz_proj_minimization_lgr(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)   
           end select
           !
+
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
+
+
+
           R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
           do istate=1,Ns
              R_diag(istate)=R_iter(istate,istate)
@@ -345,15 +343,20 @@ contains
     write(*,*) 'INPUT DENSITY',n0(:)
     bound=.false.
     do istate=1,Ns
-       if(n0(istate).le.1.d-10.or.n0(istate).ge.1.d0-1.d-10) bound=.true.
+       if(n0(istate).lt.0.d0.or.n0(istate).gt.1.d0) bound=.true.
     end do
     !
 
     if(.not.bound) then
        !+- get not-interacting GZprojectors corresponding to this density matrix -+!
-       call initialize_GZprojectors(GZvect_iter,n0)
+       !call initialize_GZprojectors(GZvect_iter,n0)
        !
-       R_iter=hopping_renormalization_normal(GZvect_iter,n0)
+       !R_iter=hopping_renormalization_normal(GZvect_iter,n0)
+       R_iter=0.d0
+       do istate=1,Ns
+          R_iter(istate,istate) = 1.d0
+       end do
+
        !
        GZ_energy=0.d0
        do iter=1,Niter_self
@@ -364,16 +367,13 @@ contains
           !+- SLATER STEP MINIMIZATION -+!
           !+----------------------------+!    
           !
-          !          call slater_determinant_minimization_cmin(R_iter,n0,E_Hstar,slater_lgr_multip,slater_matrix_el,GZmin_verbose)       
           call slater_minimization_lgr(R_iter,n0,E_Hstar,slater_lgr_multip,&
-               slater_matrix_el=slater_matrix_el,iverbose=GZmin_verbose)       
+               slater_matrix_el=slater_matrix_el,iverbose=.true.)       
           !
           !+----------------------------+!
           !+- GZproj STEP MINIMIZATION -+!
           !+----------------------------+!    
-          !
-          ! call gz_projectors_minimization_cmin(slater_matrix_el,n0,GZ_energy,GZvect_iter,GZproj_lgr_multip,GZmin_verbose)
-          !
+          !                  
           call gz_proj_minimization_lgr(slater_matrix_el,n0,GZ_energy,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)
           !
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)

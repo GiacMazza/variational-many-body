@@ -13,28 +13,43 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
   complex(8),dimension(Ns,Ns,Lk) :: slater_matrix_el_
   real(8),dimension(Ns,Ns) :: n0_out_
   !
-  real(8),dimension(Nvdm_c)                :: lgr     !+- real indeendent lgr_vector -+!
+  real(8),dimension(:),allocatable                :: lgr     !+- real indeendent lgr_vector -+!
 
 
   complex(8),dimension(Ns,Ns)             :: Hk
   real(8),dimension(Ns)                :: tmp_lgr,err_dens
-  integer                              :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb,iter,imap,is
+  integer                              :: iorb,jorb,ik,ispin,jspin,istate,jstate,info,korb,iter,imap,is,js
   real(8),dimension(Ns)                :: lgr_multip_vec
   logical                              :: iverbose_
   real(8)  :: delta
   !
   iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose
   !    
-  lgr=0.d0
-  call fmin_cg(lgr,get_delta_local_density_matrix,iter,delta)
+  allocate(lgr(Nopt_diag+Nopt_odiag));lgr=0.d0
+  lgr=-0.5
+  do is=1,Ns
+     do js=1,Ns
+        imap = opt_map(is,js)
+        if(imap.gt.0) then
+           if(is.eq.js) then
+              if(n0_target(is).le.1.d-4)  lgr(imap) = Wband
+              if(n0_target(is).ge.1.d0-1.d-4)  lgr(imap) =  -Wband
+           end if
+        end if
+     end do
+  end do
+  !<DEBUG
+  !DEBUG>
+  lgr = lgr_init_slater
+  call fmin_cgminimize(lgr,get_delta_local_density_matrix,iter,delta,itmax=20)
+  lgr_init_slater=lgr
   lgr_multip=0.d0
   do istate=1,Ns
      do jstate=1,Ns
-        imap = vdm_c_map(istate,jstate)
+        imap = opt_map(istate,jstate)
         if(imap.gt.0) lgr_multip(istate,jstate)=lgr(imap)
      end do     
   end do
-
   call slater_minimization_fixed_lgr(Rhop,lgr_multip,Estar,n0_out_,slater_derivatives_,slater_matrix_el_)
 
   if(present(n0_out)) n0_out=n0_out_
@@ -68,10 +83,13 @@ contains
     real(8),dimension(Ns)          :: ek
     integer                              :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,imap
     !
+
+
     lm=0.d0
     do istate=1,Ns
        do jstate=1,Ns
-          imap = vdm_c_map(istate,jstate)
+          !imap = vdm_c_map(istate,jstate)
+          imap = opt_map(istate,jstate)
           if(imap.gt.0) lm(istate,jstate)=lm_(imap)
        end do
     end do
@@ -111,6 +129,7 @@ contains
           delta = delta + abs(delta_local_density_matrix(istate,jstate))**2.d0
        end do
     end do
+    !
   end function get_delta_local_density_matrix
 end subroutine slater_minimization_lgr
 !
@@ -134,6 +153,8 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
   n0_ = 0.d0
   slater_matrix_el_ = zero
   !
+
+ 
   do ik=1,Lk
      !
      Hk=0.d0

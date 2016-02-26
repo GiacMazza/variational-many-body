@@ -9,9 +9,9 @@ MODULE GZ_VARS_GLOBAL
   integer                              :: state_dim           ! dimension of a single Fock state  |(\up,\dn)_1,...,(\up,\dn)_Norb> ===> Ns = 2*Norb  
 
   !+- VARIATIONAL DENSITY MATRIX DETAILS -+!
-  integer                              :: Nvdm  !number of independent entries in the variational density matrix in the natural basis 1< Nvdm <= Ns
+  !integer                              :: Nvdm  !number of independent entries in the variational density matrix in the natural basis 1< Nvdm <= Ns
   integer,dimension(:),allocatable     :: vdm_map
-  integer                              :: Nvdm_c!number of independent constraints for the density matrix 1< Nvdm <= Ns*Ns  
+  !integer                              :: Nvdm_c!number of independent constraints for the density matrix 1< Nvdm <= Ns*Ns  
   integer,dimension(:,:),allocatable   :: vdm_c_map
 
   integer :: Nopt_diag,Nopt_odiag
@@ -69,6 +69,9 @@ MODULE GZ_VARS_GLOBAL
   complex(8),allocatable                            :: phi_traces_basis_pair_hopping(:,:,:,:)
   
 
+
+  !<init_lgr
+  real(8),dimension(:),allocatable :: lgr_init_slater,lgr_init_gzproj
   
   
 
@@ -81,6 +84,9 @@ MODULE GZ_VARS_GLOBAL
   complex(8),allocatable             :: GZ_opt_Rhop(:,:)         
   real(8),allocatable                :: GZ_opt_vdm(:,:)         
   
+
+
+
 
 
 
@@ -107,6 +113,7 @@ MODULE GZ_VARS_GLOBAL
   !+-------------------------+!
   !+- MODEL DETAILS DETAILS -+!
   !+-------------------------+!
+  real(8)                          :: Wband
   integer :: Lk
   real(8),dimension(:),allocatable :: wtk
   real(8),dimension(:),allocatable :: atomic_energy_levels 

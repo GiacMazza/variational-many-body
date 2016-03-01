@@ -12,7 +12,7 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
   real(8),dimension(Ns)                :: err_dens
   real(8),dimension(Ns*Ns)             :: err_dens_full
   real(8)                              :: off_constraints
-  real(8)                              :: delta_out
+  real(8),allocatable,dimension(:)                              :: delta_out
   logical                              :: iverbose_,ifree_
   integer                              :: info,istate,jstate,i,j,iter
   !+- amoeba_variables-+!
@@ -26,10 +26,18 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
   ifree_=.false.;if(present(ifree)) iverbose_=ifree
   !
   allocate(lgr(Nopt_diag+Nopt_odiag));  lgr=0.d0
+  allocate(delta_out(Nopt_diag+Nopt_odiag))
   !DEBUG
   lgr = lgr_init_gzproj
   !DEBUG
   call fmin_cg(lgr,get_delta_proj_variational_density,iter,delta)
+  ! call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
+  ! delta_out=fix_density(lgr)
+  ! delta=0.d0
+  ! do is=1,Nopt_diag+Nopt_odiag
+  !    delta = delta + delta_out(is)**2.d0
+  ! end do
+  !
   lgr_init_gzproj = lgr
   !
   lgr_multip=0.d0
@@ -112,6 +120,64 @@ contains
        end do
     end do
   end function get_delta_proj_variational_density
+
+
+  function fix_Density(lm_) result(delta)
+    real(8),dimension(:)         :: lm_
+    real(8),dimension(size(lm_)) :: delta
+    real(8),dimension(Ns,Ns) :: lm
+    real(8),dimension(Ns,Ns) :: delta_proj_variational_density,proj_variational_density
+    complex(8),dimension(Nphi,Nphi)          :: H_projectors,H_tmp
+    real(8),dimension(Nphi)               :: H_eigens
+    real(8) :: tmp_ene
+
+    integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+    integer :: iphi,jphi,imap
+    !
+    lm=0.d0
+    do istate=1,Ns
+       do jstate=1,Ns
+          imap = opt_map(istate,jstate)
+          if(imap.gt.0) lm(istate,jstate)=lm_(imap)
+       end do
+    end do
+    !
+    proj_variational_density=0.d0
+    !+- build up the local H_projectors -+!
+    H_projectors=zero
+    H_projectors=phi_traces_basis_Hloc
+    do istate=1,Ns
+       do jstate=1,Ns
+          H_projectors = H_projectors + slater_derivatives(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)/sqrt(n0_target(jstate)*(1.d0-n0_target(jstate)))
+          H_projectors = H_projectors + lm(istate,jstate)*phi_traces_basis_dens(istate,jstate,:,:)
+       end do
+    end do
+    !  
+    call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
+    !
+    do istate=1,Ns
+       do jstate=1,Ns
+          !
+          proj_variational_density(istate,jstate) = trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens(istate,jstate,:,:))
+          !
+       end do
+    end do
+    delta_proj_variational_density = proj_variational_density
+    do istate=1,Ns
+       delta_proj_variational_density(istate,istate) = & 
+            delta_proj_variational_density(istate,istate) - n0_target(istate) 
+    end do
+    !
+    do istate=1,Ns
+       do jstate=1,Ns
+          imap = opt_map(istate,jstate)
+          if(imap.gt.0) delta(imap) = delta_proj_variational_density(istate,jstate)
+       end do
+    end do
+    !
+  end function fix_Density
+
+
   !  include 'self_minimization_GZproj_routines.f90'
   !
 end subroutine gz_projectors_minimization_nlep
@@ -374,18 +440,21 @@ end subroutine gz_projectors_minimization_cmin
 
 
 
-subroutine gz_projectors_minimization_cmin_(slater_matrix_el,n0,GZenergy,GZvect_indep,GZproj_lgr_multip,iverbose)
-  complex(8),dimension(Ns,Ns,Lk),intent(in) :: slater_matrix_el
-  real(8),dimension(Ns),intent(in)       :: n0
-  complex(8),dimension(Nphi),intent(inout)  :: GZvect_indep    
-  real(8),dimension(Nphi)   :: GZvect_indep_
-  real(8),intent(inout)                  :: GZenergy
-  real(8),dimension(Ns,Ns),intent(inout) :: GZproj_lgr_multip
-  logical,optional                       :: iverbose
+subroutine gz_projectors_minimization_cmin_(n0,GZenergy,GZvect_indep,GZproj_lgr_multip,iverbose)
+  real(8),dimension(Ns),intent(in)         :: n0
+  complex(8),dimension(Nphi),intent(inout) :: GZvect_indep    
+  real(8),dimension(Nphi)                  :: GZvect_indep_
+  real(8),intent(inout)                    :: GZenergy
+  real(8),dimension(Ns,Ns),intent(inout)   :: GZproj_lgr_multip
+  logical,optional                         :: iverbose
   logical                       :: iverbose_
   real(8),dimension(Ns)                  :: vdm
   integer                                :: iter,iter_max,istate,i,iter_
   integer                                :: iorb,ispin,i_ind,ifock
+
+
+
+
   !
   !LANCELOT VARIABLES
   !
@@ -489,11 +558,15 @@ contains
     real(8),allocatable           :: niorb(:)
     real(8)                       :: Estar
     real(8),dimension(Ns)  :: local_dens_
-    real(8),dimension(Ns,Ns)  :: Rhop    
+    complex(8),dimension(Ns,Ns)  :: Rhop    
     real(8),dimension(Ns,Ns)  :: Hk
     !
     integer                       :: iorb,ispin,istate,jstate,ik,ifock,jfock,jorb,jspin,iphi,jphi
     integer                      :: is,js,imap
+
+    complex(8),dimension(Ns,Ns,Lk) :: slater_matrix_el
+    real(8),dimension(Ns,Ns) :: lgr_slater
+
     !
     f=1.d0
     allocate(phi_(Nphi))
@@ -512,6 +585,14 @@ contains
     !
     if (.not.present(i)) then
        !+- FREE ENERGY ESTIMATION WITHIN GZ APPROX -+!
+       call slater_minimization_lgr(Rhop,vdm,Estar,lgr_slater,slater_matrix_el=slater_matrix_el)
+
+       write(*,*) 'Estar',Estar,vdm
+       write(*,*)
+       do istate=1,Ns
+          write(*,'(10F18.10)') dreal(Rhop(istate,:))
+       end do
+       write(*,*)
        Estar=0.d0
        do ik=1,Lk
           Hk=0.d0

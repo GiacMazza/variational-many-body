@@ -13,7 +13,7 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
   complex(8),dimension(Ns,Ns,Lk) :: slater_matrix_el_
   real(8),dimension(Ns,Ns) :: n0_out_
   !
-  real(8),dimension(:),allocatable                :: lgr     !+- real indeendent lgr_vector -+!
+  real(8),dimension(:),allocatable                :: lgr,delta_out     !+- real indeendent lgr_vector -+!
 
 
   complex(8),dimension(Ns,Ns)             :: Hk
@@ -26,6 +26,7 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
   iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose
   !    
   allocate(lgr(Nopt_diag+Nopt_odiag));lgr=0.d0
+  allocate(delta_out(Nopt_diag+Nopt_odiag))
   lgr=-0.5
   do is=1,Ns
      do js=1,Ns
@@ -38,17 +39,21 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
         end if
      end do
   end do
-  !<DEBUG
-  !DEBUG>
   lgr = lgr_init_slater
-  call fmin_cgminimize(lgr,get_delta_local_density_matrix,iter,delta,itmax=20)
+  !call fmin_cg(lgr,get_delta_local_density_matrix,iter,delta,itmax=20)
+  call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
+  delta_out=fix_density(lgr)
+  delta=0.d0
+  do is=1,Nopt_diag+Nopt_odiag
+     delta = delta + delta_out(is)**2.d0
+  end do
   lgr_init_slater=lgr
   lgr_multip=0.d0
   do istate=1,Ns
      do jstate=1,Ns
         imap = opt_map(istate,jstate)
         if(imap.gt.0) lgr_multip(istate,jstate)=lgr(imap)
-     end do     
+     end do
   end do
   call slater_minimization_fixed_lgr(Rhop,lgr_multip,Estar,n0_out_,slater_derivatives_,slater_matrix_el_)
 
@@ -56,6 +61,13 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
   if(present(slater_derivatives)) slater_derivatives = slater_derivatives_
   if(present(slater_matrix_el)) slater_matrix_el=slater_matrix_el_
   !
+
+  !<DEBUG
+  do istate=1,Ns
+     write(*,*) dreal(Rhop(istate,:))
+  end do
+  !DEBUG>
+
   if(iverbose_) then
      write(*,*)
      write(*,*) "Slater Determinant: Lagrange Multipliers - OK -"
@@ -131,6 +143,83 @@ contains
     end do
     !
   end function get_delta_local_density_matrix
+
+
+
+  function fix_density(lm_) result(delta)
+    real(8),dimension(:)   :: lm_
+    real(8),dimension(size(lm_))      :: delta
+    real(8),dimension(Ns)  :: delta_local_density_matrix_vec
+    real(8),dimension(Ns*Ns)  :: delta_local_density_matrix_vec_
+    real(8),dimension(Ns,Ns)  :: lm
+    real(8),dimension(Ns,Ns)  :: delta_local_density_matrix,local_density_matrix
+    real(8),dimension(Ns,Ns) :: Hk,tmp
+    real(8),dimension(Ns)          :: ek
+    integer                              :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,imap
+    !
+
+
+    lm=0.d0
+    do istate=1,Ns
+       do jstate=1,Ns
+          imap = opt_map(istate,jstate)
+          if(imap.gt.0) lm(istate,jstate)=lm_(imap)
+       end do
+    end do
+    !
+    local_density_matrix=0.d0
+    !
+    do ik=1,Lk
+       Hk=0.d0
+       ek=0.d0
+       ! hopping renormalization !
+       Hk=matmul(Hk_tb(:,:,ik),Rhop)
+       Hk=matmul(Rhop,Hk)
+       ! add Lagrange multipliers !
+       Hk=Hk+lm                     
+       ! diagonalize hamiltonian !
+       call  matrix_diagonalize(Hk,ek,'V','L')
+       !compute local density matrix
+       do istate=1,Ns
+          do jstate=1,Ns
+             do kstate=1,Ns
+                !
+                local_density_matrix(istate,jstate) = &
+                     local_density_matrix(istate,jstate) + fermi(ek(kstate),beta)*Hk(istate,kstate)*Hk(jstate,kstate)*wtk(ik)
+                !
+             end do
+          end do
+       end do
+    end do
+    ! return variation of local density matrix with respect to the target values
+    do istate=1,Ns
+       do jstate=1,Ns
+          imap = opt_map(istate,jstate)
+          if(imap.gt.0) then
+             if(istate.eq.jstate) then
+                delta(imap) = local_density_matrix(istate,jstate) - &
+                     n0_target(istate)
+             else
+                delta(imap) = local_density_matrix(istate,jstate)
+             end if
+          end if
+       end do
+    end do
+    !
+    ! delta_local_density_matrix = local_density_matrix
+    ! do istate=1,Ns
+    !    delta_local_density_matrix(istate,istate) = delta_local_density_matrix(istate,istate) - n0_target(istate)      
+    ! end do
+    ! delta=0.d0
+    ! do istate=1,Ns
+    !    do jstate=1,Ns
+    !       delta = delta + abs(delta_local_density_matrix(istate,jstate))**2.d0
+    !    end do
+    ! end do
+    ! !
+  end function fix_density
+
+
 end subroutine slater_minimization_lgr
 !
 subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,slater_matrix_el)     

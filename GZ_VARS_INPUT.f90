@@ -47,7 +47,7 @@ contains
     call parse_input_variable(amoeba_verbose,"AMOEBA_VERBOSE",INPUTunit,default=.false.)
     call parse_input_variable(GZmin_verbose,"GZMIN_VERBOSE",INPUTunit,default=.false.)
     call parse_input_variable(min_method,"MIN_METHOD",INPUTunit,default='nlep')
-    call parse_input_variable(lgr_method,"LGR_METHOD",INPUTunit,default='amoeba')
+    call parse_input_variable(lgr_method,"LGR_METHOD",INPUTunit,default='f_zero')
     call parse_input_variable(Rseed,"RSEED",INPUTunit,default=1.d0)
     call parse_input_variable(Rmix,"RMIX",INPUTunit,default=1.d0)
     call parse_input_variable(Niter_self,"NITER_SELF",INPUTunit,default=100)

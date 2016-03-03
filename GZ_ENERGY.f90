@@ -71,11 +71,6 @@ contains
     end do
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
     !
-    !<DEBUG
-    ! write(*,*) GZ_opt_VDM
-    ! write(*,*)
-    ! write(*,*) GZ_opt_Rhop
-    !DEBUG>    
     !
     call slater_minimization_lgr(GZ_opt_Rhop,n0,E_Hstar,slater_lgr_multip,iverbose=.true.)
     !    
@@ -113,7 +108,6 @@ contains
        GZenergy=gz_energy_recursive_nlep(vdm)
     case('cmin')
        GZenergy=gz_energy_recursive_cmin(vdm)
-       !GZenergy=gz_energy_recursive_cmin(vdm)
     end select
   end function gz_energy_vdm
 
@@ -195,18 +189,16 @@ contains
           !+----------------------------+!
           !+- GZproj STEP MINIMIZATION -+!
           !+----------------------------+!    
-          select case(lgr_method)
-          case('amoeba')
-             call gz_proj_minimization_lgr(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)   
-          case('fsolve')
-             call gz_proj_minimization_lgr(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)   
-          end select
+          call gz_proj_minimization_lgr(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)   
+          ! select case(lgr_method)
+          ! case('amoeba')
+          !    call gz_proj_minimization_lgr(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)   
+          ! case('fsolve')
+          !    call gz_proj_minimization_lgr(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)   
+          ! end select
           !
-
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
-
-
-
+          !
           R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
           do istate=1,Ns
              R_diag(istate)=R_iter(istate,istate)
@@ -261,12 +253,12 @@ contains
 
 
 
-
+  
   function gz_energy_recursive_cmin(n0)  result(GZ_energy)
     real(8),dimension(:),intent(in)           :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                                   :: GZ_energy !INPUT: Optimized GZ energy at fixed 
     real(8)                                   :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
-    complex(8),dimension(Nphi)                  :: GZvect_iter  ! GZ vector (during iterations)
+    complex(8),dimension(Nphi)                  :: GZvect_iter,GZvect_iter_  ! GZ vector (during iterations)
 
     complex(8),dimension(Ns,Ns)    :: R_iter,R_old ! hopping matrix renormalization (during iterations)
 
@@ -276,7 +268,7 @@ contains
 
     real(8),dimension(Ns,Ns)              :: slater_lgr_multip
     real(8),dimension(Ns,Ns)    :: GZproj_lgr_multip  
-    real(8)                                   :: E_Hstar,E_Hloc
+    real(8)                                   :: E_Hstar,E_Hloc,tmp_norm
     !
     integer                                   :: istate,iter,jstate,ifock,jfock,i_ind
     integer                                   :: iphi,jphi
@@ -291,77 +283,27 @@ contains
     end do
     !
     if(.not.bound) then
-
-
-       !+- get not-interacting GZprojectors corresponding to this density matrix -+!
-       ! call initialize_GZprojectors(GZvect_iter,n0)       
-       ! R_iter=hopping_renormalization_normal(GZvect_iter,n0)
-       ! !
-       ! !+----------------------------+!
-       ! !+- GZproj STEP MINIMIZATION -+!
-       ! !+----------------------------+!    
-       ! !                  
-       ! call gz_projectors_minimization_cmin_(n0,GZ_energy,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)
-       ! !
-       ! R_iter=hopping_renormalization_normal(GZvect_iter,n0)
-       ! do istate=1,Ns
-       !    R_diag(istate)=R_iter(istate,istate)
-       ! end do
-       ! !
-       ! E_Hloc = trace_phi_basis(GZvect_iter,phi_traces_basis_Hloc)
-       ! E_Hstar = GZ_energy-E_Hloc
-       ! !
-       ! write(*,*) GZ_energy
-       ! if(GZmin_verbose) then
-       !    write(GZmin_unit,*) GZ_energy,E_Hstar,E_Hloc,R_diag(1:Ns)
-       ! end if
-       ! !
-       ! if(GZmin_verbose) write(GZmin_unit,*) 
-       ! ! if(iter-1.eq.Niter_self) then
-       ! !    write(*,*) 'Recursive Gutzwiller minimization using Constrained minimization of the GZ projectors'
-       ! !    write(*,*) 'Input VDM',n0
-       ! !    write(*,*) 'final error',energy_err
-       ! !    write(*,*) "Not converged after",Niter_self,'iterations: exiting'
-       ! !    stop 
-       ! ! end if
-       ! write(opt_GZ_unit,*) n0
-       ! write(opt_GZ_unit,*)
-       ! !
-       ! do iphi=1,Nphi
-       !    write(opt_GZ_unit,*) GZvect_iter(iphi)
-       ! end do
-       ! !
-       ! write(opt_GZ_unit,*)
-       ! write(opt_GZ_unit,*)
-       ! write(opt_energy_unit,*) n0,GZ_energy,E_Hstar,E_Hloc
-       ! !
-       ! R_iter=hopping_renormalization_normal(GZvect_iter,n0)
-       ! do istate=1,Ns
-       !    R_diag(istate)=R_iter(istate,istate)
-       ! end do
-       ! write(opt_rhop_unit,*) n0,R_diag(1:Ns)
-       ! !
-
-
-
-
        R_iter=0.d0
        do istate=1,Ns
           R_iter(istate,istate) = Rseed
        end do
-
        !
+       !call initialize_GZprojectors(GZvect_iter,n0)
        GZ_energy=0.d0
        do iter=1,Niter_self
+          !
           !+- update phi_vectors -+!
+          !
           GZ_energy_old=GZ_energy
-          R_old=R_iter          
+          R_old = R_iter
 
+          !GZvect_iter_ = GZvect_iter
+          
           !
           !+----------------------------+!
           !+- SLATER STEP MINIMIZATION -+!
           !+----------------------------+!    
-          !
+          !         
           call slater_minimization_lgr(R_iter,n0,E_Hstar,slater_lgr_multip,&
                slater_matrix_el=slater_matrix_el,iverbose=.true.)       
           !
@@ -373,6 +315,9 @@ contains
           !
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
           R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
+          !GZvect_iter = 0.5d0*GZvect_iter + 0.5d0*GZvect_iter_
+        
+          !
           do istate=1,Ns
              R_diag(istate)=R_iter(istate,istate)
           end do
@@ -449,10 +394,8 @@ contains
     call slater_minimization_lgr(R_init,n0,E_Hstar,slater_lgr_multip, &
          slater_derivatives=slater_derivatives,iverbose=GZmin_verbose)       
     ! call slater_determinant_minimization_nlep(R_init,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose)
-!    call free_gz_projectors_init(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose)    
+    !call free_gz_projectors_init(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose)    
     call gz_proj_minimization_lgr(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,ifree=.true.,iverbose=GZmin_verbose)   
-
-
   end subroutine initialize_GZprojectors
   !
 END MODULE GZ_ENERGY_MINIMIZATION

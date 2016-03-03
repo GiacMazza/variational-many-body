@@ -21,7 +21,7 @@ MODULE GZ_OPTIMIZED_ENERGY
 
   !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
   public :: gz_optimization_vdm_Rhop 
-  public :: gz_optimization_vdm_Rhop_
+  !public :: gz_optimization_vdm_Rhop_
   !
 CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
@@ -75,11 +75,6 @@ CONTAINS
           end if
        end do
     end do
-    !<DEBUG
-    ! call R_VDM_free_opt_function(xmin,delta)
-    ! write(*,*) 'DELTA INIT',delta
-    ! stop
-    !DEBUG>
     n_min       = Nopt      ! number of minimization parameters  
     neq         = 0         ! number of equality constraints                   
     nin         = 0         ! number of in-equality constraints                   
@@ -123,90 +118,11 @@ CONTAINS
     allocate(GZ_vector(Nphi))
     call R_VDM_free_opt_function(xmin,delta)
   end subroutine gz_optimization_vdm_Rhop
-
-
-
-  subroutine gz_optimization_vdm_Rhop_(init_Rhop,init_vdm) 
-    complex(8),dimension(Ns,Ns) :: init_Rhop
-    real(8),dimension(Ns,Ns) :: init_vdm
-    !
-    real(8),dimension(Ns,Ns) :: init_lgr
-    real(8),dimension(Ns) :: vdm
-    complex(8),dimension(Ns,Ns) :: Rhop
-    real(8) :: delta,tmp_ene
-    !
-    real(8),allocatable,dimension(:,:)                     :: p
-    real(8),allocatable,dimension(:)                       :: y
-    real(8)                                                :: ftol
-    integer                                                :: np,mp,i_vertex,j_vertex,i_dim,iter
-    integer :: is,js,i,imap,Nslater_lgr,NRhop,Nproj_lgr,Nopt
-    
-    !
-    Nslater_lgr = Nopt_diag + Nopt_odiag
-    NRhop = Nopt_diag + Nopt_odiag
-    Nproj_lgr = Nopt_odiag
-    !
-    Nopt = Nslater_lgr + 2*NRhop + Nproj_lgr
-    !
-    NP = Nopt
-    MP = NP+1
-    !
-    !
-    do is=1,Ns
-       vdm(is) = init_vdm(is,is)
-    end do
-    call  slater_minimization_lgr(init_Rhop,vdm,tmp_ene,init_lgr)
-    !
-
-    MP=NP+1  
-    allocate(y(MP),p(MP,NP))    
-    !+- initialize simplex -+!
-    do is=1,Ns
-       do js=1,Ns
-          imap = opt_map(is,js)
-          if(imap.gt.0) then
-             p(1,imap) = init_lgr(is,js)
-             p(1,imap+Nslater_lgr) = dreal(init_Rhop(is,js))
-             p(1,imap+Nslater_lgr+NRhop) = dimag(init_Rhop(is,js))
-             if(is.ne.js) p(1,imap+Nslater_lgr+2*NRhop) = 0.d0
-          end if
-       end do
-    end do
-    !
-    y(1) = R_VDM_free_root(p(1,:))    
-    do i=2,MP
-       do is=1,Ns
-          do js=1,Ns
-             imap = opt_map(is,js)
-             if(imap.gt.0) then
-                p(i,imap) = p(1,imap) + 0.5d0*dble(i) 
-                p(i,imap+Nslater_lgr) = p(1,imap+Nslater_lgr) + 0.05d0*dble(i)
-                p(i,imap+Nslater_lgr+NRhop) = p(1,imap+Nslater_lgr+NRhop)
-                if(is.ne.js) p(i,imap+Nslater_lgr+2*NRhop) = p(1,imap+Nslater_lgr+2*NRhop)
-             end if
-          end do
-       end do       
-       y(i) = R_VDM_free_root(p(i,:))    
-    end do
-    !
-    ftol=amoeba_min_tol
-    call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_energy_vdm,iter,amoeba_verbose)
-    !
-    optimization_flag=.true.
-    if(allocated(GZ_vector)) deallocate(GZ_vector)
-    allocate(GZ_vector(Nphi))
-    delta=R_VDM_free_root(p(1,:))
-    !
-    write(*,*) 'DELTA MINIMIZATION',delta
-    !
-  end subroutine gz_optimization_vdm_Rhop_
-
-
-  
-
+  !
   !+---------------------------------------------------------------------------+!
   !+- CONSTRAINED MINIMIZATION WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
   !+---------------------------------------------------------------------------+!
+  !
   subroutine gz_optimization_vdm_nlsq(init_vdm,optimized_vdm)
     real(8),dimension(Nopt_diag),intent(in)  :: init_vdm
     real(8),dimension(Nopt_diag),intent(out) :: optimized_vdm
@@ -318,11 +234,7 @@ CONTAINS
        y(i_vertex) = gz_energy_vdm(p(i_vertex,:))
        write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
     end do
-
-    !<DEBUG
-    !stop
-    !DEBUG>
-
+    !
     ftol=amoeba_min_tol
     call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_energy_vdm,iter,amoeba_verbose)
     !+- Optimized Variational Density Matrix -+!

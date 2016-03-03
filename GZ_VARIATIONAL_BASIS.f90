@@ -64,6 +64,8 @@ CONTAINS
        call basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
     case(1)
        call basis_O1cXSU2sXSU2c_irr_reps(irr_reps,equ_reps,Virr_reps)
+    case(2)
+       call basis_O1cXSU2sXisoZ_irr_reps(irr_reps,equ_reps,Virr_reps)
     end select
     !
     Nirr_reps=size(irr_reps,1)
@@ -84,17 +86,24 @@ CONTAINS
 
     call get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
     call get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
+    
 
 
     dim_phi=size(phi_fock,1)
-    Nphi=dim_phi
-
+    !dim_phi = nFock
+    Nphi=dim_phi   
     write(*,*) "NPHI",Nphi
-    !    stop
     !
     allocate(phi_basis(dim_phi,nFock,nFock))
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
     phi_basis = phi_fock
+
+    !<tmp DEBUG
+    ! phi_basis=0.d0
+    ! do i=1,Nphi
+    !    phi_basis(i,i,i)  = 1.d0
+    ! end do
+    !tmp DEBUG>
     !
 
     !

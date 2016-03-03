@@ -50,7 +50,7 @@ CONTAINS
 
   !
   subroutine build_local_hamiltonian
-    integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn
+    integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn,ifock
     real(8),dimension(Ns,nFock,nFock) :: state_dens
     real(8),dimension(nFock,nFock) :: tmp
     real(8) :: mu_ph
@@ -170,6 +170,7 @@ CONTAINS
     do istate=1,Ns       
        local_hamiltonian = local_hamiltonian - mu_ph*state_dens(istate,:,:)
     end do
+    !
   end subroutine build_local_hamiltonian
   !
 

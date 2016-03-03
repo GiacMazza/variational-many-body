@@ -27,27 +27,21 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
   !    
   allocate(lgr(Nopt_diag+Nopt_odiag));lgr=0.d0
   allocate(delta_out(Nopt_diag+Nopt_odiag))
-  lgr=-0.5
-  do is=1,Ns
-     do js=1,Ns
-        imap = opt_map(is,js)
-        if(imap.gt.0) then
-           if(is.eq.js) then
-              if(n0_target(is).le.1.d-4)  lgr(imap) = Wband
-              if(n0_target(is).ge.1.d0-1.d-4)  lgr(imap) =  -Wband
-           end if
-        end if
-     end do
-  end do
+  !
   lgr = lgr_init_slater
-  !call fmin_cg(lgr,get_delta_local_density_matrix,iter,delta,itmax=20)
-  call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
-  delta_out=fix_density(lgr)
-  delta=0.d0
-  do is=1,Nopt_diag+Nopt_odiag
-     delta = delta + delta_out(is)**2.d0
-  end do
+  select case(lgr_method)
+  case('CG_min')
+     call fmin_cg(lgr,get_delta_local_density_matrix,iter,delta,itmax=20)
+  case('f_zero')
+     call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
+     delta_out=fix_density(lgr)
+     delta=0.d0
+     do is=1,Nopt_diag+Nopt_odiag
+        delta = delta + delta_out(is)**2.d0
+     end do     
+  end select
   lgr_init_slater=lgr
+  !
   lgr_multip=0.d0
   do istate=1,Ns
      do jstate=1,Ns
@@ -62,15 +56,15 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
   if(present(slater_matrix_el)) slater_matrix_el=slater_matrix_el_
   !
 
-  !<DEBUG
-  do istate=1,Ns
-     write(*,*) dreal(Rhop(istate,:))
-  end do
-  !DEBUG>
 
   if(iverbose_) then
      write(*,*)
-     write(*,*) "Slater Determinant: Lagrange Multipliers - OK -"
+     write(*,*) "Slater Determinant: input Rhop"
+     do is=1,Ns
+        write(*,'(20F7.3)') dreal(Rhop(is,:)),dimag(Rhop(is,:))
+     end do
+     write(*,*)
+     write(*,*) "Slater Determinant: Lagrange Multipliers"
      do is=1,Ns
         write(*,'(20F18.10)') lgr_multip(is,:)
      end do

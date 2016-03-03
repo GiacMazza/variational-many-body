@@ -23,31 +23,36 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
   integer                              :: imap
 
   iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose    
-  ifree_=.false.;if(present(ifree)) iverbose_=ifree
-  !
+  ifree_=.false.;if(present(ifree)) ifree_=ifree
   allocate(lgr(Nopt_diag+Nopt_odiag));  lgr=0.d0
   allocate(delta_out(Nopt_diag+Nopt_odiag))
-  !DEBUG
+  !
   lgr = lgr_init_gzproj
-  !DEBUG
-  call fmin_cg(lgr,get_delta_proj_variational_density,iter,delta)
-  ! call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
-  ! delta_out=fix_density(lgr)
-  ! delta=0.d0
-  ! do is=1,Nopt_diag+Nopt_odiag
-  !    delta = delta + delta_out(is)**2.d0
-  ! end do
+  select case(lgr_method)
+  case('CG_min')
+     call fmin_cg(lgr,get_delta_proj_variational_density,iter,delta)
+  case('f_zero')
+     call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
+     delta_out=fix_density(lgr)
+     delta=0.d0
+     do is=1,Nopt_diag+Nopt_odiag
+        delta = delta + delta_out(is)**2.d0
+     end do
+  end select
   !
   lgr_init_gzproj = lgr
   !
   lgr_multip=0.d0
   do istate=1,Ns
      do jstate=1,Ns
-        !imap = vdm_c_map(istate,jstate)
         imap = opt_map(istate,jstate)
         if(imap.gt.0) lgr_multip(istate,jstate)=lgr(imap)
      end do
   end do
+
+  call gz_proj_minimization_fixed_lgr(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect,free_flag=ifree_)
+  !
+
   !
   if(iverbose_) then
      write(*,*)
@@ -63,8 +68,6 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
      write(*,'(10F18.10)') E_Hloc
      write(*,*)
   end if
-  !
-  call gz_proj_minimization_fixed_lgr(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect,free_flag=ifree)
   !
 contains
   !
@@ -92,6 +95,7 @@ contains
     !+- build up the local H_projectors -+!
     H_projectors=zero
     H_projectors=phi_traces_basis_Hloc
+    if(ifree_) H_projectors = phi_traces_basis_free_Hloc
     do istate=1,Ns
        do jstate=1,Ns
           H_projectors = H_projectors + slater_derivatives(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)/sqrt(n0_target(jstate)*(1.d0-n0_target(jstate)))
@@ -176,9 +180,6 @@ contains
     end do
     !
   end function fix_Density
-
-
-  !  include 'self_minimization_GZproj_routines.f90'
   !
 end subroutine gz_projectors_minimization_nlep
 !
@@ -202,6 +203,8 @@ subroutine gz_projectors_minimization_cmin(slater_matrix_el,n0,GZenergy,GZvect_i
   real(8)                                :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
   real(8),allocatable                    :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
   integer                                :: iunit,err_unit,ene_unit,Nsuccess    
+
+  real(8) :: tmp_test_constraint
   !
   iverbose_=.false. ; if(present(iverbose)) iverbose_=iverbose
   !
@@ -209,7 +212,7 @@ subroutine gz_projectors_minimization_cmin(slater_matrix_el,n0,GZenergy,GZvect_i
   !
   ! LANCELOT configuration parameters 
   n_min       = Nphi ! number of minimization parameters
-  neq         = Nopt_diag+Nopt_odiag + 1    ! number of equality constraints                   
+  neq         = Ns*Ns+1!Nopt_diag+Nopt_odiag + 1    ! number of equality constraints         
   nin         = 0           ! number of in-equality constraints                   
   maxit       = 1000        ! maximum iteration number 
   gradtol     = 1.d-7       ! maximum norm of the gradient at convergence 
@@ -245,6 +248,15 @@ subroutine gz_projectors_minimization_cmin(slater_matrix_el,n0,GZenergy,GZvect_i
        gradtol = gradtol, feastol = feastol,                                                  &
        print_level = print_level )
   !+--------------------------------------------------------------------------------------+!    
+  !<DEBUG
+  ! write(*,'(20F7.3)') cx  
+  ! tmp_test_constraint=0.d0
+  ! do i=1,n_min
+  !    tmp_test_constraint = tmp_test_constraint + GZvect_indep_(i)*GZvect_indep_(i)
+  ! end do
+  ! write(*,*) tmp_test_constraint
+  ! write(*,*)
+  !DEBUG>
   GZproj_lgr_multip=0.d0
   do iorb=1,Norb
      do ispin=1,2
@@ -258,9 +270,9 @@ subroutine gz_projectors_minimization_cmin(slater_matrix_el,n0,GZenergy,GZvect_i
      write(GZmin_unit_,*)
      write(GZmin_unit_,*) exit_code
      write(GZmin_unit_,*) 'OPTIMIZED PARAMETERS'
-     ! do i=1,n_min
-     !    write(GZmin_unit_,*) GZvect_indep_(i)
-     ! end do
+     do i=1,n_min
+        write(GZmin_unit_,*) GZvect_indep_(i)
+     end do
      write(GZmin_unit_,*) 
      write(GZmin_unit_,*) 
      write(GZmin_unit_,*) 'FINAL VALUE'
@@ -303,6 +315,7 @@ contains
     !
     integer                       :: iorb,ispin,istate,jstate,ik,ifock,jfock,jorb,jspin,iphi,jphi
     integer                      :: is,js,imap
+    logical :: c_flag
     !
     f=1.d0
     allocate(phi_(Nphi))
@@ -341,91 +354,33 @@ contains
     else
        !+- CONSTRAINTS ON GUTZWILLER PARAMETERS -+!
        imap = 0
+       c_flag=.false.
        do is=1,Ns
           do js=1,Ns
-             imap = opt_map(is,js)
-             if(imap.eq.i) then                
-                if(is.eq.js) then
-                   !
-                   f=0.d0
-                   f = f + trace_phi_basis(phi_,phi_traces_basis_dens(is,js,:,:))
-                   f = f - vdm(is)
-                   !
-                else
-                   !
-                   f = 0.d0
-                   f = f + trace_phi_basis(phi_,phi_traces_basis_dens(is,js,:,:))
-                   !
-                end if
+             if(is.eq.js) then
+                !
+                f=0.d0
+                f = f + trace_phi_basis(phi_,phi_traces_basis_dens(is,js,:,:))
+                f = f - vdm(is)
+                !
+             else
+                !
+                f = 0.d0
+                f = f + trace_phi_basis(phi_,phi_traces_basis_dens(is,js,:,:))
+                !
              end if
           end do
        end do
        !
        if(i.eq.Nopt_diag+Nopt_odiag+1) then
           f=0.d0
-          !
           do iphi=1,Nphi
              f = f + conjg(phi_(iphi))*phi_(iphi)
           end do
           !
           f=f-1.d0
+          !
        end if
-
-
-       ! select case(Norb)
-       ! case(1)
-       !    select case(i)
-       !    case(1)
-       !       f=0.d0
-       !       iorb=1
-       !       do ispin=1,2
-       !          istate=index(ispin,iorb)
-       !          !
-       !          f = f + trace_phi_basis(phi_,phi_traces_basis_dens(istate,istate,:,:))
-       !          !
-       !       end do
-       !       f=f-niorb(iorb)
-       !    case(2)
-       !       f=0.d0
-       !       !
-       !       do iphi=1,Nphi
-       !          f = f + phi_(iphi)*phi_(iphi)
-       !       end do
-       !       !
-       !       f=f-1.d0
-       !    end select
-       ! case(2)
-       !    select case(i)
-       !    case(1)
-       !       f=0.d0
-       !       iorb=1
-       !       do ispin=1,2
-       !          istate=index(ispin,iorb)
-       !          !
-       !          f = f + trace_phi_basis(phi_,phi_traces_basis_dens(istate,istate,:,:))
-       !          !
-       !       end do
-       !       f=f-niorb(iorb)
-       !    case(2)
-       !       f=0.d0
-       !       iorb=2
-       !       do ispin=1,2
-       !          istate=index(ispin,iorb)
-       !          !
-       !          f = f + trace_phi_basis(phi_,phi_traces_basis_dens(istate,istate,:,:))
-       !          !
-       !       end do
-       !       f=f-niorb(iorb)
-       !    case(3)
-       !       f=0.d0
-       !       !
-       !       do iphi=1,Nphi
-       !          f = f + phi_(iphi)*phi_(iphi)
-       !       end do
-       !       !
-       !       f=f-1.d0
-       !    end select
-       ! end select
     end if
   end subroutine energy_GZproj_functional
 
@@ -662,8 +617,13 @@ subroutine get_GZproj_ground_state(n0,slater_derivatives,lgr_multip,E_Hloc,GZvec
   !
   !+- build up the local H_projectors -+!
   free_flag_=.false.; if(present(free_flag)) free_flag_=free_flag
-  H_projectors=phi_traces_basis_Hloc
-  if(free_flag_)   H_projectors=phi_traces_basis_free_Hloc
+  !
+  if(free_flag_) then
+     H_projectors=phi_traces_basis_free_Hloc
+  else
+     H_projectors=phi_traces_basis_Hloc
+  end if
+  !
   do istate=1,Ns
      do jstate=1,Ns
         H_projectors = H_projectors + &
@@ -677,14 +637,8 @@ subroutine get_GZproj_ground_state(n0,slater_derivatives,lgr_multip,E_Hloc,GZvec
   GZvect=H_projectors(1:Nphi,1)
   !
   E_Hloc=trace_phi_basis(GZvect,phi_traces_basis_Hloc)
-  ! do iphi=1,Nphi
-  !    do jphi=1,Nphi
-  !       E_Hloc=E_Hloc+GZvect(iphi)*phi_traces_basis_Hloc(iphi,jphi)*GZvect(jphi)
-  !    end do
-  ! end do
-
   !<DEBUG
-  write(*,*) 'TMP_TRACE',trace_phi_basis(GZvect,phi_traces_basis_free_Hloc)
+  !write(*,*) 'TMP_TRACE',trace_phi_basis(GZvect,phi_traces_basis_free_Hloc)
   !DEBUG>
   !
 end subroutine get_GZproj_ground_state

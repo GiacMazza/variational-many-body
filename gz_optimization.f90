@@ -73,10 +73,6 @@ subroutine R_VDM_free_opt_function(x,delta_opt,i)
      do js=1,Ns
         n0_GZproj(is,js)   = trace_phi_basis(GZvect,phi_traces_basis_dens(is,js,:,:))
         Rhop_GZProj(is,js) = trace_phi_basis(GZvect,phi_traces_basis_Rhop(is,js,:,:))
-        !<DEBUG
-        !write(*,*) is,js,n0_GZproj(is,js),n0_slater(is,js)
-        !write(*,*) Rhop_GZproj(is,js),Rhop(is,js)*sqrt(n0_diag(js)*(1.d0-n0_diag(js)))
-        !DEBUG>
      end do
   end do
   !
@@ -99,7 +95,6 @@ subroutine R_VDM_free_opt_function(x,delta_opt,i)
      GZ_opt_kinetic = E_Hstar
      GZ_opt_Eloc    = E_Hloc
   end if
-
   !<DEBUG
   ! write(123,*) delta_opt,x
   ! write(124,*) n0_slater

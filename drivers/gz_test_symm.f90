@@ -33,8 +33,8 @@ program GUTZ_mb
   !
   real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol
 
-  character(len=4) :: dir_suffix
-  character(len=5) :: dir_iter
+  character(len=5) :: dir_suffix
+  character(len=6) :: dir_iter
 
   !
   !+- PARSE INPUT DRIVER -+!
@@ -138,11 +138,12 @@ program GUTZ_mb
   lgr_init_gzproj(1) =  0.5d0
   lgr_init_gzproj(2) = -0.5d0
 
-  orb_pol = 0.0d0
-  do i=1,20
+  orb_pol = 0.275d0
+  do i=1,2
      do iorb=1,2
         do ispin=1,2
            is = index(ispin,iorb)
+
            select case(iorb)
            case(1)
               variational_density_natural_simplex(:,is) = 0.5d0 - orb_pol
@@ -153,7 +154,7 @@ program GUTZ_mb
      end do
 
 
-     write(dir_suffix,'(F4.2)') orb_pol
+     write(dir_suffix,'(F5.3)') orb_pol
 
      dir_iter="P"//trim(dir_suffix)
 
@@ -162,7 +163,7 @@ program GUTZ_mb
      call system('mkdir -p '//dir_iter)     
 
 
-     
+
      opt_energy_unit=free_unit()
      open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
      opt_rhop_unit=free_unit()
@@ -175,6 +176,14 @@ program GUTZ_mb
         GZmin_unit_=free_unit()
         open(GZmin_unit_,file='GZ_proj_min.out')
      end if
+
+
+     lgr_init_slater(1) =  0.5d0
+     lgr_init_slater(2) = -0.5d0
+     !
+     lgr_init_gzproj(1) =  0.5d0
+     lgr_init_gzproj(2) = -0.5d0
+
 
 
      optimization_flag=.true.
@@ -192,12 +201,12 @@ program GUTZ_mb
 
      call system('rm *.out *.data fort* ')
 
-     Rseed=0.d0
-     do is=1,Ns
-        Rseed = Rseed + dreal(GZ_opt_Rhop(is,is))/dble(Ns)
-     end do
+     ! Rseed=0.d0
+     ! do is=1,Ns
+     !    Rseed = Rseed + dreal(GZ_opt_Rhop(is,is))/dble(Ns)
+     ! end do
 
-     orb_pol = orb_pol + 0.05d0
+     orb_pol = orb_pol + 0.025d0
   end do
 
   stop
@@ -327,7 +336,7 @@ CONTAINS
 
 
     allocate(kx(Nx))
-    kx = linspace(0.d0,pi,Nx,.false.,.false.)
+    kx = linspace(0.d0,pi,Nx,.true.,.true.)
     Lk=Nx*Nx*Nx
     allocate(epsik(Lk),wtk(Lk),hybik(Lk))
     ik=0
@@ -335,12 +344,16 @@ CONTAINS
        do iy=1,Nx
           do iz=1,Nx
              ik=ik+1
+             !kx_=dble(ix)/dble(Nx)*pi
              epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
-             hybik(ik) = 0.1d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
+             hybik(ik) = 0.1d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
              wtk(ik) = 1.d0/dble(Lk)
           end do
        end do
     end do
+
+    call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
+    !stop
 
     allocate(Hk_tb(Ns,Ns,Lk))    
     Hk_tb=0.d0

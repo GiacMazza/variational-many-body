@@ -84,7 +84,7 @@ MODULE GZ_VARS_GLOBAL
   complex(8),allocatable             :: GZ_opt_Rhop(:,:)         
   real(8),allocatable                :: GZ_opt_vdm(:,:)         
   
-
+  real(8),dimension(:,:),allocatable             :: GZ_opt_slater_lgr(:,:)
 
 
 

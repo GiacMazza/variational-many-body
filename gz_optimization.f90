@@ -89,14 +89,15 @@ subroutine R_VDM_free_opt_function(x,delta_opt,i)
      end do
   end do
   if(optimization_flag) then
-     !+- store final informations to global variables -+!              
+     !+- store final informations to global variables -+!                   
      GZ_vector      = GZvect
      GZ_opt_energy  = E_Hstar+E_Hloc
      GZ_opt_kinetic = E_Hstar
      GZ_opt_Eloc    = E_Hloc
+     GZ_opt_slater_lgr = slater_lgr_multip
   end if
   !<DEBUG
-  ! write(123,*) delta_opt,x
+  write(*,*) delta_opt,x
   ! write(124,*) n0_slater
   ! write(125,*) n0_GZproj
   ! write(126,*) dreal(Rhop_GZproj(1,1)),dreal(Rhop_GZproj(2,2)),dimag(Rhop_GZproj(1,1)),dimag(Rhop_GZproj(2,2))

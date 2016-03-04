@@ -6,7 +6,9 @@ FPP=
 #EXE=GZ_MB
 #EXE=gz_2band_minN
 #EXE=gz_2b_bethe
-EXE=gz_test_symm
+#EXE=gz_test_symm
+#EXE=gz_optimize_VS_nR
+EXE=gz_optimize_janus
 
 
 DIR=drivers

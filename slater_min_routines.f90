@@ -40,7 +40,7 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
         delta = delta + delta_out(is)**2.d0
      end do     
   end select
-  lgr_init_slater=lgr
+  !lgr_init_slater=lgr
   !
   lgr_multip=0.d0
   do istate=1,Ns
@@ -90,6 +90,7 @@ contains
     integer                              :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,imap
     !
 
+    !write(*,*) lm_
 
     lm=0.d0
     do istate=1,Ns
@@ -136,6 +137,8 @@ contains
        end do
     end do
     !
+    ! write(*,*) lm_
+    ! write(*,*) 'delta',delta
   end function get_delta_local_density_matrix
 
 

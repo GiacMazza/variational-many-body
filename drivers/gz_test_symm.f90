@@ -52,14 +52,17 @@ program GUTZ_mb
   end if
 
 
-  !rescale Jhund couplings
+  !NOTE: ON HUNDS COUPLINGS:
+  !NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
+  !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
   Jh = Jh*Uloc(1)
   Jsf = Jh
   Jph = Jh
   Ust = Uloc(1)-2.d0*Jh
   !
-
   call initialize_local_fock_space
+  !
+
 
 
 

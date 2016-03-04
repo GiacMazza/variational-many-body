@@ -72,7 +72,9 @@ contains
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
     !
     !
-    call slater_minimization_lgr(GZ_opt_Rhop,n0,E_Hstar,slater_lgr_multip,iverbose=.true.)
+    write(*,*) GZ_opt_slater_lgr; 
+    call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM)
+    !
     !    
     !+- GET OBSERVABLES -+!
     ! physical density !
@@ -244,6 +246,7 @@ contains
        GZ_opt_energy         = GZ_energy
        GZ_opt_kinetic        = E_Hstar
        GZ_opt_Eloc           = E_Hloc
+       GZ_opt_slater_lgr     = Slater_lgr_multip
     end if
     !
   end function gz_energy_recursive_nlep
@@ -370,6 +373,7 @@ contains
        GZ_opt_energy         = GZ_energy
        GZ_opt_kinetic        = E_Hstar
        GZ_opt_Eloc           = E_Hloc
+       GZ_opt_slater_lgr     = Slater_lgr_multip
     end if
     !
   end function gz_energy_recursive_cmin

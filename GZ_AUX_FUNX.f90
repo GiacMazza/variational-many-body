@@ -13,6 +13,7 @@ MODULE GZ_AUX_FUNX
   !public :: initialize_local_density
   public :: vec2mat_stride,mat2vec_stride
   public :: initialize_variational_density_simplex
+  public :: initialize_variational_density
 
   !+- at some point these two subroutines should be merged in SCIFOR -+!
   public :: simultaneous_diag
@@ -104,6 +105,37 @@ CONTAINS
   end subroutine initialize_variational_density_simplex
 
 
+
+
+
+
+  subroutine initialize_variational_density(variational_density)
+    real(8),dimension(Ns),intent(inout) :: variational_density
+    logical                 :: IOfile
+    integer                 :: unit,flen,i,j,expected_flen
+    expected_flen=Ns
+    inquire(file="vdm_seed.conf",exist=IOfile)
+    if(IOfile) then
+       flen=file_length("vdm_seed.conf")
+       unit=free_unit()
+       open(unit,file="vdm_seed.conf")
+       write(*,*) 'reading denisty seed from file vdm_seed.conf'
+       if(flen.eq.expected_flen) then
+          !+- read from file -+!
+          do i=1,Ns
+             read(unit,*) variational_density(i)
+          end do
+       else
+          write(*,*) 'vdm_seed.conf in the wrong form',flen,expected_flen
+          write(*,*) 'variational density matrix will be initialized to the unpolarized case'
+          variational_density = 0.5d0
+       end if
+    else
+       write(*,*) 'vdm_simplex_seed.conf does not exist'
+       write(*,*) 'variational density matrix will be initialized to the unpolarized case'
+       variational_density = 0.5d0
+    end if
+  end subroutine initialize_variational_density
 
 
 

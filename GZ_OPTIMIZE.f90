@@ -61,6 +61,7 @@ CONTAINS
     do is=1,Ns
        vdm(is) = init_vdm(is,is)
     end do
+    write(*,*) 'te perdi qua'
     call  slater_minimization_lgr(init_Rhop,vdm,tmp_ene,init_lgr)
     !
     iopt=0
@@ -112,7 +113,7 @@ CONTAINS
          gradtol = gradtol, feastol = feastol,                                                  &
          print_level = print_level )
     !+--------------------------------------------------------------------------------------+!    
-    write(*,*) 'DELTA OPTIMIZATION',delta,exit_code
+    write(*,*) 'DELTA OPTIMIZATION',delta,exit_code,xmin
     optimization_flag=.true.
     if(allocated(GZ_vector)) deallocate(GZ_vector)
     allocate(GZ_vector(Nphi))

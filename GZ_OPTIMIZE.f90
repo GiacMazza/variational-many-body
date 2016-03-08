@@ -20,8 +20,8 @@ MODULE GZ_OPTIMIZED_ENERGY
   public :: gz_optimization_vdm_nlsq      !+- constrained NonLinearLeastSquare method (GALHAD)
 
   !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
-  public :: gz_optimization_vdm_Rhop 
-  !public :: gz_optimization_vdm_Rhop_
+  public :: gz_optimization_vdm_Rhop_ghld 
+  public :: gz_optimization_vdm_Rhop
   !
 CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
@@ -29,11 +29,9 @@ CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
   include 'gz_optimization.f90'
   !
-  subroutine gz_optimization_vdm_Rhop(init_Rhop,init_vdm) 
+  subroutine gz_optimization_vdm_Rhop_ghld(init_Rhop,init_vdm) 
     complex(8),dimension(Ns,Ns) :: init_Rhop
     real(8),dimension(Ns,Ns) :: init_vdm
-
-
     real(8),dimension(Ns,Ns) :: init_lgr
     real(8),dimension(Ns) :: vdm
     complex(8),dimension(Ns,Ns) :: Rhop
@@ -61,7 +59,6 @@ CONTAINS
     do is=1,Ns
        vdm(is) = init_vdm(is,is)
     end do
-    write(*,*) 'te perdi qua'
     call  slater_minimization_lgr(init_Rhop,vdm,tmp_ene,init_lgr)
     !
     iopt=0
@@ -79,7 +76,7 @@ CONTAINS
     n_min       = Nopt      ! number of minimization parameters  
     neq         = 0         ! number of equality constraints                   
     nin         = 0         ! number of in-equality constraints                   
-    maxit       = 100       ! maximum iteration number 
+    maxit       = 300       ! maximum iteration number 
     gradtol     = 1.d-7     ! maximum norm of the gradient at convergence 
     feastol     = 1.d-7     ! maximum violation of parameters at convergence  
     print_level = lancelot_verbose           ! verbosity
@@ -113,12 +110,73 @@ CONTAINS
          gradtol = gradtol, feastol = feastol,                                                  &
          print_level = print_level )
     !+--------------------------------------------------------------------------------------+!    
-    write(*,*) 'DELTA OPTIMIZATION',delta,exit_code,xmin
+    if(GZmin_verbose) then
+       write(*,*) 'DELTA OPTIMIZATION',delta,exit_code,xmin,cx
+    end if
     optimization_flag=.true.
     if(allocated(GZ_vector)) deallocate(GZ_vector)
     allocate(GZ_vector(Nphi))
     call R_VDM_free_opt_function(xmin,delta)
+  end subroutine gz_optimization_vdm_Rhop_ghld
+
+
+
+
+  subroutine gz_optimization_vdm_Rhop(init_Rhop,init_vdm) 
+    complex(8),dimension(Ns,Ns) :: init_Rhop
+    real(8),dimension(Ns,Ns) :: init_vdm
+
+
+    real(8),dimension(Ns,Ns) :: init_lgr
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    real(8) :: delta,tmp_ene
+    integer :: iter    !
+    !
+    integer                           :: n_min,neq,nin,maxit,print_level,exit_code
+    real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
+    real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess  
+    real(8),dimension(:),allocatable  :: xmin,xout
+    integer :: Nopt,iopt,Nslater_lgr,NRhop,Nproj_lgr
+    integer :: is,js,imap
+
+    Nslater_lgr = Nopt_diag + Nopt_odiag
+    NRhop = Nopt_diag + Nopt_odiag
+    Nproj_lgr = Nopt_odiag
+    !
+    Nopt = Nslater_lgr + 2*NRhop + Nproj_lgr
+    allocate(xmin(Nopt),xout(Nopt))    
+    do is=1,Ns
+       vdm(is) = init_vdm(is,is)
+    end do
+    call  slater_minimization_lgr(init_Rhop,vdm,tmp_ene,init_lgr)
+    iopt=0
+    do is=1,Ns
+       do js=1,Ns
+          imap = opt_map(is,js)
+          if(imap.gt.0) then
+             xmin(imap) = init_lgr(is,js)
+             xmin(imap+Nslater_lgr) = dreal(init_Rhop(is,js))
+             xmin(imap+Nslater_lgr+NRhop) = dimag(init_Rhop(is,js))
+             if(is.ne.js) xmin(iopt+Nslater_lgr+2*NRhop) = 0.d0
+          end if
+       end do
+    end do
+    !
+    call fsolve(R_VDM_free_zeros,xmin,tol=1.d-10,info=iter)
+    xout=R_VDM_free_zeros(xmin)
+    !
+    if(GZmin_verbose) then       
+       write(*,*) 'ROOT FUNCTION VDM-RHOP OPTIMIZATION',xout,iter
+    end if
+    optimization_flag=.true.
+    if(allocated(GZ_vector)) deallocate(GZ_vector)
+    allocate(GZ_vector(Nphi))
+    xout=R_VDM_free_zeros(xmin)
   end subroutine gz_optimization_vdm_Rhop
+
+
   !
   !+---------------------------------------------------------------------------+!
   !+- CONSTRAINED MINIMIZATION WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
@@ -167,7 +225,7 @@ CONTAINS
     feastol     = 1.d-7       ! maximum violation of parameters at convergence  
     print_level = lancelot_verbose           ! verbosity
     allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
-    bL = 0.d0               ! lower bounds for minimization parameters
+    bL = 1.d-4               ! lower bounds for minimization parameters
     bU = 1.d0-bL                 ! upper bounds for minimization parameters          
     !    
     call lancelot_simple(n_min,optimized_vdm,GZ_energy,exit_code,my_fun=gz_get_energy_vdm, &
@@ -179,7 +237,7 @@ CONTAINS
     !+--------------------------------------------------------------------------------------+!    
 
     optimization_flag=.true.
-    allocate(GZ_vector(Nphi))
+    if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
     call gz_get_energy_vdm(optimized_vdm,GZ_energy)
 
   end subroutine gz_optimization_vdm_nlsq

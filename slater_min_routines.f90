@@ -137,8 +137,8 @@ contains
        end do
     end do
     !
-    ! write(*,*) lm_
-    ! write(*,*) 'delta',delta
+    write(*,*) lm_
+    write(*,*) 'delta',delta
   end function get_delta_local_density_matrix
 
 

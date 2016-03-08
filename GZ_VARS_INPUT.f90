@@ -1,5 +1,5 @@
 MODULE GZ_VARS_INPUT
-  USE DMFT_PARSE_INPUT
+  USE SF_PARSE_INPUT
   implicit none
 
   public :: read_input

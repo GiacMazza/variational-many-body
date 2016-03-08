@@ -72,7 +72,6 @@ contains
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
     !
     !
-    write(*,*) GZ_opt_slater_lgr; 
     call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM)
     !
     !    
@@ -98,9 +97,6 @@ contains
     ! place for other observables... SPINS,ISO-SPINS,...bla bla bla
     !+-
   end subroutine get_gz_ground_state
-
-
-
   !
   function gz_energy_vdm(vdm) result(GZenergy)
     real(8),dimension(:),intent(in) :: vdm
@@ -112,10 +108,7 @@ contains
        GZenergy=gz_energy_recursive_cmin(vdm)
     end select
   end function gz_energy_vdm
-
-
-
-
+  !
   subroutine gz_get_energy_vdm(x,GZ_energy,i) 
     real(8),intent(in) :: x(:)
     real(8),intent(out)              :: GZ_energy
@@ -186,6 +179,7 @@ contains
           !+----------------------------+!
           !+- SLATER STEP MINIMIZATION -+!
           !+----------------------------+!    
+          write(*,*) 'basta'
           call slater_minimization_lgr(R_iter,n0,E_Hstar,slater_lgr_multip, &
                slater_derivatives=slater_derivatives,iverbose=GZmin_verbose)       
           !+----------------------------+!

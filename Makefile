@@ -3,9 +3,12 @@ FC=gfortran
 #PRECOMPILATION FLAG (leave blank for serial code)
 FPP=
 
-EXE=GZ_MB
+#EXE=GZ_MB
 #EXE=gz_2band_minN
-EXE=gz_2b_bethe
+#EXE=gz_2b_bethe
+#EXE=gz_test_symm
+#EXE=gz_optimize_VS_nR
+EXE=gz_optimize_janus
 
 
 DIR=drivers
@@ -17,24 +20,26 @@ DIREXE=$(HOME)/.project_bin
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
-#OBJS=AMOEBA.o GZ_GLOBAL.o GZ_AUX_FUNX.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
-OBJS=AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_PROJECTORS_TRACE.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
+#OBJS=MATRIX_SPARSE.o ARPACK_LANCZOS.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
+
+OBJS=MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o
+
 
 GALLIBDIR  = /home/mazza/opt_local/galahad/objects/pc64.lnx.gfo/double
-# GALLIBS1   = -lgalahad -lgalahad_hsl -lgalahad_lapack
-# GALLIBS2   = -lgalahad_metis -lgalahad_blas
+#GALLIBDIR  = /opt/galahad/objects/pc64.lnx.gfo/double
 
 GALLIBS1   = -lgalahad -lgalahad_hsl 
 GALLIBS2   = -lgalahad_metis 
 
 MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 
-#FFLAG +=-fpp -D_$(FPP)
+#FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
 LIBDIR=/home/mazza/opt_local
-INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib -I$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double -L$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
-FFLAG += -ffree-line-length-none -ffpe-summary=all -cpp $(INCARGS)
+#LIBDIR=/opt
 
-#ARGS=  $(GALLIBS1) $(GALLIBS2) -I/home/mazza/opt_local/galahad/modules/pc64.lnx.gfo/double -lscifor $(MKLARGS) -lminpack -larpack -lparpack   
+INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib -I$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double -L$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
+FFLAG += -ffree-line-length-none -cpp $(INCARGS)
+
 ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I$(LIBDIR)/galahad/modules/pc64.lnx.gfo/double -ldmftt -lscifor  -lfftpack -lminpack  -llapack -lblas -larpack -lparpack    
 
 all:compile

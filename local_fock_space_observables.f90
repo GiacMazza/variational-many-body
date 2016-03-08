@@ -1,8 +1,8 @@
 ! Local density !
 function local_density(cc,ca) result(ni)
-  real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
   real(8),dimension(nFock,nFock) :: Id
-  real(8),dimension(state_dim,nFock,nFock) :: ni
+  real(8),dimension(Ns,nFock,nFock) :: ni
   integer                        :: i,ispin,iorb,istate
   !
   do ispin=1,2
@@ -14,8 +14,30 @@ function local_density(cc,ca) result(ni)
   !
 end function local_density
 
+
+function local_density_matrix(cc,ca) result(ni)
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
+  real(8),dimension(nFock,nFock) :: Id
+  real(8),dimension(Ns,Ns,nFock,nFock) :: ni
+  integer                        :: i,ispin,iorb,istate,jspin,jorb,jstate
+  !
+  do ispin=1,2
+     do jspin=1,2
+        do iorb=1,Norb
+           do jorb=1,Norb
+              istate=index(ispin,iorb)
+              jstate=index(jspin,jorb)
+              ni(istate,jstate,:,:)=matmul(cc(istate,:,:),ca(jstate,:,:))
+           end do
+        end do
+     end do
+  end do
+  !
+end function local_density_matrix
+
+
 function local_doubly(cc,ca) result(di)
-  real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
   real(8),dimension(nFock,nFock) :: Id,tmp_up,tmp_dw
   real(8),dimension(Norb,nFock,nFock) :: di
   integer                        :: i,ispin,iorb,istate
@@ -37,7 +59,7 @@ end function local_doubly
 
 
 function local_density_density_orb(cc,ca) result(ddi)
-  real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
   real(8),dimension(nFock,nFock) :: Id,tmp_ni,tmp_nj
   real(8),dimension(Norb,Norb,nFock,nFock) :: ddi
   integer                        :: i,ispin,iorb,istate,jstate,jorb
@@ -64,7 +86,7 @@ end function local_density_density_orb
 
 
 function local_spin_flip(cc,ca) result(sfi)
-  real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
   real(8),dimension(nFock,nFock) :: Id,tmp
   real(8),dimension(Norb,Norb,nFock,nFock) :: sfi
   integer                        :: i,ispin,iorb,istate,jstate,jorb
@@ -94,7 +116,7 @@ end function local_spin_flip
 
 
 function local_pair_hopping(cc,ca) result(phi)
-  real(8),dimension(state_dim,nFock,nFock) :: cc,ca
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
   real(8),dimension(nFock,nFock) :: Id,tmp
   real(8),dimension(Norb,Norb,nFock,nFock) :: phi
   integer                        :: i,ispin,iorb,istate,jstate,jorb

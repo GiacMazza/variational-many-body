@@ -8,6 +8,9 @@ program GUTZ_mb
   USE GZ_VARS_GLOBAL
   USE GZ_PROJECTORS
   USE GZ_OPTIMIZED_ENERGY
+
+  !
+  USE GZ_MATRIX_BASIS
   !
   implicit none
   !
@@ -38,13 +41,23 @@ program GUTZ_mb
   Jph = Jh
   Ust = Uloc(1)-2.d0*Jh
   !
-
-  
-
   
   call initialize_local_fock_space
+
+  do i=1,nFock_indep
+     call bdecomp(fock_indep(i),fock_vec)
+     write(*,'(I2,A,20I3)') fock_indep(i),'|>',fock_vec(:)
+  end do
+
+  call init_variational_matrices
+
+  stop
   
   call build_gz_local_traces_diag
+
+
+
+
   !
   allocate(variational_density_natural_simplex(state_dim+1,state_dim))
   allocate(variational_density_natural(state_dim))

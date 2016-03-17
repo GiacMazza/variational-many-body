@@ -26,7 +26,7 @@ MODULE GZ_VARS_GLOBAL
 
 
   !<DEBUG
-  real(8) :: e0test
+  !real(8) :: e0test
   !DEBUG>
 
 
@@ -54,6 +54,7 @@ MODULE GZ_VARS_GLOBAL
   !# Gutzwiller Matrices #!
   ! hopping renormalization
   complex(8),allocatable                :: phi_traces_basis_Rhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable                :: phi_traces_basis_Qhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
   
   ! density constraints
   complex(8),allocatable                :: phi_traces_basis_dens(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
@@ -67,6 +68,7 @@ MODULE GZ_VARS_GLOBAL
   complex(8),allocatable                            :: phi_traces_basis_docc_orb(:,:,:)
   complex(8),allocatable                            :: phi_traces_basis_spin_flip(:,:,:,:)
   complex(8),allocatable                            :: phi_traces_basis_pair_hopping(:,:,:,:)
+  complex(8),allocatable                            :: phi_traces_basis_sc_order(:,:,:,:)
   
 
 
@@ -106,6 +108,8 @@ MODULE GZ_VARS_GLOBAL
   real(8),allocatable                :: op_dens_dens_orb(:,:,:,:)     ! local density    (Norb,Norb,:,:)
   real(8),allocatable                :: op_spin_flip(:,:,:,:)     ! spin_flip    (Norb,Norb,:,:)
   real(8),allocatable                :: op_pair_hopping(:,:,:,:)     ! pair_hopping    (Norb,Norb,:,:)
+  real(8),allocatable                :: op_sc_order(:,:,:,:)     ! SC-order parameter    (Norb,Norb,:,:)
+
 
   integer :: opt_energy_unit,opt_rhop_unit
   integer :: GZmin_unit,GZmin_unit_,opt_GZ_unit

@@ -19,6 +19,7 @@ MODULE GZ_VARS_INPUT
   character(len=4) :: min_method
   character(len=6) :: lgr_method
   integer          :: wf_symmetry
+  logical :: gz_superc
   !integer :: okkkkk
   real(8)   :: amoeba_min_tol
   real(8) :: err_self
@@ -43,6 +44,7 @@ contains
     call parse_input_variable(xmu,"XMU",INPUTunit,default=0.d0)
     call parse_input_variable(wf_symmetry,"SYMMETRY",INPUTunit,default=0, &
          comment="0:O1cxSU2s;1:O1cxSU2sx(SU2c/O3c)")
+    call parse_input_variable(gz_superc,"GZ_SUPERC",INPUTunit,default=.false.)
     call parse_input_variable(lancelot_verbose,"LANCELOT_VERBOSE",INPUTunit,default=1)
     call parse_input_variable(amoeba_verbose,"AMOEBA_VERBOSE",INPUTunit,default=.false.)
     call parse_input_variable(GZmin_verbose,"GZMIN_VERBOSE",INPUTunit,default=.false.)

@@ -8,7 +8,8 @@ FPP=
 #EXE=gz_2b_bethe
 #EXE=gz_test_symm
 #EXE=gz_optimize_VS_nR
-EXE=gz_optimize_janus
+#EXE=gz_optimize_janus
+EXE=gz_sc_test
 
 
 DIR=drivers

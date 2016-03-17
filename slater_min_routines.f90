@@ -89,13 +89,9 @@ contains
     real(8),dimension(Ns)          :: ek
     integer                              :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,imap
     !
-
-    !write(*,*) lm_
-
     lm=0.d0
     do istate=1,Ns
        do jstate=1,Ns
-          !imap = vdm_c_map(istate,jstate)
           imap = opt_map(istate,jstate)
           if(imap.gt.0) lm(istate,jstate)=lm_(imap)
        end do
@@ -103,7 +99,7 @@ contains
     !
     local_density_matrix=0.d0
     !
-    do ik=1,Lk
+    do ik=1,Lk     
        Hk=0.d0
        ek=0.d0
        ! hopping renormalization !

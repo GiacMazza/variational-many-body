@@ -182,6 +182,7 @@ CONTAINS
     allocate(op_dens_dens_orb(Norb,Norb,nFock,nFock))
     allocate(op_spin_flip(Norb,Norb,nFock,nFock))
     allocate(op_pair_hopping(Norb,Norb,nFock,nFock))
+    allocate(op_sc_order(Ns,Ns,nFock,nFock))
 
     !    Uhubbard=density_density_interaction(CC,CA)    
     !dens_dens_interaction=rotationally_invariant_density_density(CC,CA)  !HERE MAY ADD SINGLET SPLITTING TERMS, SPIN FLIPS, PAIR HOPPINGS, etc...
@@ -191,6 +192,7 @@ CONTAINS
     op_dens_dens_orb = local_density_density_orb(CC,CA)
     op_spin_flip     = local_spin_flip(CC,CA)
     op_pair_hopping  = local_pair_hopping(CC,CA)
+    op_sc_order      = local_sc_order(CC,CA)
     
 
   end subroutine build_local_observables

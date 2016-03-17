@@ -33,7 +33,6 @@ CONTAINS
   subroutine init_variational_matrices
     !
     Nphi = get_dimension_phi_basis()
-    !call build_matrix_basis
     call build_traces_matrix_basis
     !
   end subroutine init_variational_matrices
@@ -55,9 +54,18 @@ CONTAINS
     real(8),dimension(nFock,nFock) :: Id
     real(8),dimension(:,:),allocatable :: test_trace
     !
+
+    type(local_multiplets),dimension(:),allocatable :: mult_list
+
+
     Id=0.d0; 
     forall(ifock=1:nFock) Id(ifock,ifock)=1.d0
 
+
+    ! call basis_SZ_irr_reps_test(mult_list,Virr_reps)
+    ! call get_matrix_basis_irr_reps_test(mult_list,phi_irr)
+    ! stop
+    
 
     select case(wf_symmetry)
     case(0)
@@ -66,6 +74,10 @@ CONTAINS
        call basis_O1cXSU2sXSU2c_irr_reps(irr_reps,equ_reps,Virr_reps)
     case(2)
        call basis_O1cXSU2sXisoZ_irr_reps(irr_reps,equ_reps,Virr_reps)
+    case(3)
+       call basis_SU2sXSU2c_irr_reps(irr_reps,equ_reps,Virr_reps)
+    case(4)
+       call basis_SZ_irr_reps(irr_reps,equ_reps,Virr_reps)
     end select
     !
     Nirr_reps=size(irr_reps,1)
@@ -82,15 +94,16 @@ CONTAINS
     do i=1,Nirr_reps
        write(*,*) equ_reps(i,:)
     end do
-
-
+    !
     call get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
     call get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
+    !
     
 
 
     dim_phi=size(phi_fock,1)
-    !dim_phi = nFock
+    !
+    !dim_phi = nFock*nFock
     Nphi=dim_phi   
     write(*,*) "NPHI",Nphi
     !
@@ -98,20 +111,21 @@ CONTAINS
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
     phi_basis = phi_fock
 
-    !<tmp DEBUG
+
+
+
+
+
+    !< tmp TEST
     ! phi_basis=0.d0
     ! do i=1,Nphi
     !    phi_basis(i,i,i)  = 1.d0
     ! end do
-    !tmp DEBUG>
-    !
-
-    !
-    !< tmp TEST
     ! Nphi=nFock*nFock
     ! dim_phi=Nphi
     ! allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
     ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    ! phi_basis=0.d0
     ! iphi=0
     ! do ifock=1,nFock
     !    write(*,*) ifock
@@ -129,11 +143,8 @@ CONTAINS
     ! do ifock=1,nFock
     !    iphi=iphi+1
     !    phi_basis(iphi,ifock,ifock) = 1.d0
-    ! end do
-    
-
+    ! end do   
     ! END TMP_TEST>
-    !
 
     do iphi=1,Nphi
        do ifock=1,nFock
@@ -231,7 +242,7 @@ CONTAINS
     do iphi=1,Nphi
        do ifock=1,nFock
           do jfock=1,nFock
-             phi_basis_dag(iphi,jfock,ifock)=phi_basis(iphi,ifock,jfock)
+             phi_basis_dag(iphi,jfock,ifock)=conjg(phi_basis(iphi,ifock,jfock))
           end do
        end do
     end do
@@ -291,6 +302,7 @@ CONTAINS
     allocate(phi_traces_basis_docc_orb(Norb,Nphi,Nphi))    
     allocate(phi_traces_basis_spin_flip(Norb,Norb,Nphi,Nphi))
     allocate(phi_traces_basis_pair_hopping(Norb,Norb,Nphi,Nphi))
+    allocate(phi_traces_basis_sc_order(Ns,Ns,Nphi,Nphi))
 
     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
@@ -343,6 +355,21 @@ CONTAINS
           phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB_s(CA(is,:,:),CC(js,:,:)) 
        end do
     end do
+    if(gz_superc) then
+       allocate(phi_traces_basis_Qhop(Ns,Ns,Nphi,Nphi))
+       do is=1,Ns
+          do js=1,Ns
+             phi_traces_basis_Qhop(is,js,:,:) = get_traces_basis_phiAphiB_s(CA(is,:,:),CA(js,:,:)) 
+          end do
+       end do
+    end if
+
+    do is=1,Ns
+       do js=1,Ns
+          phi_traces_basis_sc_order(is,js,:,:) = get_traces_basis_phiOphi(op_sc_order(is,js,:,:)) 
+       end do
+    end do
+
   end subroutine build_traces_matrix_basis
 
 
@@ -356,19 +383,29 @@ CONTAINS
 
   function get_traces_basis_phiOphi(Oi) result(trace_matrix)
     real(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed
-    real(8),dimension(Nphi,Nphi)   :: trace_matrix
+    complex(8),dimension(Nphi,Nphi)   :: trace_matrix
     complex(8),dimension(nFock,nFock) :: tmp
-    integer                        :: kfock,iphi,jphi
+    integer                        :: kfock,ifock,jfock,iphi,jphi
     !
     trace_matrix=0.d0                
     do iphi=1,Nphi
        do jphi=1,Nphi
           tmp=0.d0
-          tmp=matmul(Oi,phi_basis(jphi,:,:))
-          tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
-          do kfock=1,nFock
-             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + tmp(kfock,kfock)                  
+          !
+          do ifock=1,nFock
+             do jfock=1,nFock
+                do kfock=1,nFock
+                   trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + &
+                        conjg(phi_basis(iphi,ifock,kfock))*phi_basis(jphi,jfock,kfock)*Oi(ifock,jfock)
+                end do
+             end do
           end do
+          !
+          ! tmp=matmul(Oi,phi_basis(jphi,:,:))
+          ! tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
+          ! do kfock=1,nFock
+          !    trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + tmp(kfock,kfock)                  
+          ! end do
           !<DEBUG
           !write(*,*) iphi,jphi
           !DEBUG>

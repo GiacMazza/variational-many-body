@@ -143,3 +143,20 @@ function local_pair_hopping(cc,ca) result(phi)
   !    
 end function local_pair_hopping
 
+
+function local_sc_order(cc,ca) result(phi)
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
+  real(8),dimension(nFock,nFock) :: Id,tmp
+  real(8),dimension(Ns,Ns,nFock,nFock) :: phi
+  integer                        :: i,ispin,iorb,istate,jstate,jorb
+  integer                        :: is_up,is_dn,js_up,js_dn
+  !
+  phi=0.d0
+  do istate=1,NS
+     do jstate=1,NS
+        phi(istate,jstate,:,:) = matmul(CC(istate,:,:),CC(jstate,:,:))
+     end do
+  end do
+  !    
+end function local_sc_order
+

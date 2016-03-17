@@ -186,7 +186,7 @@ CONTAINS
 
     allocate(A_input(N,N,M))
     A_input = A
-
+    
     V=0.d0
     do i=1,N
        V(i,i) = one

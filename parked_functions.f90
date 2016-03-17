@@ -455,3 +455,528 @@
     GZ_energy=E_Hstar+E_Hloc
     !
   end function gz_energy_vdm_Rhop
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+!# SYMMETRY STUFF
+function get_mask_equal_values(xValues,mask,eps) result(Ns)
+  !
+  real(8),dimension(:)               :: xValues
+  integer,dimension(:,:),allocatable :: mask
+  real(8),optional                   :: eps
+  integer                            :: Ns
+  real(8)                            :: eps_
+  real(8),dimension(:,:),allocatable :: tmp_mask
+  integer,dimension(:),allocatable   :: search_index
+  integer                            :: Nx,ix,jx,is
+  real(8) :: deltaX
+  !
+  eps_=1.d-8
+  if(present(eps)) eps_=eps
+  if(allocated(mask)) deallocate(mask)
+  Nx=size(xValues)
+  allocate(tmp_mask(Nx,Nx),search_index(Nx))  
+  tmp_mask=0
+  search_index=0
+  NS=0
+  do ix=1,Nx
+     if(search_index(ix).ge.0) then
+        NS = NS + 1
+        do jx=1,Nx
+           deltaX = abs(Xvalues(jx)-Xvalues(ix))
+           if(deltaX.lt.eps_) then
+              search_index(jx) = -1
+              tmp_mask(NS,jx) = 1
+           end if
+        end do
+     end if
+  end do
+  allocate(mask(NS,Nx))
+  do is=1,NS
+     mask(is,:)=tmp_mask(is,:)
+  end do
+  deallocate(tmp_mask)  
+  !
+end function get_mask_equal_values
+
+
+
+subroutine group_statesNS(eigenvalues)
+  real(8),dimension(:,:)               :: eigenvalues
+  real(8),dimension(:,:),allocatable               :: indep_eigen_
+  real(8),dimension(:,:,:),allocatable               :: indep_eigen
+  integer,dimension(:,:),allocatable   :: eigen_label_mask
+  integer,dimension(:,:),allocatable   :: map_group_
+  integer,dimension(:),allocatable     :: map_group,mult,mult_
+  integer,dimension(:,:),allocatable   :: group_mask_
+  integer,dimension(:,:),allocatable   :: final_mask
+  integer,dimension(:,:,:),allocatable :: group_mask
+  real(8),dimension(:,:),allocatable   :: group_eigenvalues
+  real(8),dimension(:),allocatable   :: NS_multiplets,NSSz_multiplets
+  integer,dimension(2)                 :: count_equal_states,Ngroup
+  integer                              :: igroup,i,j,k
+  integer                              :: M,N
+  integer                              :: imap,imap_,Ntmp,tmp,imult
+  logical                              :: tmp_flag
+  !
+  N=size(eigenvalues,1)
+  M=size(eigenvalues,2)
+  !
+  allocate(eigen_label_mask(M,2))
+  eigen_label_mask=0
+  !
+  !+- S2 eigenvalues -+!
+  eigen_label_mask(1,1)=1
+  eigen_label_mask(5,1)=1
+  !+- Sz eigenvalues -+!
+  eigen_label_mask(1,2)=1
+  eigen_label_mask(2,2)=1
+  eigen_label_mask(5,2)=1
+  !
+  !
+  Ngroup=0
+  do i=1,M
+     Ngroup(1:2) = Ngroup(1:2) + eigen_label_mask(i,1:2)
+  end do
+  !
+
+
+  write(*,*) 'CREATE MASKS'
+  
+  allocate(group_mask(N,N,2)); group_mask=0
+  allocate(indep_eigen(N,M,2)); indep_eigen=0.d0
+  do j=1,2
+     allocate(group_eigenvalues(N,Ngroup(j)))
+     igroup=0
+     do i=1,M     
+        if(eigen_label_mask(i,j).eq.1) then
+           igroup=igroup+1
+           group_eigenvalues(:,igroup) = eigenvalues(:,i)
+        end if
+     end do
+     write(*,*) j
+     if(.not.allocated(group_mask_))allocate(group_mask_(N,N))
+     count_equal_states(j) = get_mask_equal_eigenvalues(group_eigenvalues,group_mask_,indep_eigen_)  
+     do i=1,count_equal_states(j)
+        group_mask(i,:,j)  = group_mask_(i,:)        
+        indep_eigen(i,1:Ngroup(j),j) = indep_eigen_(i,1:Ngroup(j))
+     end do
+     !<TEST
+     do i=1,N
+        write(*,*) i,group_mask(1:count_equal_states(j),i,j)
+     end do
+     write(*,*)
+     !TEST>
+     deallocate(group_eigenvalues)
+  end do  
+  !
+  !allocate(map_group_(N,2),map_group(N))
+
+  write(*,*) 'CREATE MAPS'
+
+  allocate(map_group_(N,2))
+  do j=1,2     
+     imap=0
+     do i=1,count_equal_states(j)
+        do k=1,N
+           if(group_mask(i,k,j).eq.1) then
+              imap=imap+1
+              map_group_(imap,j) = k
+           end if
+        end do
+     end do
+     !<TEST
+     do i=1,N
+        write(*,'(5F7.2,I4)') eigenvalues(map_group_(i,j),:),map_group_(i,j)
+     end do
+     write(*,*)     
+     !TEST>
+  end do
+
+
+  !
+  ! allocate(NS_mulitplets(Ngroup(1)),NSSz_mulitplets(Ngroup(2)))  
+  ! tmp_flag=.true.
+  ! j=1
+  ! do i=1,Ngroup(j)
+  !    tmp=0
+  !    do k=1,N
+  !       tmp = tmp + group_mask(i,k,j)
+  !       if(group_mask(i,k,j).eq.1.and.tmp_flag) then
+  !          NS_multiplets
+  !       end if
+  !    end do
+     
+  ! end do
+
+  
+  write(*,*) 'STORE MULTIPLETS'
+
+
+  !
+  allocate(map_group(N),mult_(N))
+  imap=0
+  mult_=0
+  imult=0
+  do i=1,count_equal_states(1)
+     do j=1,count_equal_states(2)
+        tmp=0
+        tmp_flag=.true.
+        do k=1,N
+           tmp = tmp + group_mask(i,k,1)*group_mask(j,k,2)
+           if(group_mask(i,k,1)*group_mask(j,k,2).eq.1) then
+              if(tmp_flag) then
+                 imap_=k; tmp_flag=.false.
+              end if
+              imap=imap+1
+              map_group(imap) = k                            
+           end if
+        end do
+        !
+        if(tmp.ne.0) then
+           imult=imult+1
+           !write(*,*) i,j,indep_eigen(imult,1:Ngroup(2),2),tmp,imap_
+           !write(*,*) i,j,eigenvalues(map_group(imap_),1),eigenvalues(map_group(imap_),2),eigenvalues(map_group(imap_),5),tmp,imap_
+           write(*,*) eigenvalues(imap_,1),eigenvalues(imap_,2),eigenvalues(imap_,5),tmp
+           mult_(imult)=tmp
+        end if
+        !
+     end do
+  end do
+
+  allocate(mult(imult))
+  do i=1,imult
+     mult(imult) = mult_(imult)
+  end do
+
+  !<TEST
+  do i=1,N
+     write(*,'(5F7.2,2I4)') eigenvalues(map_group(i),:),map_group(i)
+  end do
+  write(*,*)     
+  !TEST>
+
+
+
+
+end subroutine group_statesNS
+
+
+
+
+subroutine basisirr_reps  
+  !+- SPIN AND ORBITAL ANGULAR MOMENTUM OPERATOR -+!
+  complex(8),dimension(nFock,nFock,3)     :: Svec
+  complex(8),dimension(nFock,nFock)       :: S2
+  !
+  complex(8),dimension(nFock,nFock,3)     :: isoSvec
+  complex(8),dimension(nFock,nFock)       :: isoS2
+  !
+  complex(8),dimension(2,2,3)             :: sigma_pauli
+  complex(8),dimension(3,3,3)             :: levi_civita
+  complex(8),dimension(nFock,nFock)       :: Splus,Sminus
+  complex(8),dimension(nFock,nFock)       :: tmp_matrix,test,test_
+  !
+  complex(8),dimension(:,:,:),allocatable :: test_joint_diag
+  complex(8),dimension(:,:),allocatable   :: test_jointV,jointV
+  complex(8),dimension(:),allocatable   :: tmp_vec
+  real(8),dimension(:,:),allocatable      :: test_jointD
+  !
+  real(8),dimension(nFock,nFock)          :: S2diag,Ntest
+  real(8),dimension(nFock)                :: tmp
+  real(8),dimension(nFock)                :: S2eigen,SZeigen
+  real(8),dimension(nFock)                :: Svalue,MSvalue
+  real(8),dimension(nFock,2)              :: spin_state
+  real(8),dimension(2)                    :: tmp_spin_state
+  integer,dimension(nFock)                :: MS,search_index
+  real(8),dimension(:),allocatable        :: get_Svalue
+  integer,dimension(:),allocatable        :: count_NSstates
+  integer,dimension(:,:),allocatable      :: irreducible_states,tmp_irreducible_states,SZ_states
+  integer                                 :: i,j,k,iorb,jorb,ispin,jspin,istate,jstate,is,iss,jfock,ifock
+  real(8)                                 :: storeS,tmp_sz,deltaS,tmp_test,modV,modV_
+
+  integer                                 :: map,NS,NMS
+  integer,dimension(nFock) :: ker_map
+
+
+  integer :: imap,jmap,imin,imax,jmin,jmax,ii,jj,dim_irr
+
+  type(local_multiplets),dimension(:),allocatable :: mult_list
+  type(intarray),dimension(:),allocatable :: irr_reps,irr_reps_
+  integer :: Nirr_reps,jtmp,Nineq_reps
+  integer,dimension(:,:),allocatable :: equ_reps,equ_reps_
+
+
+  integer,dimension(:,:),allocatable :: eigen_labels
+  logical :: ker_flag
+
+
+  !+- build sigma pauli and levi-civita tensor -+!
+  sigma_pauli=0.d0
+  !
+  sigma_pauli(1,2,1) = 1.d0!one
+  sigma_pauli(2,1,1) = 1.d0!one
+  !
+  sigma_pauli(1,2,2) = -xi
+  sigma_pauli(2,1,2) =  xi
+  !
+  sigma_pauli(1,1,3) = 1.d0!one
+  sigma_pauli(2,2,3) = -1.d0!*one
+  !
+  !
+  levi_civita=0.d0
+  levi_civita(1,2,3) =  1.d0
+  levi_civita(1,3,2) = -1.d0
+  !
+  levi_civita(2,3,1) =  1.d0
+  levi_civita(3,2,1) = -1.d0
+  !
+  levi_civita(3,1,2) =  1.d0
+  levi_civita(3,2,1) = -1.d0
+  !
+
+  S2=zero
+  do i=1,3
+     Svec(:,:,i)=0.d0
+     do iorb=1,Norb
+        do ispin=1,2
+           do jspin=1,2
+              istate=index(ispin,iorb)
+              jstate=index(jspin,iorb)
+              Svec(:,:,i) = Svec(:,:,i) + &
+                   0.5d0*sigma_pauli(ispin,jspin,i)*matmul(CC(istate,:,:),CA(jstate,:,:))
+           end do
+        end do
+     end do
+     S2 = S2 + matmul(Svec(:,:,i),Svec(:,:,i))
+  end do
+
+  Splus  = Svec(:,:,1) + xi*Svec(:,:,2)
+  Sminus = Svec(:,:,1) - xi*Svec(:,:,2)
+
+  Ntest=0.d0
+  do iorb=1,Norb
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        Ntest = Ntest + matmul(CC(istate,:,:),CA(istate,:,:))
+     end do
+  end do
+
+  isoS2=0.d0
+  do i=1,3
+     isoSvec(:,:,i)=0.d0
+     select case(Norb)
+     case(1)        
+        forall(ifock=1:nFock) isoSvec(ifock,ifock,i) = 1.d0
+     case(2)
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do ispin=1,2
+                 istate=index(ispin,iorb)
+                 jstate=index(ispin,jorb)
+                 isoSvec(:,:,i) = isoSvec(:,:,i) + &
+                      0.5d0*sigma_pauli(iorb,jorb,i)*matmul(CC(istate,:,:),CA(jstate,:,:))
+              end do
+           end do
+        end do
+     case(3) 
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do ispin=1,2
+                 istate=index(ispin,iorb)
+                 jstate=index(ispin,jorb)
+                 isoSvec(:,:,i) = isoSvec(:,:,i) + &
+                      xi*levi_civita(i,iorb,jorb)*matmul(CC(istate,:,:),CA(jstate,:,:))
+              end do
+           end do
+        end do
+     end select
+     isoS2 = isoS2 + matmul(isoSvec(:,:,i),isoSvec(:,:,i))
+  end do
+
+  !check isoS2 commutes with S2
+  test=matmul(S2,isoS2)
+  test_=matmul(isoS2,S2)
+  do ifock=1,nFock
+     do jfock=1,nFock
+        if(abs(test(ifock,jfock)-test_(ifock,jfock)).gt.1.d-8) write(*,*) ifock,jfock
+     end do
+  end do
+  !stop
+
+  !< TEST JACOBI JOINT DIAGONALIZATION 
+  ! tmp_matrix = Svec(:,:,2)
+  ! !call matrix_diagonalize(tmp_matrix,S2eigen,'V','U')
+  ! call matrix_diagonalize(tmp_matrix,S2eigen)
+  ! S2diag=0.d0
+  ! do i=1,nFock
+  !    S2diag(i,i)=S2eigen(i)
+  !    write(*,*) i,S2eigen(i),Ntest(i,i)
+  ! end do
+
+  allocate(test_joint_diag(nFock,nFock,3),test_jointV(nFock,nFock),test_jointD(nFock,3))
+  test_joint_diag(:,:,1)=S2
+  test_joint_diag(:,:,2)=Svec(:,:,3)
+  test_joint_diag(:,:,3)=Ntest
+
+  ! allocate(test_joint_diag(nFock,nFock,5),test_jointV(nFock,nFock),test_jointD(nFock,5))
+  ! test_joint_diag(:,:,1)=S2
+  ! test_joint_diag(:,:,2)=Svec(:,:,3)
+  ! test_joint_diag(:,:,3)=isoS2
+  ! test_joint_diag(:,:,4)=isoSvec(:,:,3)
+  ! test_joint_diag(:,:,5)=Ntest
+
+
+  write(*,*)
+  call simultaneous_diag(test_joint_diag,test_jointV,test_jointD,eps=1.d-10) 
+
+
+
+  allocate(eigen_labels(3,1)); eigen_labels = 0
+  eigen_labels(1,1) = 1
+  eigen_labels(3,1) = 1
+  !
+  ! eigen_labels(1,2) = 1
+  ! eigen_labels(2,2) = 1
+  ! eigen_labels(3,2) = 1
+  !
+  call get_multiplets_list(test_jointD,eigen_labels,mult_list)
+
+  !+- I obtained the basis for irreducible representation of total-spin rotations -+!
+  allocate(jointV(nFock,nFock))
+  allocate(tmp_vec(nFock))
+  ifock=0
+  ker_map = 0
+  do i=1,mult_list(1)%N_mult
+
+
+
+     do j=1,mult_list(1)%Nequiv_mult(i)
+
+        map = mult_list(1)%Maps(i)%index(j)
+        !apply S+
+        tmp_vec = test_jointV(:,map)
+
+        ! write(*,*) map
+        ! write(*,'(20F7.2)') dreal(tmp_vec)
+        ! write(*,'(20F7.2)') dimag(tmp_vec)
+
+        tmp_vec = matmul(Splus,tmp_vec)
+        modV=0.d0
+        do k=1,nFock
+           modV=modV+tmp_vec(k)*conjg(tmp_vec(k))
+        end do
+        modV=sqrt(modV)
+
+        if(abs(modV).lt.1.d-10) then
+           ker_map(map) = 1
+        end if
+
+     end do
+  end do
+
+  ifock=0  
+  Nirr_reps=0
+  allocate(irr_reps_(nFock))
+  do i=1,nFock
+     allocate(irr_reps_(i)%index(4))
+  end do
+  allocate(equ_reps_(nFock,nFock)); equ_reps_=0
+  jtmp=0
+  do jj=1,mult_list(1)%N_mult
+     do ii=1,mult_list(1)%Nequiv_mult(jj)
+        !
+        i=mult_list(1)%Maps(jj)%index(ii)        
+        if(ker_map(i).eq.1) then
+           !
+           tmp_vec = test_jointV(:,i)        
+           modV=0.d0
+           do k=1,nFock
+              modV=modV+tmp_vec(k)*conjg(tmp_vec(k))
+           end do
+           modV=sqrt(modV)                   
+           !
+           imin = ifock+1
+           !
+           dim_irr=0
+           do while(modV.gt.1.d-10) 
+              !
+              dim_irr=dim_irr+1
+              ifock = ifock + 1
+              jointV(:,ifock) = tmp_vec/modV
+              tmp_vec = matmul(Sminus,tmp_vec)
+              !
+              modV=0.d0
+              do k=1,nFock
+                 modV=modV+tmp_vec(k)*conjg(tmp_vec(k))
+              end do
+              modV=sqrt(modV)           
+           end do
+           imax = ifock
+           j=mult_list(1)%inv_map(i)
+           !
+           Nirr_reps = Nirr_reps+1
+           !
+           if(j.eq.jtmp) then
+              equ_reps_(Nirr_reps,Nineq_reps) = 1
+           else
+              Nineq_reps = Nineq_reps+1
+              equ_reps_(Nirr_reps,Nineq_reps) = 1
+           end if
+           jtmp=j
+           !
+           irr_reps_(Nirr_reps)%index(1) = imin 
+           irr_reps_(Nirr_reps)%index(2) = imax
+           irr_reps_(Nirr_reps)%index(3) = dim_irr
+           irr_reps_(Nirr_reps)%index(4) = mult_list(1)%inv_map(i)
+           !
+        end if
+     end do
+  end do
+  write(*,*) Nirr_reps,Nineq_reps
+
+  allocate(irr_reps(Nirr_reps))
+  do i=1,Nirr_reps
+     allocate(irr_reps(i)%index(4))
+  end do
+  allocate(equ_reps(Nirr_reps,Nineq_reps))
+  !
+  do i=1,Nirr_reps
+     irr_reps(i)%index(:) = irr_reps_(i)%index(:)
+     do j=1,Nineq_reps
+        equ_reps(i,j) = equ_reps_(i,j)
+     end do
+  end do
+
+  write(*,*) 'IRREDUCIBLE REPS'
+  do i=1,Nirr_reps
+     write(*,*) irr_reps(i)%index(:)
+  end do
+
+  write(*,*) 'EQUIVALENT IRREDUCIBLE REPS'
+  do i=1,Nirr_reps
+     write(*,*) equ_reps(i,:)
+  end do
+
+
+end subroutine basisirr_reps

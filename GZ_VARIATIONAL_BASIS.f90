@@ -56,17 +56,17 @@ CONTAINS
     !
 
     type(local_multiplets),dimension(:),allocatable :: mult_list
-
+    
+    !
+    real(8) :: tmp_check
 
     Id=0.d0; 
     forall(ifock=1:nFock) Id(ifock,ifock)=1.d0
-
-
+    
     ! call basis_SZ_irr_reps_test(mult_list,Virr_reps)
     ! call get_matrix_basis_irr_reps_test(mult_list,phi_irr)
     ! stop
     
-
     select case(wf_symmetry)
     case(0)
        call basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
@@ -77,6 +77,8 @@ CONTAINS
     case(3)
        call basis_SU2sXSU2c_irr_reps(irr_reps,equ_reps,Virr_reps)
     case(4)
+       call basis_SU2_irr_reps(irr_reps,equ_reps,Virr_reps)
+    case(5)
        call basis_SZ_irr_reps(irr_reps,equ_reps,Virr_reps)
     end select
     !
@@ -109,41 +111,19 @@ CONTAINS
     !
     allocate(phi_basis(dim_phi,nFock,nFock))
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
+    
     phi_basis = phi_fock
-
-
-
-
 
 
     !< tmp TEST
     ! phi_basis=0.d0
-    ! do i=1,Nphi
-    !    phi_basis(i,i,i)  = 1.d0
-    ! end do
-    ! Nphi=nFock*nFock
-    ! dim_phi=Nphi
-    ! allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
-    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    ! phi_basis=0.d0
     ! iphi=0
     ! do ifock=1,nFock
-    !    write(*,*) ifock
     !    do jfock=1,nFock
     !       iphi=iphi+1
     !       phi_basis(iphi,ifock,jfock) = 1.d0
     !    end do
     ! end do
-
-    ! Nphi=nFock
-    ! dim_phi=Nphi
-    ! allocate(phi_basis(dim_phi,nFock,nFock));phi_basis=0.d0
-    ! allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    ! iphi=0
-    ! do ifock=1,nFock
-    !    iphi=iphi+1
-    !    phi_basis(iphi,ifock,ifock) = 1.d0
-    ! end do   
     ! END TMP_TEST>
 
     do iphi=1,Nphi
@@ -170,7 +150,19 @@ CONTAINS
        phi_basis(iphi,:,:)     = phi_basis(iphi,:,:)/sqrt(test_trace(iphi,iphi))
        phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
     end do
-    
+
+    !<TMP_CHECK
+    ! tmp_check=0.d0
+    ! do iphi=1,Nphi
+    !    do ifock=1,nFock
+    !       do jfock=1,nFock
+    !          tmp_check = tmp_check + dimag(phi_basis(iphi,ifock,jfock))**2.d0
+    !       end do
+    !    end do
+    ! end do
+    ! write(*,*) 'TMP_CHECK',tmp_check
+    ! stop
+    !TMP_CHECK>
 
     !stop "Variational basis  TRACE-ORTHOGONAL"
     
@@ -289,7 +281,7 @@ CONTAINS
 
 
   subroutine build_traces_matrix_basis
-    integer :: is,js,iorb,jorb
+    integer :: is,js,iorb,jorb,iphi,jphi
     !+- let's assume that the opertaors in Fock space have been already built
 
 
@@ -316,7 +308,7 @@ CONTAINS
           write(*,*) is,js
        end do
     end do
-    
+
     !
     do iorb=1,Norb
        do jorb=1,Norb
@@ -331,39 +323,91 @@ CONTAINS
        end do
        phi_traces_basis_docc_orb(iorb,:,:) = &
             get_traces_basis_phiOphi(op_docc(iorb,:,:))
-       
+
     end do
     !
 
     !+- density constraints Tr(Phi+ Phi C_i) C_i=density matrix -+!
-    allocate(phi_traces_basis_dens(Ns,Ns,Nphi,Nphi))
-    !allocate(phi_traces_basis_Cdens(Ns,Ns,Nphi,Nphi))
-
+    allocate(phi_traces_basis_dens(Ns,Ns,Nphi,Nphi),phi_traces_basis_dens_hc(Ns,Ns,Nphi,Nphi))
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_dens(is,js,:,:) = &    !+- probably is more correct to call this global variable !+- phi_traces_basis_vdm
-               get_traces_basis_phiphiO_s(op_local_dens(is,js,:,:))
-          !
-          ! phi_traces_basis_dens(is,js,:,:) = &
-          !      get_traces_basis_phiphiO(op_local_dens(is,js,:,:))
+               get_traces_basis_phiphiO(op_local_dens(is,js,:,:))
        end do
     end do
-    !+- Hoppings -+!
-    allocate(phi_traces_basis_Rhop(Ns,Ns,Nphi,Nphi))
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          phi_traces_basis_dens_hc(:,:,iphi,jphi) = conjg(phi_traces_basis_dens(:,:,jphi,iphi))
+       end do
+    end do
+    !+- anomalous part -+!
+    allocate(phi_traces_basis_dens_anomalous(Ns,Ns,Nphi,Nphi))
+    allocate(phi_traces_basis_dens_anomalous_hc(Ns,Ns,Nphi,Nphi))
     do is=1,Ns
        do js=1,Ns
-          phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB_s(CA(is,:,:),CC(js,:,:)) 
+          phi_traces_basis_dens_anomalous(is,js,:,:) = &    !+- probably is more correct to call this global variable !+- phi_traces_basis_vdm
+               get_traces_basis_phiphiO(op_local_dens_anomalous(is,js,:,:))
        end do
     end do
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          phi_traces_basis_dens_anomalous_hc(:,:,iphi,jphi) = conjg(phi_traces_basis_dens_anomalous(:,:,jphi,iphi))
+       end do
+    end do
+
+
+
+
+
+    !<DEBUG
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          write(907,'(10F18.10)') dble(iphi),dble(jphi),phi_traces_basis_dens(1,1,iphi,jphi),phi_traces_basis_dens(2,2,iphi,jphi),phi_traces_basis_dens(3,3,iphi,jphi),phi_traces_basis_dens(4,4,iphi,jphi)
+       end do
+    end do
+    do iphi=1,nFock
+       do jphi=1,nFock
+          write(908,'(10F18.10)') op_local_dens(1,1,iphi,jphi),op_local_dens(2,2,iphi,jphi),op_local_dens(3,3,iphi,jphi),op_local_dens(4,4,iphi,jphi)
+       end do
+    end do
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          write(909,'(10F18.10)') phi_traces_basis_local_dens(1,1,iphi,jphi),phi_traces_basis_local_dens(2,2,iphi,jphi),phi_traces_basis_local_dens(3,3,iphi,jphi),phi_traces_basis_local_dens(4,4,iphi,jphi)
+       end do
+    end do
+    !    stop
+    !DEBUG>
+
+
+
+    !+- Hoppings -+!
+    allocate(phi_traces_basis_Rhop(Ns,Ns,Nphi,Nphi),phi_traces_basis_Rhop_hc(Ns,Ns,Nphi,Nphi))
+    do is=1,Ns
+       do js=1,Ns
+          !phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB_s(CA(is,:,:),CC(js,:,:)) 
+          phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB(CA(is,:,:),CC(js,:,:)) 
+       end do
+    end do
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          phi_traces_basis_Rhop_hc(:,:,iphi,jphi) = conjg(phi_traces_basis_Rhop(:,:,jphi,iphi))
+       end do
+    end do
+    !
     if(gz_superc) then
-       allocate(phi_traces_basis_Qhop(Ns,Ns,Nphi,Nphi))
+       allocate(phi_traces_basis_Qhop(Ns,Ns,Nphi,Nphi),phi_traces_basis_Qhop_hc(Ns,Ns,Nphi,Nphi))
        do is=1,Ns
           do js=1,Ns
-             phi_traces_basis_Qhop(is,js,:,:) = get_traces_basis_phiAphiB_s(CA(is,:,:),CA(js,:,:)) 
+             phi_traces_basis_Qhop(is,js,:,:) = get_traces_basis_phiAphiB(CA(is,:,:),CA(js,:,:)) 
+          end do
+       end do
+       do iphi=1,Nphi
+          do jphi=1,Nphi
+             phi_traces_basis_Qhop_hc(:,:,iphi,jphi) = conjg(phi_traces_basis_Qhop(:,:,jphi,iphi))
           end do
        end do
     end if
-
+    !
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_sc_order(is,js,:,:) = get_traces_basis_phiOphi(op_sc_order(is,js,:,:)) 
@@ -401,14 +445,6 @@ CONTAINS
              end do
           end do
           !
-          ! tmp=matmul(Oi,phi_basis(jphi,:,:))
-          ! tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
-          ! do kfock=1,nFock
-          !    trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + tmp(kfock,kfock)                  
-          ! end do
-          !<DEBUG
-          !write(*,*) iphi,jphi
-          !DEBUG>
        end do
     end do
     !
@@ -416,14 +452,14 @@ CONTAINS
   !
   function get_traces_basis_phiphiO(Oi) result(trace_matrix)
     real(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed
-    real(8),dimension(Nphi,Nphi)   :: trace_matrix
-    real(8),dimension(nFock,nFock) :: tmp
+    complex(8),dimension(Nphi,Nphi)   :: trace_matrix
+    complex(8),dimension(nFock,nFock) :: tmp
     integer                        :: kfock,iphi,jphi
     !
-    trace_matrix=0.d0                
+    trace_matrix=zero                
     do iphi=1,Nphi
        do jphi=1,Nphi
-          tmp=0.d0
+          tmp=zero
           tmp=matmul(phi_basis(jphi,:,:),Oi)
           tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
           do kfock=1,nFock
@@ -433,44 +469,17 @@ CONTAINS
     end do
     !
   end function get_traces_basis_phiphiO
-
-  function get_traces_basis_phiphiO_s(Oi) result(trace_matrix)
-    real(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed
-    real(8),dimension(Nphi,Nphi)   :: trace_matrix
-    real(8),dimension(nFock,nFock) :: tmp
-    integer                        :: kfock,iphi,jphi
-    !
-    trace_matrix=0.d0                
-    do iphi=1,Nphi
-       do jphi=1,Nphi
-          tmp=0.d0
-          tmp=matmul(phi_basis(jphi,:,:),Oi)
-          tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
-          do kfock=1,nFock
-             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + 0.5d0*tmp(kfock,kfock)                  
-          end do
-          tmp=0.d0
-          tmp=matmul(phi_basis(iphi,:,:),Oi)
-          tmp=matmul(phi_basis_dag(jphi,:,:),tmp)
-          do kfock=1,nFock
-             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + 0.5d0*tmp(kfock,kfock)                  
-          end do
-       end do
-    end do
-    !
-  end function get_traces_basis_phiphiO_s
-
-
+  !
   function get_traces_basis_phiAphiB(A,B) result(trace_matrix)
-    real(8),dimension(nFock,nFock) :: A,B 
-    real(8),dimension(Nphi,Nphi)   :: trace_matrix
-    real(8),dimension(nFock,nFock) :: tmp
-    integer                        :: kfock,iphi,jphi
+    real(8),dimension(nFock,nFock)    :: A,B 
+    complex(8),dimension(Nphi,Nphi)   :: trace_matrix
+    complex(8),dimension(nFock,nFock) :: tmp
+    integer                           :: kfock,iphi,jphi
     !
-    trace_matrix=0.d0                
+    trace_matrix=zero
     do iphi=1,Nphi
        do jphi=1,Nphi
-          tmp=0.d0
+          tmp=zero
           tmp=matmul(phi_basis(jphi,:,:),B)
           tmp=matmul(A,tmp)
           tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
@@ -481,36 +490,5 @@ CONTAINS
     end do
     !
   end function get_traces_basis_phiAphiB
-
-
-
-  function get_traces_basis_phiAphiB_s(A,B) result(trace_matrix)
-    real(8),dimension(nFock,nFock) :: A,B 
-    real(8),dimension(Nphi,Nphi)   :: trace_matrix
-    real(8),dimension(nFock,nFock) :: tmp
-    integer                        :: kfock,iphi,jphi
-    !
-    trace_matrix=0.d0                
-    do iphi=1,Nphi
-       do jphi=1,Nphi
-          tmp=0.d0
-          tmp=matmul(phi_basis(jphi,:,:),B)
-          tmp=matmul(A,tmp)
-          tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
-          do kfock=1,nFock
-             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + 0.5d0*tmp(kfock,kfock)
-          end do
-          tmp=0.d0
-          tmp=matmul(phi_basis(iphi,:,:),B)
-          tmp=matmul(A,tmp)
-          tmp=matmul(phi_basis_dag(jphi,:,:),tmp)
-          do kfock=1,nFock
-             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + 0.5d0*tmp(kfock,kfock)
-          end do
-       end do
-    end do
-    !
-  end function get_traces_basis_phiAphiB_s
-
   !
 END MODULE GZ_MATRIX_BASIS

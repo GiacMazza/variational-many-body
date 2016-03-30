@@ -15,7 +15,10 @@ MODULE GZ_VARS_GLOBAL
   integer,dimension(:,:),allocatable   :: vdm_c_map
 
   integer :: Nopt_diag,Nopt_odiag
+  
+  integer :: Nopt_lgr,Nopt_normal,Nopt_anomalous
   integer,dimension(:,:),allocatable :: opt_map
+  integer,dimension(:,:),allocatable :: opt_map_anomalous
 
   
   !
@@ -54,11 +57,15 @@ MODULE GZ_VARS_GLOBAL
   !# Gutzwiller Matrices #!
   ! hopping renormalization
   complex(8),allocatable                :: phi_traces_basis_Rhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable                :: phi_traces_basis_Rhop_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
   complex(8),allocatable                :: phi_traces_basis_Qhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable                :: phi_traces_basis_Qhop_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
   
   ! density constraints
   complex(8),allocatable                :: phi_traces_basis_dens(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
-  !real(8),allocatable                :: phi_traces_basis_Cdens(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi)
+  complex(8),allocatable                :: phi_traces_basis_dens_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable                :: phi_traces_basis_dens_anomalous(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable                :: phi_traces_basis_dens_anomalous_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
   
   ! local operators
   complex(8),allocatable                :: phi_traces_basis_Hloc(:,:)     ! Single matrix of dimension (nPhi X nPhi) 
@@ -99,12 +106,15 @@ MODULE GZ_VARS_GLOBAL
   real(8),allocatable                :: gz_docc(:)           ! Double occupancy (1:Norb)
   real(8),allocatable                :: gz_dens_dens_orb(:,:)  ! density_density different orbitals (1:Norb,1:Norb)
   real(8),allocatable                :: gz_dens(:)           ! local density    (1:Ns)
+  real(8),allocatable                :: gz_dens_matrix(:,:)           ! local density    (1:Ns)
 
 
 
   real(8),allocatable                :: op_docc(:,:,:)              ! Double occupancy (Norb,:,:)
   real(8),allocatable                :: op_dens(:,:,:)              ! local density    (1:Ns,:,:)
   real(8),allocatable                :: op_local_dens(:,:,:,:)              ! local density matrix    (1:Ns,1:Ns,:,:)
+  real(8),allocatable                :: op_local_dens_anomalous(:,:,:,:)              ! local density matrix    (1:Ns,1:Ns,:,:)
+
   real(8),allocatable                :: op_dens_dens_orb(:,:,:,:)     ! local density    (Norb,Norb,:,:)
   real(8),allocatable                :: op_spin_flip(:,:,:,:)     ! spin_flip    (Norb,Norb,:,:)
   real(8),allocatable                :: op_pair_hopping(:,:,:,:)     ! pair_hopping    (Norb,Norb,:,:)

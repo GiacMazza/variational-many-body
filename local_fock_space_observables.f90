@@ -36,6 +36,28 @@ function local_density_matrix(cc,ca) result(ni)
 end function local_density_matrix
 
 
+function local_density_matrix_anomalous(cc,ca) result(ni)
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
+  real(8),dimension(nFock,nFock) :: Id
+  real(8),dimension(Ns,Ns,nFock,nFock) :: ni
+  integer                        :: i,ispin,iorb,istate,jspin,jorb,jstate
+  !
+  do ispin=1,2
+     do jspin=1,2
+        do iorb=1,Norb
+           do jorb=1,Norb
+              istate=index(ispin,iorb)
+              jstate=index(jspin,jorb)
+              ni(istate,jstate,:,:)=matmul(cc(istate,:,:),cc(jstate,:,:))
+           end do
+        end do
+     end do
+  end do
+  !
+end function local_density_matrix_anomalous
+
+
+
 function local_doubly(cc,ca) result(di)
   real(8),dimension(Ns,nFock,nFock) :: cc,ca
   real(8),dimension(nFock,nFock) :: Id,tmp_up,tmp_dw

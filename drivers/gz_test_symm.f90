@@ -2,7 +2,7 @@ program GUTZ_mb
   USE SCIFOR
   !
   USE DMFT_MISC
-  USE DMFT_PARSE_INPUT
+  USE SF_PARSE_INPUT
   !
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
@@ -31,7 +31,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: epsik,hybik
   integer :: Nx,is
   !
-  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol
+  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,e0test
 
   character(len=5) :: dir_suffix
   character(len=6) :: dir_iter
@@ -80,7 +80,7 @@ program GUTZ_mb
   !+-----------------------------------------------+!
 
 
-  Nopt_diag=2
+  Nopt_diag=1
   Nopt_odiag=0  
   allocate(opt_map(Ns,Ns))
 
@@ -90,7 +90,7 @@ program GUTZ_mb
      do iorb=1,Norb
         is=index(ispin,iorb)
         write(*,*) is,iorb
-        opt_map(is,is) = iorb
+        opt_map(is,is) = 1
      end do
   end do
   !
@@ -113,30 +113,25 @@ program GUTZ_mb
   ! R_init = 0.5d0
   !stop
 
-  allocate(vdm_init(2),vdm_out(2)); 
-
-  vdm_init(1) = 0.05
-  vdm_init(2) = 0.95
 
   ! tmp_emin = gz_energy_vdm(variational_density_natural_simplex(1,:))
   ! write(*,*) 'TMP_EMIN',tmp_emin
   ! stop
-  !  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural) 
-  !call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
-  ! call get_gz_ground_state(GZ_vector)  
-  ! call print_output
-  ! stop
-
-
-
   allocate(lgr_init_slater(Nopt_diag+Nopt_odiag))
   allocate(lgr_init_gzproj(Nopt_diag+Nopt_odiag))
 
-  lgr_init_slater(1) =  0.5d0
-  lgr_init_slater(2) = -0.5d0
+  lgr_init_slater(1) =  0.d0
   !
-  lgr_init_gzproj(1) =  0.5d0
-  lgr_init_gzproj(2) = -0.5d0
+  lgr_init_gzproj(1) =  0.d0
+
+
+  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural) 
+  call get_gz_ground_state(GZ_vector)  
+  call print_output
+  stop
+
+
+
 
   orb_pol = 0.275d0
   do i=1,2

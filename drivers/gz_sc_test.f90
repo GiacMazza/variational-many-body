@@ -16,7 +16,7 @@ program GUTZ_mb
   implicit none
   !
   !+- hamiltonian details -+!
-  integer                            :: ispin,iorb,i,j,istate,jstate,ifock,jorb
+  integer                            :: ispin,jspin,iorb,i,j,istate,jstate,ifock,jorb
   integer,dimension(:),allocatable   :: fock_vec
   complex(8),dimension(:),allocatable               :: init_vec
   real(8),dimension(:),allocatable   :: variational_density_natural
@@ -64,65 +64,64 @@ program GUTZ_mb
   !
   !
   call init_variational_matrices
-  do is=1,Ns
-     do js=1,Ns        
-        write(*,*) '!+----------------------------------------------+!'
-        write(*,*) 'IS',is,'JS',js
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              !tmp_real = tmp_real + phi_traces_basis_Rhop(is,js,i,j)*conjg(phi_traces_basis_Rhop(is,js,i,j))
-              tmp_real = tmp_real + phi_traces_basis_sc_order(is,js,i,j)*conjg(phi_traces_basis_sc_order(is,js,i,j))
-           end do
-        end do        
-        write(*,*) tmp_real
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              tmp_real = tmp_real + phi_traces_basis_Rhop(is,js,i,j)*conjg(phi_traces_basis_Rhop(is,js,i,j))
-           end do
-        end do        
-        !write(*,*) tmp_real
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              tmp_real = tmp_real + phi_traces_basis_Qhop(is,js,i,j)*conjg(phi_traces_basis_Qhop(is,js,i,j))
-           end do
-        end do        
-        !write(*,*) tmp_real
-        tmp_real=0.d0
-        do i=1,nFock
-!           write(*,'(20F6.2)') op_sc_order(is,js,i,:)
-           do j=1,nFock
-              tmp_real = tmp_real + op_sc_order(is,js,i,j)*op_sc_order(is,js,i,j)
-           end do
-        end do
-!        write(*,*) tmp_real
-        
-        ! do i=1,Nphi
-        !    
-        ! end do
-        ! write(*,*)
-        ! write(*,*)
+  ! do is=1,Ns
+  !    do js=1,Ns        
+  !       write(*,*) '!+----------------------------------------------+!'
+  !       write(*,*) 'IS',is,'JS',js
+  !       tmp_real=0.d0
+  !       do i=1,Nphi
+  !          do j=1,Nphi
+  !             !tmp_real = tmp_real + phi_traces_basis_Rhop(is,js,i,j)*conjg(phi_traces_basis_Rhop(is,js,i,j))
+  !             tmp_real = tmp_real + phi_traces_basis_sc_order(is,js,i,j)*conjg(phi_traces_basis_sc_order(is,js,i,j))
+  !          end do
+  !       end do
+  !       write(*,*) tmp_real
+  !       tmp_real=0.d0
+  !       do i=1,Nphi
+  !          do j=1,Nphi
+  !             tmp_real = tmp_real + phi_traces_basis_Rhop(is,js,i,j)*conjg(phi_traces_basis_Rhop(is,js,i,j))
+  !          end do
+  !       end do
+  !       write(*,*) tmp_real
+  !       tmp_real=0.d0
+  !       do i=1,Nphi
+  !          do j=1,Nphi
+  !             tmp_real = tmp_real + phi_traces_basis_Qhop(is,js,i,j)*conjg(phi_traces_basis_Qhop(is,js,i,j))
+  !          end do
+  !       end do
+  !       write(*,*) tmp_real
+  !       tmp_real=0.d0
+  !       do i=1,nFock
+  !          !           write(*,'(20F6.2)') op_sc_order(is,js,i,:)
+  !          do j=1,nFock
+  !             tmp_real = tmp_real + op_sc_order(is,js,i,j)*op_sc_order(is,js,i,j)
+  !          end do
+  !       end do
+  !       !        write(*,*) tmp_real
 
-        ! write(*,*)
-        ! do i=1,Nphi
-        !    write(*,'(20F7.3)') dimag(phi_traces_basis_Rhop(is,js,i,:))
-        ! end do
-        ! write(*,*)
-        ! write(*,*) 'xxx'
-        ! write(*,*)
-        ! do i=1,Nphi
-        !    write(*,'(20F7.3)') dreal(phi_traces_basis_Qhop(is,js,i,:))
-        ! end do
-        ! write(*,*)
-        ! do i=1,Nphi
-        !    write(*,'(20F7.3)') dimag(phi_traces_basis_Qhop(is,js,i,:))
-        ! end do
-        ! write(*,*)
-     end do
-  end do
-  stop
+  !       ! do i=1,Nphi
+  !       !    
+  !       ! end do
+  !       ! write(*,*)
+  !       ! write(*,*)
+
+  !       ! write(*,*)
+  !       ! do i=1,Nphi
+  !       !    write(*,'(20F7.3)') dimag(phi_traces_basis_Rhop(is,js,i,:))
+  !       ! end do
+  !       ! write(*,*)
+  !       ! write(*,*) 'xxx'
+  !       ! write(*,*)
+  !       ! do i=1,Nphi
+  !       !    write(*,'(20F7.3)') dreal(phi_traces_basis_Qhop(is,js,i,:))
+  !       ! end do
+  !       ! write(*,*)
+  !       ! do i=1,Nphi
+  !       !    write(*,'(20F7.3)') dimag(phi_traces_basis_Qhop(is,js,i,:))
+  !       ! end do
+  !       ! write(*,*)
+  !    end do
+  ! end do
   !  
   allocate(variational_density_natural_simplex(Ns+1,Ns))
   allocate(variational_density_natural(Ns))
@@ -130,29 +129,94 @@ program GUTZ_mb
   call build_lattice_model
   !
   
+  !+ maps for lagrange multipliers -+!
+  
   !+- build maps for lagrange multipliers -+!
-  Nopt_diag=2
-  Nopt_odiag=0  
-  allocate(opt_map(Ns,Ns))
+  Nopt_diag=1
+  Nopt_odiag=0
+
+  ! Nopt_diag=1
+  ! Nopt_odiag=0
+  
+  
+  Nopt_normal = 1!Nopt_diag + Nopt_odiag
+  Nopt_anomalous = 2
+  Nopt_lgr = Nopt_normal+Nopt_anomalous
+  
+  allocate(opt_map(Ns,Ns),opt_map_anomalous(Ns,Ns))
   opt_map = 0
+  opt_map_anomalous = 0
+
+
   do ispin=1,2
+     i=0
      do iorb=1,Norb
-        is=index(ispin,iorb)
-        write(*,*) is,iorb
-        opt_map(is,is) = iorb
+        do jorb=1,2
+           is=index(ispin,iorb)
+           js=index(ispin,jorb)           
+           !i = i + 1
+           !opt_map(is,js) = i
+           if(iorb.eq.jorb) then
+              opt_map(is,js) = 1!iorb
+           else
+              opt_map(is,js) = 0!iorb+jorb              
+           end if
+        end do
+     end do
+  end do
+
+  do ispin=1,2
+     jspin=3-ispin
+     do iorb=1,Norb
+        do jorb=1,Norb
+           is=index(ispin,iorb)
+           js=index(jspin,jorb)
+           if(iorb.eq.jorb) then
+              opt_map_anomalous(is,js) = 1
+           else
+              opt_map_anomalous(is,js) = 2
+           end if
+        end do
      end do
   end do
   !+-----------------------------------------+!
 
+  write(*,*) 'fine codice mai'
+  do istate=1,Ns
+     write(*,*) opt_map(istate,:)
+  end do
+  write(*,*)
+  do istate=1,Ns
+     write(*,*) opt_map_anomalous(istate,:)
+  end do
+  !stop
+  allocate(lgr_init_slater(Nopt_diag+Nopt_odiag))
+  allocate(lgr_init_gzproj(Nopt_diag+Nopt_odiag))
+
+  lgr_init_slater=  0.d0
+  !
+  lgr_init_gzproj=  0.d0
+
+  variational_density_natural = variational_density_natural_simplex(1,1:Ns)
+  tmp_emin = gz_energy_vdm(variational_density_natural)
+  write(*,*) 'EMIN',tmp_emin
+
+  stop
+
+
+  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural) 
+
+  call get_gz_ground_state(GZ_vector)  
+  call print_output
 
 
 
-
+  !stop
 
   !
 
   !  tmp_emin = gz_energy_vdm_Rhop(variational_density_natural,Rhop_init_matrix)
-  !tmp_emin = gz_energy_vdm(variational_density_natural)
+
 
   !  stop
 
@@ -170,7 +234,7 @@ program GUTZ_mb
   ! tmp_emin = gz_energy_vdm(variational_density_natural_simplex(1,:))
   ! write(*,*) 'TMP_EMIN',tmp_emin
   ! stop
-  !  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural) 
+
   !call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
   ! call get_gz_ground_state(GZ_vector)  
   ! call print_output
@@ -178,14 +242,6 @@ program GUTZ_mb
 
 
 
-  allocate(lgr_init_slater(Nopt_diag+Nopt_odiag))
-  allocate(lgr_init_gzproj(Nopt_diag+Nopt_odiag))
-
-  lgr_init_slater(1) =  0.5d0
-  lgr_init_slater(2) = -0.5d0
-  !
-  lgr_init_gzproj(1) =  0.5d0
-  lgr_init_gzproj(2) = -0.5d0
 
   orb_pol = 0.275d0
   do i=1,2
@@ -392,7 +448,7 @@ CONTAINS
              ik=ik+1
              !kx_=dble(ix)/dble(Nx)*pi
              epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
-             hybik(ik) = 0.1d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
+             hybik(ik) = 0.d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
              wtk(ik) = 1.d0/dble(Lk)
           end do
        end do
@@ -497,7 +553,11 @@ CONTAINS
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_density.data')
-    write(out_unit,'(20F18.10)') gz_dens(1:Ns)
+    do istate=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_matrix(istate,1:Ns)
+    end do    
+    write(out_unit,*) ! on the last line store the diagonal elements
+    write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
     close(out_unit)
     !
     out_unit=free_unit()

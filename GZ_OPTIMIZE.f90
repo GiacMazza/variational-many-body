@@ -265,6 +265,8 @@ CONTAINS
     !integer                                                :: tmp_dum
     !real(8)                                                :: rnd,tot_dens
     real(8)                                                :: GZ_energy
+    !
+    !
     integer                                                :: amoeba_unit    
     !+-------------------+!
     optimization_flag=.false.
@@ -293,6 +295,11 @@ CONTAINS
        y(i_vertex) = gz_energy_vdm(p(i_vertex,:))
        write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
     end do
+    !<DEBUG
+    !stop
+    !DEBUG>
+
+
     !
     ftol=amoeba_min_tol
     call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_energy_vdm,iter,amoeba_verbose)
@@ -311,6 +318,10 @@ CONTAINS
     deallocate(y,p)
     close(amoeba_unit)
     close(opt_energy_unit)    
+
+    
+    
+
     !
     optimization_flag=.true.
     if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))

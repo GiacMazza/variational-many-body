@@ -185,20 +185,31 @@ CONTAINS
     allocate(op_sc_order(Ns,Ns,nFock,nFock))
 
     allocate(op_local_dens_anomalous(Ns,Ns,nFock,nFock))
+    
+    allocate(op_spin2(nFock,nFock))
+    allocate(op_spinZ(nFock,nFock))
+    allocate(op_isospin2(nFock,nFock))
+    allocate(op_isospinZ(nFock,nFock))
+    
+
 
     !    Uhubbard=density_density_interaction(CC,CA)    
     !dens_dens_interaction=rotationally_invariant_density_density(CC,CA)  !HERE MAY ADD SINGLET SPLITTING TERMS, SPIN FLIPS, PAIR HOPPINGS, etc...
-    op_docc          = local_doubly(CC,CA)
-    op_dens          = local_density(CC,CA)
-    op_local_dens    = local_density_matrix(CC,CA)
+    op_docc                 = local_doubly(CC,CA)
+    op_dens                 = local_density(CC,CA)
+    op_local_dens           = local_density_matrix(CC,CA)
     op_local_dens_anomalous = local_density_matrix_anomalous(CC,CA)
-    
-    op_dens_dens_orb = local_density_density_orb(CC,CA)
-    op_spin_flip     = local_spin_flip(CC,CA)
-    op_pair_hopping  = local_pair_hopping(CC,CA)
-    op_sc_order      = local_sc_order(CC,CA)
-    
-
+    !
+    op_dens_dens_orb        = local_density_density_orb(CC,CA)
+    op_spin_flip            = local_spin_flip(CC,CA)
+    op_pair_hopping         = local_pair_hopping(CC,CA)
+    op_sc_order             = local_sc_order(CC,CA)
+    !
+    op_spin2                = local_spin2(CC,CA)
+    op_spinZ                = local_spinZ(CC,CA)
+    op_isospin2             = local_isospin2(CC,CA)
+    op_isospinZ             = local_isospinZ(CC,CA)
+    !
   end subroutine build_local_observables
 
 

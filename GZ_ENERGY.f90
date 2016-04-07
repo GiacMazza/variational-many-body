@@ -27,7 +27,7 @@ MODULE GZ_ENERGY_MINIMIZATION
   interface gz_proj_minimization_lgr
      module procedure gz_projectors_minimization_nlep
      module procedure gz_projectors_minimization_cmin
-  end interface  
+  end interface
   !
   interface gz_proj_minimization_fixed_lgr
      module procedure get_GZproj_ground_state
@@ -37,12 +37,18 @@ MODULE GZ_ENERGY_MINIMIZATION
   public :: slater_minimization_lgr
   public :: slater_minimization_fixed_lgr
   !
+  public :: slater_minimization_lgr_superc
+  public :: slater_minimization_fixed_lgr_superc
+  !
   public :: gz_proj_minimization_lgr
   public :: gz_proj_minimization_fixed_lgr
+
+  public :: gz_proj_minimization_fixed_lgr_superc_
+
   public :: gz_projectors_minimization_nlep_superc
 
   public :: get_gz_ground_state
-
+  public :: get_gz_ground_state_superc
 
 contains
   !
@@ -98,9 +104,101 @@ contains
        end do
     end do
     !+-
-    ! place for other observables... SPINS,ISO-SPINS,...bla bla bla
+    gz_spin2  = trace_phi_basis(phi_vec,phi_traces_basis_spin2)
+    gz_spinZ  = trace_phi_basis(phi_vec,phi_traces_basis_spinZ)
+    gz_isospin2 = trace_phi_basis(phi_vec,phi_traces_basis_isospin2)
+    gz_isospinZ = trace_phi_basis(phi_vec,phi_traces_basis_isospinZ)
     !+-
   end subroutine get_gz_ground_state
+
+
+
+
+
+
+
+
+
+
+
+
+  subroutine get_gz_ground_state_superc(phi_vec)
+    complex(8),dimension(Nphi) :: phi_vec
+    real(8)                                    :: E_Hstar
+    real(8),dimension(Ns) :: n0
+    integer                                    :: iorb,jorb,istate,jstate
+    integer :: ifock,iphi,jphi,ifock_,is,js
+    !
+    real(8),dimension(Nphi) :: phi_vector_test    
+    !
+
+
+
+    if(.not.allocated(GZ_opt_Rhop)) allocate(GZ_opt_Rhop(Ns,Ns))
+    if(.not.allocated(GZ_opt_Qhop)) allocate(GZ_opt_Qhop(Ns,Ns))
+    !
+    
+    if(.not.allocated(GZ_opt_VDM_superc)) allocate(GZ_opt_VDM_superc(2,Ns,Ns))
+    if(.not.allocated(GZ_opt_slater_superc)) allocate(GZ_opt_slater_superc(2,Ns,Ns,Lk))
+    !
+    do is=1,Ns
+       do js=1,Ns
+          GZ_opt_VDM_superc(1,is,js) = trace_phi_basis(phi_vec,phi_traces_basis_dens(is,js,:,:))
+          GZ_opt_VDM_superc(2,is,js) = trace_phi_basis(phi_vec,phi_traces_basis_dens_anomalous(is,js,:,:))
+       end do
+       n0(is) = GZ_opt_VDM_superc(1,is,is)
+    end do
+    !
+
+    
+    GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
+    GZ_opt_Qhop=hopping_renormalization_anomalous(GZ_vector,n0)            
+    !
+    !
+    call slater_minimization_fixed_lgr_superc(GZ_opt_Rhop,GZ_opt_Qhop,GZ_opt_slater_lgr_superc,E_Hstar,GZ_opt_VDM_superc)
+    !
+    !    
+    !+- GET OBSERVABLES -+!
+    ! physical density !
+    if(.not.allocated(gz_dens)) allocate(gz_dens(Ns))
+    if(.not.allocated(gz_dens_matrix)) allocate(gz_dens_matrix(Ns,Ns))
+    do istate=1,Ns
+       gz_dens(istate) = trace_phi_basis(phi_vec,phi_traces_basis_local_dens(istate,istate,:,:))
+       do jstate=1,Ns
+          gz_dens_matrix(istate,jstate) = trace_phi_basis(phi_vec,phi_traces_basis_local_dens(istate,jstate,:,:))
+       end do
+    end do
+    ! density-density same orbital -aka orbital doubly occupancy-!
+    if(.not.allocated(gz_docc)) allocate(gz_docc(Norb))
+    do iorb=1,Norb
+       gz_docc(iorb) = trace_phi_basis(phi_vec,phi_traces_basis_docc_orb(iorb,:,:))
+    end do
+    ! density-density different orbitals !
+    if(.not.allocated(gz_dens_dens_orb)) allocate(gz_dens_dens_orb(Norb,Norb))
+    do iorb=1,Norb
+       do jorb=1,Norb
+          gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
+       end do
+    end do
+    !+-
+    if(.not.allocated(gz_sc_order)) allocate(gz_sc_order(Ns,Ns))
+    do is=1,Ns
+       do js=1,Ns
+          gz_sc_order(is,js) = trace_phi_basis(phi_vec,phi_traces_basis_sc_order(is,js,:,:))
+       end do
+    end do
+    !+-    
+    gz_spin2  = trace_phi_basis(phi_vec,phi_traces_basis_spin2)
+    gz_spinZ  = trace_phi_basis(phi_vec,phi_traces_basis_spinZ)
+    gz_isospin2 = trace_phi_basis(phi_vec,phi_traces_basis_isospin2)
+    gz_isospinZ = trace_phi_basis(phi_vec,phi_traces_basis_isospinZ)
+    !+-
+  end subroutine get_gz_ground_state_superc
+
+
+
+
+
   !
   function gz_energy_vdm(vdm) result(GZenergy)
     real(8),dimension(:),intent(in) :: vdm
@@ -163,12 +261,12 @@ contains
     integer                         :: istate,iter,jstate,ifock,jfock,iphi,jphi,is
     integer                         :: unit
     logical                         :: bound
-    
+
     !
     real(8),dimension(Ns)           :: phys_dens
     real(8),dimension(Ns,Ns)           :: phys_dens_matrix
     !
-    
+
     !
     write(*,*) '********************'
     write(*,*) 'INPUT DENSITY',n0(:)
@@ -245,7 +343,11 @@ contains
        write(opt_GZ_unit,*)
        write(opt_GZ_unit,*)
        write(opt_energy_unit,'(30F18.10)') n0,GZ_energy,E_Hloc,E_Hstar,phys_dens,phys_dens_matrix
-       write(opt_rhop_unit,*) n0,R_diag(1:Ns)
+       write(opt_rhop_unit,*) n0
+       do istate=1,Ns
+          write(opt_rhop_unit,'(20F18.10)') dreal(R_iter(istate,:)),dimag(R_iter(istate,:))
+       end do
+       write(opt_rhop_unit,*)
     else
        GZ_energy=100.d0
     end if
@@ -284,13 +386,14 @@ contains
     complex(8),dimension(2,Ns,Ns)     :: slater_derivatives    
 
     real(8),dimension(Ns)           :: R_diag
-    complex(8),dimension(2*Ns,2*Ns)        :: slater_lgr_multip  ! 
+    complex(8),dimension(2,Ns,Ns)        :: slater_lgr_multip  ! 
+    real(8),dimension(Ns,Ns)      :: tmp_lgr_multip,tmp_gz_lgr
     complex(8),dimension(2,Ns,Ns) :: GZproj_lgr_multip
     real(8)                         :: E_Hstar,E_Hloc
     complex(8),dimension(Nphi)      :: GZvect_iter  ! GZ vector (during iterations)
     !
-    integer                         :: istate,iter,jstate,ifock,jfock,iphi,jphi,is,imap,jmap
-    integer                         :: unit
+    integer                         :: istate,iter,jstate,ifock,jfock,iphi,jphi,is,js,imap,jmap    
+    integer                         :: unit,iorb,jorb,ispin,jspin
     logical                         :: bound
     !
     write(*,*) '********************'
@@ -302,26 +405,46 @@ contains
     !
     if(.not.bound) then
        !+- initialize Rhop according to a given wanted symmetry
-       R_init=0.d0 
-       do istate=1,Ns
-          do jstate=1,Ns
-             imap = opt_map(istate,jstate)
-             jmap = opt_map_anomalous(istate,jstate)             
-             if(imap.gt.0) R_init(istate,istate)=Rseed
-             if(jmap.gt.0) Q_init(istate,istate)=zero!Rseed
+       ! R_init = 0.d0
+       ! Q_init = zero
+       ! do istate=1,Ns
+       !    do jstate=1,Ns
+       !       imap = opt_map(istate,jstate)
+       !       jmap = opt_map_anomalous(istate,jstate)             
+       !       if(imap.gt.0) R_init(istate,istate)=Rseed
+       !       if(jmap.gt.0) Q_init(istate,jstate)=zero
+       !    end do
+       ! end do
+       R_init=zero
+       do is=1,Ns
+          R_init(is,is) = 1.d0/sqrt(2.d0)
+       end do
+       Q_init=zero
+       !                                                                                                                                                                            
+       do iorb=1,Norb
+          do jorb=1,Norb
+             do ispin=1,2
+                jspin=3-ispin
+                is=index(ispin,iorb)
+                js=index(jspin,jorb)
+                if(iorb.eq.jorb) then
+                   Q_init(is,js) = 1.d0/sqrt(2.d0)
+                else
+                   Q_init(is,js) = zero
+                end if
+             end do
           end do
        end do
-
-       !       call initialize_GZprojectors(GZvect_iter,n0)
-       !GZvect_iter = 1.d0/sqrt(dble(Nphi))
+       !
+       !
+       ! call initialize_GZprojectors(GZvect_iter,n0)
+       ! !GZvect_iter = 1.d0/sqrt(dble(Nphi))
        ! R_init=hopping_renormalization_normal(GZvect_iter,n0)
        ! Q_init=hopping_renormalization_anomalous(GZvect_iter,n0)
-
        !
        GZ_energy=0.d0    
        R_iter = R_init
        Q_iter = Q_init
-
        GZvect_iter=0.d0
        do iter=1,Niter_self
           !+- update hopping matrices -+!
@@ -339,16 +462,16 @@ contains
           !+- GZproj STEP MINIMIZATION -+!
           !+----------------------------+!    
           !
-          
           call gz_projectors_minimization_nlep_superc(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)
-
-          
+          !<DEBUG
+          !stop
+          !DEBUG>
 
           !
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
           Q_iter=hopping_renormalization_anomalous(GZvect_iter,n0)
           !
-          
+
           R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
           Q_iter=Rmix*Q_iter+(1.d0-Rmix)*Q_old
 
@@ -386,17 +509,37 @@ contains
        write(opt_GZ_unit,*)
        write(opt_GZ_unit,*)
        write(opt_energy_unit,*) n0,GZ_energy,E_Hloc,E_Hstar
-       write(opt_rhop_unit,*) n0,R_diag(1:Ns)
+       !
+       write(opt_rhop_unit,*) n0
+       do istate=1,Ns
+          write(opt_rhop_unit,'(20F8.4)') dreal(R_iter(istate,:)),dimag(R_iter(istate,:))
+       end do
+       write(opt_rhop_unit,*)
+       !
+       if(gz_superc) then
+          write(opt_qhop_unit,*) n0
+          do istate=1,Ns
+             write(opt_qhop_unit,'(20F8.4)') dreal(Q_iter(istate,:)),dimag(Q_iter(istate,:))
+          end do
+          write(opt_qhop_unit,*)
+       end if
     else
        GZ_energy=100.d0
     end if
     if(optimization_flag) then
        !+- store final informations to global variables -+!              
-       GZ_vector = GZvect_iter
-       GZ_opt_energy         = GZ_energy
-       GZ_opt_kinetic        = E_Hstar
-       GZ_opt_Eloc           = E_Hloc
-       GZ_opt_slater_lgr     = Slater_lgr_multip
+       ! GZ_vector             = GZvect_iter
+       ! GZ_opt_energy         = GZ_energy
+       ! GZ_opt_kinetic        = E_Hstar
+       ! GZ_opt_Eloc           = E_Hloc
+       ! GZ_opt_slater_lgr     = Slater_lgr_multip
+       !
+       GZ_vector      = GZvect_iter
+       GZ_opt_energy  = GZ_energy
+       GZ_opt_kinetic = E_Hstar
+       GZ_opt_Eloc    = E_Hloc
+       GZ_opt_slater_lgr_superc = slater_lgr_multip
+       !
     end if
     !
   end function gz_energy_recursive_nlep_superc
@@ -549,7 +692,6 @@ contains
     !call slater_determinant_minimization_nlep(R_init,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose)
     call slater_minimization_lgr(R_init,n0,E_Hstar,slater_lgr_multip, &
          slater_derivatives=slater_derivatives,iverbose=GZmin_verbose)       
-    write(*,*) 'quale problema?'
 
     ! call slater_determinant_minimization_nlep(R_init,n0,E_Hstar,slater_lgr_multip,slater_derivatives,iverbose)
     !call free_gz_projectors_init(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose)    

@@ -31,7 +31,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: epsik,hybik
   integer :: Nx,is,js,imap,jmap
   !
-  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio
+  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter
 
   character(len=5) :: dir_suffix
   character(len=6) :: dir_iter
@@ -59,10 +59,10 @@ program GUTZ_mb
   !NOTE: ON HUNDS COUPLINGS:
   !NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
-  Jh = Jh*Uloc(1)
-  Jsf = Jh
-  Jph = Jh
-  Ust = Uloc(1)-2.d0*Jh
+  ! Jh = Jh*Uloc(1)
+  ! Jsf = Jh
+  ! Jph = Jh
+  ! Ust = Uloc(1)-2.d0*Jh
   !
   call initialize_local_fock_space
   !
@@ -101,115 +101,11 @@ program GUTZ_mb
               tmp_real = tmp_real + op_sc_order(is,js,i,j)*op_sc_order(is,js,i,j)
            end do
         end do
-        !        write(*,*) tmp_real
-
-        ! do i=1,Nphi
-        !    
-        ! end do
-        ! write(*,*)
-        ! write(*,*)
-        ! write(*,*)
-        ! do i=1,Nphi
-        !    write(*,'(20F7.3)') dimag(phi_traces_basis_Rhop(is,js,i,:))
-        ! end do
-        ! write(*,*)
-        ! write(*,*) 'xxx'
-        ! write(*,*)
-        ! do i=1,Nphi
-        !    write(*,'(20F7.3)') dreal(phi_traces_basis_Qhop(is,js,i,:))
-        ! end do
-        ! write(*,*)
-        ! do i=1,Nphi
-        !    write(*,'(20F7.3)') dimag(phi_traces_basis_Qhop(is,js,i,:))
-        ! end do
-        ! write(*,*)
+        !
      end do
   end do
-  !stop
   !  
-  allocate(variational_density_natural_simplex(Ns+1,Ns))
-  allocate(variational_density_natural(Ns))
-  call initialize_variational_density_simplex(variational_density_natural_simplex)
   call build_lattice_model
-  !
-  !+ maps for lagrange multipliers -+!
-
-  !+- build maps for lagrange multipliers -+!
-  Nopt_diag=1
-  Nopt_odiag=0
-
-  Nopt_normal = Nopt_diag + Nopt_odiag
-  Nopt_anomalous = 1
-
-  Nopt_lgr = Nopt_normal+Nopt_anomalous
-  allocate(opt_map(Ns,Ns),opt_map_anomalous(Ns,Ns))
-  opt_map = 0
-  opt_map_anomalous = 0
-
-  do ispin=1,2
-     i=0
-     do iorb=1,Norb
-        do jorb=1,Norb
-           is=index(ispin,iorb)
-           js=index(ispin,jorb)           
-           if(iorb.eq.jorb) then
-              opt_map(is,js) = 1!iorb
-           else
-              opt_map(is,js) = 0!iorb+jorb              
-           end if
-        end do
-     end do
-  end do
-
-  do ispin=1,2
-     jspin=3-ispin
-     do iorb=1,Norb
-        do jorb=1,Norb
-           is=index(ispin,iorb)
-           js=index(jspin,jorb)
-           if(iorb.eq.jorb) then
-              opt_map_anomalous(is,js) = 1
-           else
-              opt_map_anomalous(is,js) = 0
-           end if
-        end do
-     end do
-  end do
-
-
-  ! do iorb=1,Norb
-  !    do ispin=1,2
-  !       jspin=3-ispin
-  !       is=index(ispin,iorb)
-  !       js=index(jspin,iorb)
-  !       opt_map_anomalous(is,js) = ispin
-  !    end do
-  ! end do
-
-
-  !+-----------------------------------------+!
-
-  write(*,*) 'fine codice mai'
-  do istate=1,Ns
-     write(*,*) opt_map(istate,:)
-  end do
-  write(*,*)
-  do istate=1,Ns
-     write(*,*) opt_map_anomalous(istate,:)
-  end do
-
-  allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
-
-  ! do is=1,Ns
-  !    do js=1,Ns
-  !       write(*,*) is,js
-  do i=1,Nphi
-     do j=1,Nphi
-        !write(*,'(16F8.4,A,16F8.4)') dreal(phi_traces_basis_Rhop(:,:,i,:))!,'     ',dimag(phi_traces_basis_Rhop(is,js,i,:))
-        write(800,'(16F8.4,A,16F8.4)') dreal(phi_traces_basis_Rhop(:,:,i,j))!,'     ',dimag(phi_traces_basis_Rhop(is,js,i,:))
-        write(801,'(16F8.4,A,16F8.4)') dreal(phi_traces_basis_Qhop(:,:,i,j))!,'     ',dimag(phi_traces_basis_Rhop(is,js,i,:))
-     end do
-  end do
   !
   NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   NQhop_opt=1;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
@@ -217,18 +113,13 @@ program GUTZ_mb
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
   !
-  
-  
-  
-  !
-  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
-  call get_gz_ground_state_superc(GZ_vector)
-  call print_output_superc(variational_density_natural_simplex)
-  stop
-
-  !
 
 
+  allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
+  allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
+  slater_lgr_init=0.d0
+  gzproj_lgr_init=0.d0
+  
   R_init=zero
   do is=1,Ns
      R_init(is,is) = 1.d0
@@ -244,52 +135,45 @@ program GUTZ_mb
            if(iorb.eq.jorb) then 
               Q_init(is,js) = 0.d0
            else
-              Q_init(is,js) = 0.001d0
+              Q_init(is,js) = 0.d0
            end if
         end do
      end do
   end do
 
 
-  do iorb=1,Norb
-     do jorb=1,Norb
-        do ispin=1,2
-           do jspin=ispin+1,2
-              is=index(ispin,iorb)
-              js=index(jspin,jorb)
-              istate=index(jspin,iorb)
-              jstate=index(ispin,jorb)
-              Q_init(istate,jstate) = -Q_init(is,js)
-           end do
-        end do
-     end do
+  Jiter = -0.05d0
+  do i=1,1
+     Jiter = Jiter + 0.05d0
+     !+ T^2-Tz^2 hamiltonian
+     Jh = Jiter
+     Jsf = Jh
+     Jph = 0.d0
+     !Ust = Uiter
+     !
+     call build_local_hamiltonian     
+     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
+     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
+     !
+     write(dir_suffix,'(F4.2)') abs(Jiter)
+     dir_iter="J"//trim(dir_suffix)
+     call system('mkdir -v '//dir_iter)     
+     !
+     call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+     call get_gz_ground_state_superc(GZ_vector)  
+     !
+     ! write(*,*) "R_init"
+     ! do is=1,Ns
+     !    write(*,*) R_init(is,:)
+     ! end do
+     !
+     call print_output_superc
+     call system('cp * '//dir_iter)
+     call system('rm *.out *.data fort* ')
   end do
+  stop
 
 
-  ! do is=1,Ns
-  !    write(*,*) Q_init(is,:)
-  ! end do
-  ! stop
-
-  allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
-  !
-  slater_lgr_init=zero
-  gzproj_lgr_init=zero
-  do is=1,Ns
-     do js=1,Ns
-        imap = opt_map(is,js)
-        jmap = opt_map_anomalous(is,js)
-        if(imap.gt.0) slater_lgr_init(1,is,js) = 0.
-        if(jmap.gt.0) slater_lgr_init(2,is,js) = 0.
-        if(imap.gt.0) gzproj_lgr_init(1,is,js) = 0.d0
-        if(jmap.gt.0) gzproj_lgr_init(2,is,js) = 0.d0
-     end do
-  end do
-  !
-  allocate(variational_density_matrix(Ns,Ns)); variational_density_matrix=0.d0
-  do is=1,Ns
-     variational_density_matrix(is,is) = 0.5d0
-  end do
 
   Uiter=-0.1d0
   Jh_ratio=Jh
@@ -311,7 +195,7 @@ program GUTZ_mb
      dir_iter="U"//trim(dir_suffix)
      call system('mkdir -v '//dir_iter)     
      !
-     call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init,variational_density_matrix)
+     call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
      call get_gz_ground_state_superc(GZ_vector)  
      !
      write(*,*) "R_init"
@@ -323,204 +207,7 @@ program GUTZ_mb
      call system('cp * '//dir_iter)
      call system('rm *.out *.data fort* ')
   end do
-  stop
 
-
-  !stop
-
-  !
-
-  !  tmp_emin = gz_energy_vdm_Rhop(variational_density_natural,Rhop_init_matrix)
-
-  !  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural) 
-  !  stop
-
-  !allocate(vdm_init(1),vdm_out(1),R_init(1),R_out(1))
-
-  ! vdm_init = variational_density_natural_simplex(Ns,1)
-  ! R_init = 0.5d0
-  !stop
-
-  allocate(vdm_init(2),vdm_out(2)); 
-
-  vdm_init(1) = 0.05
-  vdm_init(2) = 0.95
-
-  ! tmp_emin = gz_energy_vdm(variational_density_natural_simplex(1,:))
-  ! write(*,*) 'TMP_EMIN',tmp_emin
-  ! stop
-
-  !call gz_optimization_vdm_nlsq(vdm_init,vdm_out)
-  ! call get_gz_ground_state(GZ_vector)  
-  ! call print_output
-  ! stop
-
-
-
-
-  orb_pol = 0.275d0
-  do i=1,2
-     do iorb=1,2
-        do ispin=1,2
-           is = index(ispin,iorb)
-
-           select case(iorb)
-           case(1)
-              variational_density_natural_simplex(:,is) = 0.5d0 - orb_pol
-           case(2)
-              variational_density_natural_simplex(:,is) = 0.5d0 + orb_pol
-           end select
-        end do
-     end do
-
-
-     write(dir_suffix,'(F5.3)') orb_pol
-
-     dir_iter="P"//trim(dir_suffix)
-
-     write(*,*) dir_iter
-
-     call system('mkdir -p '//dir_iter)     
-
-
-
-     opt_energy_unit=free_unit()
-     open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
-     opt_rhop_unit=free_unit()
-     open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
-     opt_GZ_unit=free_unit()
-     open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
-     if(GZmin_verbose) then
-        GZmin_unit=free_unit()
-        open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
-        GZmin_unit_=free_unit()
-        open(GZmin_unit_,file='GZ_proj_min.out')
-     end if
-     !
-     lgr_init_slater(1) =  0.5d0
-     lgr_init_slater(2) = -0.5d0
-     !
-     lgr_init_gzproj(1) =  0.5d0
-     lgr_init_gzproj(2) = -0.5d0
-     !
-     optimization_flag=.true.
-     if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))     
-     tmp_emin = gz_energy_vdm(variational_density_natural_simplex(1,:)); 
-
-
-     !call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)      
-     !
-     call get_gz_ground_state(GZ_vector)
-     !
-     call print_output
-
-     call system('cp * '//dir_iter)
-
-     call system('rm *.out *.data fort* ')
-
-     ! Rseed=0.d0
-     ! do is=1,Ns
-     !    Rseed = Rseed + dreal(GZ_opt_Rhop(is,is))/dble(Ns)
-     ! end do
-
-     orb_pol = orb_pol + 0.025d0
-  end do
-
-  stop
-
-
-  !call gz_optimization_vdm_Rhop(vdm_init,R_init,vdm_out,R_out)
-
-
-
-
-  allocate(variational_density_matrix(Ns,Ns)); variational_density_matrix=0.d0
-  do is=1,Ns
-     variational_density_matrix(is,is) = variational_density_natural_simplex(3,is)
-  end do
-  !
-  allocate(Rhop_init_matrix(Ns,Ns)); Rhop_init_matrix=zero
-  do is=1,Ns
-     Rhop_init_matrix(is,is) = 1.d0
-  end do
-
-
-  Uiter = -0.1
-
-  do i=1,60
-
-     Uiter = Uiter + 0.1
-     Uloc(1) = Uiter
-     Uloc(2) = Uiter
-     Ust = Uiter
-
-     call build_local_hamiltonian
-
-     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-
-
-
-     write(dir_suffix,'(F4.2)') Uiter
-
-     dir_iter="U"//trim(dir_suffix)
-
-     write(*,*) dir_iter
-
-     call system('mkdir '//dir_iter)     
-
-     !
-     call gz_optimization_vdm_Rhop(Rhop_init_matrix,variational_density_matrix)
-
-     call get_gz_ground_state(GZ_vector)
-
-     Rhop_init_matrix = GZ_opt_Rhop
-     variational_density_matrix = GZ_opt_VDM
-
-     call print_output
-
-     call system('cp * '//dir_iter)
-
-     call system('rm *.out *.data fort* ')
-
-  end do
-
-
-
-
-  write(*,*) "DAJE; quanto e' vera la madonna"
-
-
-
-  !variational_density_natural_simplex(1,:)=0.5d0
-  !
-  !tmp_emin=gz_energy_broyden(variational_density_natural_simplex(1,:))  
-  !
-  !tmp_emin=gz_energy_recursive_nlep(variational_density_natural_simplex(1,:))
-  stop
-  !
-  !<TEST MINIMIZATION
-  ! allocate(vdm_init(Ns),vdm_out(Ns))
-  ! allocate(Rhop_init(Ns),Rhop_out(Ns),init_vec(Nphi),Rhop_init_matrix(Ns,Ns))
-  ! vdm_init=variational_density_natural_simplex(1,1:Ns)
-  ! init_vec=1.d0/sqrt(dble(Nphi))
-  ! Rhop_init_matrix=hopping_renormalization_normal(init_vec,vdm_init)  
-  ! do is=1,NS
-  !    Rhop_init(is) = Rhop_init_matrix(is,is)
-  ! end do
-  ! Rhop_init=one
-  ! call gz_optimization_vdm_Rhop(vdm_init,Rhop_init,vdm_out,Rhop_out)
-  ! stop
-  !TEST MINIMIZATION
-  !
-
-  !
-  call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)    !
-
-  !
-  call get_gz_ground_state_estimation(variational_density_natural)
-  !
-  call print_output(variational_density_natural_simplex)
   !
 CONTAINS
   !
@@ -637,7 +324,7 @@ CONTAINS
     write(out_unit,'(5F18.10)') GZ_opt_energy,GZ_opt_kinetic,GZ_opt_Eloc
     close(out_unit)
     !
-    out_unit=free_unit()
+    !out_unit=free_unit()
     open(out_unit,file='optimized_variational_density_matrix.data')
     !write(out_unit,'(20F18.10)') variational_density_natural(1:Ns)
     do istate=1,Ns
@@ -648,7 +335,7 @@ CONTAINS
     write(out_unit,'(20F18.10)') tmp(1:Ns)
     close(out_unit)
     !
-    out_unit=free_unit()
+    !out_unit=free_unit()
     open(out_unit,file='optimized_Rhop_matrix.data')
     do istate=1,Ns
        tmp(istate)=GZ_opt_Rhop(istate,istate)
@@ -658,7 +345,7 @@ CONTAINS
     write(out_unit,'(20F18.10)') tmp(1:Ns)
     close(out_unit)
     !
-    out_unit=free_unit()
+    !out_unit=free_unit()
     open(out_unit,file='optimized_density.data')
     do istate=1,Ns
        write(out_unit,'(20F18.10)') gz_dens_matrix(istate,1:Ns)
@@ -667,18 +354,24 @@ CONTAINS
     write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
     close(out_unit)
     !
-    out_unit=free_unit()
+    !out_unit=free_unit()
     open(out_unit,file='orbital_double_occupancy.data')
     write(out_unit,'(20F18.10)') gz_docc(1:Norb)
     close(out_unit)
     !
-    out_unit=free_unit()
+    !out_unit=free_unit()
     open(out_unit,file='orbital_density_density.data')
     do iorb=1,Norb
        write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
     end do
     close(out_unit)
     !
+    !out_unit=free_unit()
+    open(out_unit,file='local_angular_momenta.data')
+    write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
+    close(out_unit)
+    !
+    
 
     if(present(vdm_simplex)) then
        out_unit=free_unit()
@@ -805,6 +498,17 @@ CONTAINS
     end do
     close(out_unit)
     !
+    out_unit=free_unit()
+    open(out_unit,file='local_angular_momenta.data')
+    write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
+    close(out_unit)
+    !out_unit=free_unit()
+    open(out_unit,file='local_sc_order.data')
+    do is=1,Ns
+       write(out_unit,'(20F18.10)') dreal(gz_sc_order(is,:)),dimag(gz_sc_order(is,:))
+    end do
+    close(out_unit)
+
 
     if(present(vdm_simplex)) then
        out_unit=free_unit()
@@ -955,7 +659,7 @@ CONTAINS
     !
     ispin=1
     do iorb=1,Norb
-       is=index(ispin,iorb)
+       is=index(ispin,iorb)       
        vdm_NC_indep(iorb) = vdm_NC_mat(is,is)
     end do
     !

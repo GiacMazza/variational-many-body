@@ -11,6 +11,8 @@ MODULE GZ_MATRIX_BASIS
   !
   public :: get_traces_basis_phiOphi
   !
+  public :: symmetry_stride_vec_mat,symmetry_stride_mat_vec
+  public :: symmetry_stride_vec_mat_,symmetry_stride_mat_vec_
   !
   type intarray
      private
@@ -38,35 +40,178 @@ CONTAINS
   end subroutine init_variational_matrices
 
 
+
+  !< VERY VERY TEMPORARAY ROUTINES
+  function symmetry_stride_vec_mat(lgr) result(lgr_matrix)
+    real(8),dimension(:) :: lgr
+    complex(8),dimension(:),allocatable ::  lgr_cmplx
+    integer :: dim
+    complex(8),dimension(Ns,Ns) :: lgr_matrix
+
+    integer :: i,ilgr,iorb,jorb,ispin,istate,jstate
+
+    dim = Norb*(Norb+1)/2
+    if(size(lgr).ne.2*dim) stop "what the fuck vec_mat!"
+    allocate(lgr_cmplx(dim))
+    do i=1,dim
+       lgr_cmplx(i) = lgr(i) + xi*lgr(i+dim)
+    end do
+    !
+    lgr_matrix=zero
+    ilgr=0
+    do iorb=1,Norb
+       do jorb=1,iorb
+          ilgr = ilgr + 1
+          do ispin=1,2
+             !
+             istate=index(ispin,iorb)
+             jstate=index(ispin,jorb)
+             !
+             lgr_matrix(istate,jstate) = lgr_cmplx(ilgr) 
+             if(iorb.ne.jorb) lgr_matrix(jstate,istate) = conjg(lgr_matrix(istate,jstate))
+             !
+          end do
+       end do
+    end do
+    !
+    ! dim = Norb*(Norb+1)/2
+    ! if(size(lgr).ne.2*dim) stop "what the fuck vec_mat!"
+    ! allocate(lgr_cmplx(dim))
+    ! do i=1,dim
+    !    lgr_cmplx(i) = lgr(i) + xi*lgr(i+dim)
+    ! end do
+    !
+  end function symmetry_stride_vec_mat
+
+
+
+
+  subroutine symmetry_stride_mat_vec(mat,vec) 
+    complex(8),dimension(Ns,Ns) :: mat
+    real(8),dimension(:) :: vec
+    integer :: dim
+    integer ::i,ilgr,iorb,jorb,ispin,istate,jstate
+    !
+    dim = Norb*(Norb+1)/2
+    if(size(vec).ne.2*dim) stop "what the fuck mat_vec!"
+    !
+    ilgr=0
+    do iorb=1,Norb
+       do jorb=1,iorb
+          ilgr = ilgr + 1
+          do ispin=1,2
+             !
+             istate=index(ispin,iorb)
+             jstate=index(ispin,jorb)
+             !
+             vec(ilgr) = dreal(mat(istate,jstate))
+             vec(ilgr+dim) = dimag(mat(istate,jstate))
+             !
+          end do
+       end do
+    end do
+    !
+  end subroutine symmetry_stride_mat_vec
+
+
+
+  !+- anomalous spin-singlet channel -+! 
+  function symmetry_stride_vec_mat_(lgr) result(lgr_matrix)
+    real(8),dimension(:) :: lgr
+    complex(8),dimension(:),allocatable ::  lgr_cmplx
+    integer :: dim
+    complex(8),dimension(Ns,Ns) :: lgr_matrix
+
+    integer ::i,ilgr,iorb,jorb,ispin,jspin,istate,jstate
+
+    dim = Norb*(Norb+1)/2
+    if(size(lgr).ne.2*dim) stop "what the fuck vec_mat_!"
+    allocate(lgr_cmplx(dim))
+    do i=1,dim
+       lgr_cmplx(i) = lgr(i) + xi*lgr(i+dim)
+    end do
+    !
+    ilgr=0
+    lgr_matrix=zero
+    do iorb=1,Norb
+       do jorb=1,iorb
+          ilgr = ilgr + 1
+          !
+          do ispin=1,2
+             do jspin=ispin+1,2
+                istate=index(ispin,iorb)
+                jstate=index(jspin,jorb)
+                write(*,*) istate,jstate
+                lgr_matrix(istate,jstate) =  lgr_cmplx(ilgr) 
+                lgr_matrix(jstate,istate) = -lgr_cmplx(ilgr) 
+             end do
+          end do
+       end do
+    end do
+    !
+  end function symmetry_stride_vec_mat_
+
+
+
+
+  subroutine symmetry_stride_mat_vec_(mat,vec) 
+    complex(8),dimension(Ns,Ns) :: mat
+    real(8),dimension(:) :: vec
+    integer :: dim
+    integer ::i,ilgr,iorb,jorb,ispin,jspin,istate,jstate
+    !
+    dim = Norb*(Norb+1)/2
+    if(size(vec).ne.2*dim) stop "what the fuck mat_vec_!"
+
+    ilgr=0
+    do iorb=1,Norb
+       do jorb=1,iorb
+          ilgr = ilgr + 1
+          !
+          do ispin=1,2
+             do jspin=ispin+1,2
+                istate=index(ispin,iorb)
+                jstate=index(jspin,jorb)
+
+                vec(ilgr) = dreal(mat(istate,jstate)) 
+                vec(ilgr+dim) = dimag(mat(istate,jstate))
+             end do
+          end do
+          !          
+       end do
+    end do
+    !
+  end subroutine symmetry_stride_mat_vec_
+  !
+  !< VERY VERY TEMPORARY ROUTINES
+  !
   function get_dimension_phi_basis() result(dim_phi)
-    integer :: dim_phi
-    integer,dimension(:,:),allocatable :: irr_reps
-    integer,dimension(:,:),allocatable :: equ_reps
-    complex(8),dimension(nFock,nFock) :: Virr_reps
-    integer :: Nirr_reps,Nineq_reps,i,j,Neq,ifock,jfock,iphi,jphi
+    integer                                         :: dim_phi
+    integer,dimension(:,:),allocatable              :: irr_reps
+    integer,dimension(:,:),allocatable              :: equ_reps
+    complex(8),dimension(nFock,nFock)               :: Virr_reps
+    integer                                         :: Nirr_reps,Nineq_reps,i,j,Neq,ifock,jfock,iphi,jphi
 
-    complex(8),dimension(:,:,:),allocatable :: phi_irr
-    complex(8),dimension(:,:,:),allocatable :: phi_fock
+    complex(8),dimension(:,:,:),allocatable         :: phi_irr
+    complex(8),dimension(:,:,:),allocatable         :: phi_fock
 
-    complex(8),dimension(nFock,nFock) :: tmp_matrix
-    complex(8) :: tmp_trace
+    complex(8),dimension(nFock,nFock)               :: tmp_matrix
+    complex(8)                                      :: tmp_trace
 
-    real(8),dimension(nFock,nFock) :: Id
-    real(8),dimension(:,:),allocatable :: test_trace
+    real(8),dimension(nFock,nFock)                  :: Id
+    real(8),dimension(:,:),allocatable              :: test_trace
     !
-
-    type(local_multiplets),dimension(:),allocatable :: mult_list
-    
+    type(local_multiplets),dimension(:),allocatable :: mult_list    
     !
-    real(8) :: tmp_check
+    real(8)                                         :: tmp_check
 
     Id=0.d0; 
     forall(ifock=1:nFock) Id(ifock,ifock)=1.d0
-    
+
     ! call basis_SZ_irr_reps_test(mult_list,Virr_reps)
     ! call get_matrix_basis_irr_reps_test(mult_list,phi_irr)
     ! stop
-    
+
     select case(wf_symmetry)
     case(0)
        call basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
@@ -80,6 +225,8 @@ CONTAINS
        call basis_SU2_irr_reps(irr_reps,equ_reps,Virr_reps)
     case(5)
        call basis_SZ_irr_reps(irr_reps,equ_reps,Virr_reps)
+    case(6)
+       call basis_SU2sXisoZ_irr_reps(irr_reps,equ_reps,Virr_reps)
     end select
     !
     Nirr_reps=size(irr_reps,1)
@@ -100,7 +247,7 @@ CONTAINS
     call get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
     call get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
     !
-    
+
 
 
     dim_phi=size(phi_fock,1)
@@ -111,7 +258,7 @@ CONTAINS
     !
     allocate(phi_basis(dim_phi,nFock,nFock))
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
-    
+
     phi_basis = phi_fock
 
 
@@ -134,10 +281,10 @@ CONTAINS
        end do
     end do
     ! 
-    
+
     allocate(test_trace(Nphi,Nphi))
     test_trace=get_traces_basis_phiOphi(Id)
-    
+
     !+- safe check on the matrix orthogonality
     do iphi=1,Nphi
        do jphi=1,Nphi
@@ -165,7 +312,7 @@ CONTAINS
     !TMP_CHECK>
 
     !stop "Variational basis  TRACE-ORTHOGONAL"
-    
+
     !
     ! do iphi=1,Nphi
     !    write(30,*) iphi!,indep2full_fock(iphi,:)
@@ -180,7 +327,7 @@ CONTAINS
     ! end do
     !
     !write(*,*) "NPHI",Nphi
-    
+
 
 
 
@@ -206,7 +353,7 @@ CONTAINS
     !
     allocate(phi_basis(Nphi,nFock,nFock),phi_basis_dag(Nphi,nFock,nFock))    
     phi_basis=0.d0
-    
+
     !
     ! do iphi=1,Nphi       
     !    do isymm=1,2
@@ -276,7 +423,7 @@ CONTAINS
        end do
     end do
   end function trace_phi_basis
-  
+
 
 
 
@@ -295,12 +442,14 @@ CONTAINS
     allocate(phi_traces_basis_spin_flip(Norb,Norb,Nphi,Nphi))
     allocate(phi_traces_basis_pair_hopping(Norb,Norb,Nphi,Nphi))
     allocate(phi_traces_basis_sc_order(Ns,Ns,Nphi,Nphi))
+    !
+    allocate(phi_traces_basis_spin2(Nphi,Nphi))
+    allocate(phi_traces_basis_spinZ(Nphi,Nphi))
+    allocate(phi_traces_basis_isospin2(Nphi,Nphi))
+    allocate(phi_traces_basis_isospinZ(Nphi,Nphi))
 
     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-
-
-
     do is=1,Ns
        do js=1,Ns
           phi_traces_basis_local_dens(is,js,:,:) = &
@@ -333,6 +482,10 @@ CONTAINS
        do js=1,Ns
           phi_traces_basis_dens(is,js,:,:) = &    !+- probably is more correct to call this global variable !+- phi_traces_basis_vdm
                get_traces_basis_phiphiO(op_local_dens(is,js,:,:))
+
+          ! phi_traces_basis_dens(is,js,:,:) = &    !+- probably is more correct to call this global variable !+- phi_traces_basis_vdm
+          !      get_traces_basis_phiphiO_s(op_local_dens(is,js,:,:))
+
        end do
     end do
     do iphi=1,Nphi
@@ -413,7 +566,12 @@ CONTAINS
           phi_traces_basis_sc_order(is,js,:,:) = get_traces_basis_phiOphi(op_sc_order(is,js,:,:)) 
        end do
     end do
-
+    !
+    phi_traces_basis_spin2 = get_traces_basis_phiOphi_z(op_spin2) 
+    phi_traces_basis_spinZ = get_traces_basis_phiOphi_z(op_spinZ) 
+    phi_traces_basis_isospin2 = get_traces_basis_phiOphi_z(op_isospin2) 
+    phi_traces_basis_isospinZ = get_traces_basis_phiOphi_z(op_isospinZ) 
+    !
   end subroutine build_traces_matrix_basis
 
 
@@ -449,6 +607,35 @@ CONTAINS
     end do
     !
   end function get_traces_basis_phiOphi
+
+  function get_traces_basis_phiOphi_z(Oi) result(trace_matrix)
+    complex(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed
+    complex(8),dimension(Nphi,Nphi)   :: trace_matrix
+    complex(8),dimension(nFock,nFock) :: tmp
+    integer                        :: kfock,ifock,jfock,iphi,jphi
+    !
+    trace_matrix=0.d0                
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          tmp=0.d0
+          !
+          do ifock=1,nFock
+             do jfock=1,nFock
+                do kfock=1,nFock
+                   trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + &
+                        conjg(phi_basis(iphi,ifock,kfock))*phi_basis(jphi,jfock,kfock)*Oi(ifock,jfock)
+                end do
+             end do
+          end do
+          !
+       end do
+    end do
+    !
+  end function get_traces_basis_phiOphi_z
+
+
+
+
   !
   function get_traces_basis_phiphiO(Oi) result(trace_matrix)
     real(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed
@@ -491,4 +678,64 @@ CONTAINS
     !
   end function get_traces_basis_phiAphiB
   !
+
+
+  !+- SYMMETRIC OBSOLETE ROUTINES
+
+  function get_traces_basis_phiAphiB_s(A,B) result(trace_matrix)
+    real(8),dimension(nFock,nFock)    :: A,B 
+    complex(8),dimension(Nphi,Nphi)   :: trace_matrix
+    complex(8),dimension(nFock,nFock) :: tmp
+    integer                           :: kfock,iphi,jphi
+    !
+    trace_matrix=zero
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          tmp=zero
+          tmp=matmul(phi_basis(jphi,:,:),B)
+          tmp=matmul(A,tmp)
+          tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
+          do kfock=1,nFock
+             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + 0.5d0*tmp(kfock,kfock)                  
+          end do
+          tmp=zero
+          tmp=matmul(phi_basis(iphi,:,:),B)
+          tmp=matmul(A,tmp)
+          tmp=matmul(phi_basis_dag(jphi,:,:),tmp)
+          do kfock=1,nFock
+             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + 0.5d0*tmp(kfock,kfock)                  
+          end do
+       end do
+    end do
+    !
+  end function get_traces_basis_phiAphiB_s
+  !
+  function get_traces_basis_phiphiO_s(Oi) result(trace_matrix)
+    real(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed
+    complex(8),dimension(Nphi,Nphi)   :: trace_matrix
+    complex(8),dimension(nFock,nFock) :: tmp
+    integer                        :: kfock,iphi,jphi
+    !
+    trace_matrix=zero                
+    do iphi=1,Nphi
+       do jphi=1,Nphi
+          tmp=zero
+          tmp=matmul(phi_basis(jphi,:,:),Oi)
+          tmp=matmul(phi_basis_dag(iphi,:,:),tmp)
+          do kfock=1,nFock
+             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + 0.5d0*tmp(kfock,kfock)                  
+          end do
+          tmp=zero
+          tmp=matmul(phi_basis(iphi,:,:),Oi)
+          tmp=matmul(phi_basis_dag(jphi,:,:),tmp)
+          do kfock=1,nFock
+             trace_matrix(iphi,jphi) = trace_matrix(iphi,jphi) + 0.5d0*tmp(kfock,kfock)                  
+          end do          
+       end do
+    end do
+    !
+  end function get_traces_basis_phiphiO_s
+
+
+
 END MODULE GZ_MATRIX_BASIS

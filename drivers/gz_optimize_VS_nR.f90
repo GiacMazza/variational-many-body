@@ -2,7 +2,7 @@ program GUTZ_mb
   USE SCIFOR
   !
   USE DMFT_MISC
-  USE DMFT_PARSE_INPUT
+  USE SF_PARSE_INPUT
   !
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
@@ -108,7 +108,7 @@ program GUTZ_mb
   !  
   Uiter = -0.1
   Jh_ratio=Jh
-  do i=1,80
+  do i=1,50
      !
      Uiter = Uiter + 0.1
      do iorb=1,Norb
@@ -206,10 +206,10 @@ CONTAINS
     end do
 
     !<EXTREMA RATIO TEST
-    e0test=0.d0
-    do ik=1,Lk
-       e0test = e0test + fermi_zero(epsik(ik),0.d0)*epsik(ik)*wtk(ik)
-    end do
+    ! e0test=0.d0
+    ! do ik=1,Lk
+    !    e0test = e0test + fermi_zero(epsik(ik),0.d0)*epsik(ik)*wtk(ik)
+    ! end do
     !EXTREMA RATIO TEST>
 
 

@@ -80,7 +80,7 @@ program GUTZ_mb
   !+-----------------------------------------------+!
 
 
-  Nopt_diag=1
+  Nopt_diag=2
   Nopt_odiag=0  
   allocate(opt_map(Ns,Ns))
 
@@ -90,7 +90,7 @@ program GUTZ_mb
      do iorb=1,Norb
         is=index(ispin,iorb)
         write(*,*) is,iorb
-        opt_map(is,is) = 1
+        opt_map(is,is) = iorb
      end do
   end do
   !
@@ -123,6 +123,8 @@ program GUTZ_mb
   lgr_init_slater(1) =  0.d0
   !
   lgr_init_gzproj(1) =  0.d0
+
+  
 
 
   call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural) 
@@ -306,43 +308,43 @@ CONTAINS
     real(8)                            :: ts,test_k,kx_,ky_,kz_,wini,wfin,de,test_n1,test_n2
     !
 
-    ! Lk=Nx
-    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-
-    ! wini=-Wband/2.d0
-    ! wfin= Wband/2.d0
-    ! epsik=linspace(wini,wfin,Lk,mesh=de)
-    ! !
-    ! test_k=0.d0
-    ! test_n1=0.d0;test_n2=0.d0
-    ! do ix=1,Lk
-    !    wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-    !    !wtk(ix) = 1.d0/Wband*de
-    !    if(ix==1.or.ix==Lk) wtk(ix)=0.d0
-    !    test_n1=test_n1+wtk(ix)*fermi(epsik(ix)+Cfield*0.5d0,beta)
-    !    test_n2=test_n2+wtk(ix)*fermi(epsik(ix)-Cfield*0.5d0,beta)
-    !    write(77,*) epsik(ix),wtk(ix)
-    ! end do
-    ! hybik=0.d0
-    !write(*,*) test_n1,test_n2,Cfield; stop
-
-
-    allocate(kx(Nx))
-    kx = linspace(0.d0,pi,Nx,.true.,.true.)
-    Lk=Nx*Nx*Nx
+    Lk=Nx
     allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    ik=0
-    do ix=1,Nx
-       do iy=1,Nx
-          do iz=1,Nx
-             ik=ik+1
-             !kx_=dble(ix)/dble(Nx)*pi
-             epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
-             hybik(ik) = 0.1d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
-             wtk(ik) = 1.d0/dble(Lk)
-          end do
-       end do
+
+    wini=-Wband/2.d0
+    wfin= Wband/2.d0
+    epsik=linspace(wini,wfin,Lk,mesh=de)
+    !
+    test_k=0.d0
+    test_n1=0.d0;test_n2=0.d0
+    do ix=1,Lk
+       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       !wtk(ix) = 1.d0/Wband*de
+       if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+       test_n1=test_n1+wtk(ix)*fermi(epsik(ix)+Cfield*0.5d0,beta)
+       test_n2=test_n2+wtk(ix)*fermi(epsik(ix)-Cfield*0.5d0,beta)
+       write(77,*) epsik(ix),wtk(ix)
     end do
+    hybik=0.d0
+    write(*,*) 'CHECK U0 CFIELD',test_n1,test_n2,Cfield; 
+
+
+    ! allocate(kx(Nx))
+    ! kx = linspace(0.d0,pi,Nx,.true.,.true.)
+    ! Lk=Nx*Nx*Nx
+    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
+    ! ik=0
+    ! do ix=1,Nx
+    !    do iy=1,Nx
+    !       do iz=1,Nx
+    !          ik=ik+1
+    !          !kx_=dble(ix)/dble(Nx)*pi
+    !          epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
+    !          hybik(ik) = 0.1d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
+    !          wtk(ik) = 1.d0/dble(Lk)
+    !       end do
+    !    end do
+    ! end do
 
     call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
     !stop
@@ -359,7 +361,7 @@ CONTAINS
                 if(iorb.eq.jorb)  then
                    Hk_tb(istate,jstate,ik) = epsik(ik)
                 else
-                   Hk_tb(istate,jstate,ik) = hybik(ik)
+                   Hk_tb(istate,jstate,ik) = 0.d0!hybik(ik)
                 end if
              end do
           end do

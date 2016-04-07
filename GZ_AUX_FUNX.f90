@@ -14,10 +14,12 @@ MODULE GZ_AUX_FUNX
   public :: vec2mat_stride,mat2vec_stride
   public :: initialize_variational_density_simplex
   public :: initialize_variational_density
-
+  
   !+- at some point these two subroutines should be merged in SCIFOR -+!
   public :: simultaneous_diag
   public :: fixed_point_sub   
+
+  
   
   public :: fermi_zero
 
@@ -470,6 +472,6 @@ CONTAINS
     write(*,*) "FIXED POINT:exceede number of iterations"
   end subroutine fixed_point_sub
 
-
+  
 
 END MODULE GZ_AUX_FUNX

@@ -22,6 +22,7 @@ MODULE GZ_OPTIMIZED_ENERGY
   !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
   public :: gz_optimization_vdm_Rhop_ghld 
   public :: gz_optimization_vdm_Rhop
+  public :: gz_optimization_vdm_Rhop_superc
   !
 CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
@@ -174,7 +175,114 @@ CONTAINS
     if(allocated(GZ_vector)) deallocate(GZ_vector)
     allocate(GZ_vector(Nphi))
     xout=R_VDM_free_zeros(xmin)
+
+
   end subroutine gz_optimization_vdm_Rhop
+  !
+  !
+  !
+  !
+  !
+  subroutine gz_optimization_vdm_Rhop_superc(init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj,init_vdm) 
+    complex(8),dimension(Ns,Ns),intent(inout) :: init_Rhop
+    complex(8),dimension(Ns,Ns),intent(inout) :: init_Qhop
+    complex(8),dimension(2,Ns,Ns),intent(inout) :: init_lgr_slater,init_lgr_proj
+    !
+    real(8),dimension(Ns,Ns),optional :: init_vdm
+    complex(8),dimension(2,Ns,Ns) :: tmp_vdm
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    real(8) :: delta,tmp_ene
+    integer :: iter    !
+    !
+    integer                           :: n_min,neq,nin,maxit,print_level,exit_code
+    real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_,out_err
+    real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess  
+    real(8),dimension(:),allocatable  :: xmin,xout
+    integer :: Nopt,iopt,Nslater_lgr,NRhop,NQhop,Nproj_lgr
+    integer :: is,js,imap
+    !
+    NRhop = 2*NRhop_opt
+    NQhop = 2*NQhop_opt
+    !
+    Nslater_lgr = 2*Nvdm_NC_opt + 2*Nvdm_AC_opt
+    Nproj_lgr = 2*Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+    !
+    !Nopt = 2*NRhop_opt + 2*NQhop_opt + 2*Nvdm_NC_opt + 2*Nvdm_AC_opt + 2*Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+    Nopt = NRhop + NQhop + Nslater_lgr + Nproj_lgr
+    allocate(xmin(Nopt),xout(Nopt))    
+    
+    if(present(init_vdm)) then
+       tmp_vdm = zero
+       tmp_vdm(1,:,:) = init_vdm
+       do is=1,Ns
+          vdm(is) = init_vdm(is,is)
+       end do
+       call slater_minimization_lgr_superc(init_Rhop,init_Qhop,vdm,tmp_ene,init_lgr_slater,iverbose=.true.)    
+    end if
+    
+    !
+    call dump2vec_superc(xmin,init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj)
+    !    
+    do is=1,Ns
+       write(*,'(10F8.4)') init_Rhop(is,:)
+    end do
+    write(*,*)
+    do is=1,Ns
+       write(*,'(10F8.4)') init_Qhop(is,:)
+    end do
+    write(*,*)
+    do is=1,Ns
+       write(*,'(10F8.4)') init_lgr_slater(1,is,:)
+    end do
+    write(*,*)
+    do is=1,Ns
+       write(*,'(10F8.4)') init_lgr_slater(2,is,:)
+    end do
+    write(*,*)
+    do is=1,Ns
+       write(*,'(10F8.4)') init_lgr_proj(1,is,:)
+    end do
+    write(*,*)
+    do is=1,Ns
+       write(*,'(10F8.4)') init_lgr_proj(2,is,:)
+    end do
+    write(*,*)
+
+    do is=1,Nopt
+       write(*,*) is,xmin(is)
+    end do
+    
+    !
+    call fmin_cg(xmin,R_Q_VDM_free_opt_superc,iter,out_err)
+    !
+    !    call fsolve(R_Q_VDM_free_zeros_superc,xmin,tol=1.d-10,info=iter)
+    !
+    !+- once optimization is achieved store the ground state results -+!
+    optimization_flag=.true.
+    if(allocated(GZ_vector)) deallocate(GZ_vector)
+    allocate(GZ_vector(Nphi))
+    if(allocated(GZ_opt_slater_lgr_superc)) deallocate(GZ_opt_slater_lgr_superc)
+    allocate(GZ_opt_slater_lgr_superc(2,Ns,Ns))
+
+    ! xout = R_Q_VDM_free_zeros_superc(xmin)
+    ! out_err=0.d0
+    ! do is=1,Nopt
+    !    out_err = out_err + xout(is)**2.d0
+    ! end do
+    out_err = R_Q_VDM_free_opt_superc(xmin)
+
+    !
+    if(GZmin_verbose) then       
+       write(*,*) 'ROOT FUNCTION VDM-RHOP OPTIMIZATION',out_err
+       do is=1,Nopt
+!          write(*,*) is,xout(is),xmin(is)
+          write(*,*) is,xmin(is),xmin(is)
+       end do
+    end if
+    call dump2mats_superc(xmin,init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj)
+  end subroutine gz_optimization_vdm_Rhop_superc
 
 
   !
@@ -276,6 +384,10 @@ CONTAINS
     open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
     opt_rhop_unit=free_unit()
     open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+    if(gz_superc) then
+       opt_qhop_unit=free_unit()
+       open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
+    end if
     opt_GZ_unit=free_unit()
     open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
     if(GZmin_verbose) then
@@ -298,8 +410,6 @@ CONTAINS
     !<DEBUG
     !stop
     !DEBUG>
-
-
     !
     ftol=amoeba_min_tol
     call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_energy_vdm,iter,amoeba_verbose)
@@ -318,10 +428,6 @@ CONTAINS
     deallocate(y,p)
     close(amoeba_unit)
     close(opt_energy_unit)    
-
-    
-    
-
     !
     optimization_flag=.true.
     if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))

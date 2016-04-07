@@ -9,7 +9,9 @@ FPP=
 #EXE=gz_test_symm
 #EXE=gz_optimize_VS_nR
 #EXE=gz_optimize_janus
-EXE=gz_sc_test
+#EXE=gz_sc_test
+#EXE=gz_2b_bethe_sc
+EXE=gz_1b_attractiveU
 
 
 DIR=drivers

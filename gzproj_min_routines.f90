@@ -27,6 +27,8 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
   allocate(lgr(Nopt_diag+Nopt_odiag));  lgr=0.d0
   allocate(delta_out(Nopt_diag+Nopt_odiag))
   !
+  !+- HERE Nopt = 2*Nvdm_NC_opt; allocate(lgr(Nopt))
+  !
   lgr = 0.d0!lgr_init_gzproj
   select case(lgr_method)
   case('CG_min')
@@ -46,6 +48,9 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
   !
   lgr_init_gzproj = lgr
   !
+  !
+  !+- HERE ---> call stride_v2m(lgr,lgr_multip)
+  !
   lgr_multip=0.d0
   do istate=1,Ns
      do jstate=1,Ns
@@ -53,10 +58,8 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
         if(imap.gt.0) lgr_multip(istate,jstate)=lgr(imap)
      end do
   end do
-
-  call gz_proj_minimization_fixed_lgr(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect,free_flag=ifree_)
   !
-
+  call gz_proj_minimization_fixed_lgr(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect,free_flag=ifree_)
   !
   if(iverbose_) then
      write(*,*)
@@ -79,16 +82,16 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
 contains
   !
   function get_delta_proj_variational_density(lm_) result(delta)
-    real(8),dimension(:)                   :: lm_
-    real(8)           :: delta
-    real(8),dimension(Ns,Ns) :: lm
-    real(8),dimension(Ns,Ns) :: delta_proj_variational_density,proj_variational_density
-    complex(8),dimension(Nphi,Nphi)          :: H_projectors,H_tmp
-    real(8),dimension(Nphi)               :: H_eigens
-    real(8) :: tmp_ene
+    real(8),dimension(:)            :: lm_
+    real(8)                         :: delta
+    real(8),dimension(Ns,Ns)        :: lm
+    real(8),dimension(Ns,Ns)        :: delta_proj_variational_density,proj_variational_density
+    complex(8),dimension(Nphi,Nphi) :: H_projectors,H_tmp
+    real(8),dimension(Nphi)         :: H_eigens
+    real(8)                         :: tmp_ene
 
-    integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
-    integer :: iphi,jphi,imap
+    integer                         :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+    integer                         :: iphi,jphi,imap
     !
     lm=0.d0
     do istate=1,Ns
@@ -97,6 +100,9 @@ contains
           if(imap.gt.0) lm(istate,jstate)=lm_(imap)
        end do
     end do
+    !
+    !
+    !+- HERE use stride_v2m
     !
     proj_variational_density=0.d0
     !+- build up the local H_projectors -+!
@@ -113,6 +119,7 @@ contains
     !
     call build_H_GZproj(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !  
+    !call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
     call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
     !
     do istate=1,Ns
@@ -158,16 +165,12 @@ contains
        end do
     end do
     !
+    !+- here use stride_v2m
+    !
+
+    !
     proj_variational_density=0.d0
     !+- build up the local H_projectors -+!
-    ! H_projectors=zero
-    ! H_projectors=phi_traces_basis_Hloc
-    ! do istate=1,Ns
-    !    do jstate=1,Ns
-    !       H_projectors = H_projectors + 2.d0*slater_derivatives(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)/sqrt(n0_target(jstate)*(1.d0-n0_target(jstate)))
-    !       H_projectors = H_projectors + lm(istate,jstate)*phi_traces_basis_dens(istate,jstate,:,:)
-    !    end do
-    ! end do
     !
     call build_H_GZproj(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !  
@@ -189,17 +192,10 @@ contains
     delta = 0.d0
     do istate=1,Ns
        do jstate=1,Ns
-          imap = opt_map(istate,jstate)   !+- here we have a problem...
+          imap = opt_map(istate,jstate)   !+- here we have a problem...  !-----> SOLUTION: use stride and then check for it!
           if(imap.gt.0) delta(imap) = delta(imap) + delta_proj_variational_density(istate,jstate)**2.d0
-          !if(imap.gt.0) delta(imap) =  delta_proj_variational_density(istate,jstate)
        end do
-       !<DEBUG
-       !       write(*,*) delta_proj_variational_density(istate,:)
-       !DEBUG>
     end do
-    !<DEBUG
-    !    write(*,*)
-    !DEBUG>
     !
   end function fix_Density
   !
@@ -642,19 +638,6 @@ subroutine get_GZproj_ground_state(n0,slater_derivatives,lgr_multip,E_Hloc,GZvec
   !+- build up the local H_projectors -+!
   free_flag_=.false.; if(present(free_flag)) free_flag_=free_flag
   !
-  ! if(free_flag_) then
-  !    H_projectors=phi_traces_basis_free_Hloc
-  ! else
-  !    H_projectors=phi_traces_basis_Hloc
-  ! end if
-  !
-  ! do istate=1,Ns
-  !    do jstate=1,Ns
-  !       H_projectors = H_projectors + &
-  !            2.d0*slater_derivatives(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)/sqrt(n0(jstate)*(1.d0-n0(jstate)))
-  !       H_projectors = H_projectors + lgr_multip(istate,jstate)*phi_traces_basis_dens(istate,jstate,:,:)
-  !    end do
-  ! end do
   call build_H_GZproj(H_projectors,slater_derivatives,n0,lgr_multip)
   !
   call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
@@ -701,7 +684,9 @@ subroutine get_GZproj_ground_state_fixR(n0,lgr_multip_dens,lgr_multip_Rhop,E_Hlo
   do istate=1,Ns
      do jstate=1,Ns
         H_projectors = H_projectors + lgr_multip_dens(istate,jstate)*phi_traces_basis_dens(istate,jstate,:,:)
+        H_projectors = H_projectors + lgr_multip_dens(istate,jstate)*phi_traces_basis_dens_hc(istate,jstate,:,:)
         H_projectors = H_projectors - lgr_multip_Rhop(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)
+        H_projectors = H_projectors - conjg(lgr_multip_Rhop(istate,jstate))*phi_traces_basis_Rhop_hc(istate,jstate,:,:)
      end do
   end do
   !
@@ -712,6 +697,8 @@ subroutine get_GZproj_ground_state_fixR(n0,lgr_multip_dens,lgr_multip_Rhop,E_Hlo
   E_Hloc=E_Hloc+trace_phi_basis(GZvect,phi_traces_basis_Hloc)
   !  
 end subroutine get_GZproj_ground_state_fixR
+
+
 
 
 
@@ -728,11 +715,10 @@ end subroutine get_GZproj_ground_state_fixR
 !########################################################################!
 !########################################################################!
 
-
 subroutine gz_projectors_minimization_nlep_superc(slater_derivatives,n0_target,E_Hloc,GZvect,lgr_multip,ifree,iverbose)
   complex(8),dimension(2,Ns,Ns),intent(in)  :: slater_derivatives !input:  Slater Deter GZ energy derivatives
   real(8),dimension(Ns),intent(in)     :: n0_target          !input:  Variational density matrix
-  real(8),dimension(:),allocatable                :: lgr
+  real(8),dimension(:),allocatable                :: lgr,lgr_normal,lgr_anomalous
   real(8),dimension(Ns*Ns)             :: lgr_full
   complex(8),dimension(2,Ns,Ns),intent(out) :: lgr_multip         !output: GZprojectors Lagrange Multipliers -diagonal-
   complex(8),dimension(nPhi)              :: GZvect   !output: GZvector
@@ -745,20 +731,50 @@ subroutine gz_projectors_minimization_nlep_superc(slater_derivatives,n0_target,E
   real(8)                              :: off_constraints
   real(8),allocatable,dimension(:)                              :: delta_out
   logical                              :: iverbose_,ifree_
-  integer                              :: info,istate,jstate,i,j,iter
+  integer                              :: info,istate,jstate,i,j,iter,i0
   !+- amoeba_variables-+!
   real(8),allocatable,dimension(:,:)   :: p
   real(8),allocatable,dimension(:)     :: y
   real(8)                              :: ftol,delta
   integer                              :: np,mp,i_vertex,j_vertex,i_dim,is
-  integer                              :: imap,jmap
+  integer                              :: imap,jmap  
+  integer                              :: Nopt
+  complex(8),dimension(:),allocatable  :: lgr_cmplx
 
   iverbose_=.false.;if(present(iverbose)) iverbose_=iverbose    
   ifree_=.false.;if(present(ifree)) ifree_=ifree
-  allocate(lgr(2*Nopt_lgr));  lgr=0.d0
-  allocate(delta_out(2*Nopt_lgr))
+  ! allocate(lgr(Nopt_lgr));  lgr=0.d0
+  ! allocate(delta_out(Nopt_lgr))
   !
-  lgr = 0.d0!lgr_init_gzproj
+  ! allocate(lgr(2*Nopt_lgr));  lgr=0.d0
+  ! allocate(delta_out(2*Nopt_lgr))
+
+  ! allocate(lgr_normal(2*Nopt_normal))
+  ! allocate(lgr_anomalous(2*Nopt_anomalous))
+  !
+  !
+  !lgr = 0.d0!lgr_init_gzproj
+
+  !<FUCKING HARD DEBUGGING
+  ! lgr(1)=-0.
+  ! do i=1,60
+  !    lgr(1)=lgr(1)-0.01
+  !
+  !    delta_out = fix_density_(lgr)
+  !    delta=0.d0
+  !    do is=1,2*Nopt_lgr
+  !       delta = delta + delta_out(is)**2.d0
+  !    end do
+  !    write(300,*) lgr(1),delta
+  !    delta = get_delta_proj_variational_density_(lgr)
+  !    write(200,*) lgr(1),delta
+  ! end do
+  !  stop
+  !FUCKING HARD DEBUGGING>
+  !+- HERE something like Nopt = 2*Nvdm_NC_opt + 2*Nvdm_AC_opt; allocate(lgr(Nopt))  
+  !
+  Nopt = 2*Nvdm_NC_opt + 2*Nvdm_AC_opt; allocate(lgr(Nopt))
+  lgr=0.d0  
   select case(lgr_method)
   case('CG_min')
      call fmin_cg(lgr,get_delta_proj_variational_density,iter,delta)
@@ -774,15 +790,48 @@ subroutine gz_projectors_minimization_nlep_superc(slater_derivatives,n0_target,E
   !
   !lgr_init_gzproj = lgr
   !
-  lgr_multip=0.d0
-  do istate=1,Ns
-     do jstate=1,Ns
-        imap = opt_map(istate,jstate)
-        jmap = opt_map_anomalous(istate,jstate)
-        if(imap.gt.0) lgr_multip(1,istate,jstate) = lgr(imap) + xi*lgr(imap+Nopt_lgr)
-        if(jmap.gt.0) lgr_multip(2,istate,jstate) = lgr(jmap+Nopt_normal) + xi*lgr(jmap+Nopt_normal+Nopt_lgr)
-     end do
+  !
+  !+- HERE something like call vdm_NC_stride_v2m(lgr(1:2*Nvdm_NC_opt,lgr_multip(1,:,:)))    OF COURSE CHANGE ALL THIS STUFF INSIDE THE ROUTINES fix_density and get_delta!!!!!!
+  !                       call vdm_NC_stride_v2m(lgr(2*Nvdm_NC_opt+1:Nopt,lgr_multip(2,:,:)))
+  !
+  ! lgr_multip=0.d0
+  ! do istate=1,Ns
+  !    do jstate=1,Ns
+  !       imap = opt_map(istate,jstate)
+  !       jmap = opt_map_anomalous(istate,jstate)
+  !       if(imap.gt.0) lgr_multip(1,istate,jstate) = lgr(imap) + xi*lgr(imap+Nopt_lgr)
+  !       if(jmap.gt.0) lgr_multip(2,istate,jstate) = lgr(jmap+Nopt_normal) + xi*lgr(jmap+Nopt_normal+Nopt_lgr)
+  !    end do
+  ! end do
+  !
+
+  allocate(lgr_cmplx(Nvdm_NC_opt))
+  do i=1,Nvdm_NC_opt
+     lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_NC_opt)
   end do
+  call vdm_NC_stride_v2m(lgr_cmplx,lgr_multip(1,:,:))
+  i0=2*Nvdm_NC_opt
+  deallocate(lgr_cmplx)
+  allocate(lgr_cmplx(Nvdm_AC_opt))  
+  do i=1,Nvdm_AC_opt
+     lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+  end do
+  call vdm_AC_stride_v2m(lgr_cmplx,lgr_multip(2,:,:))
+
+  !
+  ! call vdm_NC_stride_v2m(lgr(1:2*Nvdm_NC_opt,lgr_multip(1,:,:)))    
+  ! call vdm_AC_stride_v2m(lgr(2*Nvdm_NC_opt+1:Nopt,lgr_multip(2,:,:)))
+  !
+  ! do i=1,Nopt_normal
+  !    lgr_normal(i)=lgr(i)
+  !    lgr_normal(i+Nopt_normal)=lgr(i+Nopt_lgr)       
+  ! end do
+  ! do i=1,Nopt_anomalous
+  !    lgr_anomalous(i)=lgr(i+Nopt_normal)
+  !    lgr_anomalous(i+Nopt_anomalous)=lgr(i+Nopt_normal+Nopt_lgr)       
+  ! end do
+  ! lgr_multip(1,:,:) = symmetry_stride_vec_mat(lgr_normal)
+  ! lgr_multip(2,:,:) = symmetry_stride_vec_mat_(lgr_anomalous)
   !
   call gz_proj_minimization_fixed_lgr_superc(n0_target,slater_derivatives,lgr_multip,E_Hloc,GZvect,free_flag=ifree_)
   !
@@ -798,7 +847,7 @@ subroutine gz_projectors_minimization_nlep_superc(slater_derivatives,n0_target,E
      end do
      !
      write(*,*) "GZ projectors: Variational density matrix error"
-     write(*,'(10F18.10)') delta
+     write(*,'(10F18.10)') delta!,delta_out
      !
      write(*,*) "GZ projectors: Optimized Local Energy"
      write(*,'(10F18.10)') E_Hloc
@@ -828,17 +877,6 @@ contains
     end do
     !
     proj_variational_density=0.d0
-    !+- build up the local H_projectors -+!
-    !+- put all this story inside a routine 
-    ! H_projectors=zero
-    ! H_projectors=phi_traces_basis_Hloc
-    ! if(ifree_) H_projectors = phi_traces_basis_free_Hloc
-    ! do istate=1,Ns
-    !    do jstate=1,Ns
-    !       H_projectors = H_projectors + 2.d0*slater_derivatives(istate,jstate)*phi_traces_basis_Rhop(istate,jstate,:,:)/sqrt(n0_target(jstate)*(1.d0-n0_target(jstate)))          
-    !       H_projectors = H_projectors + lm(istate,jstate)*phi_traces_basis_dens(istate,jstate,:,:)
-    !    end do
-    ! end do
     !
     call build_H_GZproj(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !  
@@ -870,44 +908,86 @@ contains
   function fix_density(lm_) result(delta)
     real(8),dimension(:)         :: lm_
     real(8),dimension(size(lm_)) :: delta
-    complex(8),dimension(Nopt_lgr) :: lm_cmplx
+    complex(8),dimension(:),allocatable :: lm_cmplx,delta_cmplx
     complex(8),dimension(2,Ns,Ns) :: lm
     complex(8),dimension(2,Ns,Ns) :: delta_proj_variational_density,proj_variational_density
     complex(8),dimension(Nphi,Nphi)          :: H_projectors,H_tmp
+    complex(8),dimension(Nphi)          :: proj_gs
     real(8),dimension(Nphi)               :: H_eigens
-    real(8) :: tmp_ene
+    real(8) :: tmp_ene,tmp_eigen
 
     integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
-    integer :: iphi,jphi,imap,jmap,js,is
+    integer :: iphi,jphi,imap,jmap,js,is,i,i0,Ndegen,Nopt_cmplx
+    !
+    !
+    !    if(size(lm_).ne.2*Nopt_lgr) stop 'wrong lgr_parameters size @ gz_projectors_minimization_nlep_superc/fix_density'   
+    ! Nopt_cmplx=Nopt/2
+    ! do i=1,Nopt_cmplx
+    !    lm_cmplx(i) = lm_(i) + xi*lm_(i+Nopt_cmplx)
+    ! end do
+    !
+    !
+    allocate(lm_cmplx(Nvdm_NC_opt))
+    do i=1,Nvdm_NC_opt
+       lm_cmplx(i) = lm_(i)+xi*lm_(i+Nvdm_NC_opt)
+    end do
+    call vdm_NC_stride_v2m(lm_cmplx,lm(1,:,:))    
+    deallocate(lm_cmplx)
+    i0=2*Nvdm_NC_opt
+    allocate(lm_cmplx(Nvdm_AC_opt))
+    do i=1,Nvdm_AC_opt
+       lm_cmplx(i) = lm_(i0+i)+xi*lm_(i0+i+Nvdm_AC_opt)
+    end do
+    call vdm_AC_stride_v2m(lm_cmplx,lm(2,:,:))    
+    deallocate(lm_cmplx)
+    !
+    ! lm=0.d0
+    ! do istate=1,Ns
+    !    do jstate=1,Ns
+    !       imap = opt_map(istate,jstate)
+    !       jmap = opt_map_anomalous(istate,jstate)
+    !       if(imap.gt.0) lm(1,istate,jstate)=lm_cmplx(imap)
+    !       if(jmap.gt.0) lm(2,istate,jstate)=lm_cmplx(jmap+Nopt_normal)
+    !    end do
+    ! end do
     !
 
-    if(size(lm_).ne.2*Nopt_lgr) stop 'wrong lgr_parameters size @ gz_projectors_minimization_nlep_superc/fix_density'   
-    do i=1,Nopt_lgr
-       lm_cmplx(i) = lm_(i) + xi*lm_(i+Nopt_lgr)
-    end do
-
-    lm=0.d0
-    do istate=1,Ns
-       do jstate=1,Ns
-          imap = opt_map(istate,jstate)
-          jmap = opt_map_anomalous(istate,jstate)
-          if(imap.gt.0) lm(1,istate,jstate)=lm_cmplx(imap)
-          if(jmap.gt.0) lm(2,istate,jstate)=lm_cmplx(jmap+Nopt_normal)
-       end do
-    end do
-    !
     proj_variational_density=0.d0
     !+- build up the local H_projectors -+!
     call build_H_GZproj_superc(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !  
+    !<FUCKING HARD DEBUGGING
+    ! write(250,*) lm_(1)
+    ! do iphi=1,Nphi
+    !    do jphi=1,Nphi
+    !       write(250,*) H_projectors(iphi,jphi),iphi,jphi
+    !    end do
+    !    write(250,*)
+    ! end do
+    !FUCKING HARD DEBUGGING>
     call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
+    !<TEST_DEGENERATE
+    ! tmp_eigen=H_eigens(1)
+    ! do iphi=2,Nphi
+    !    if(abs(tmp_eigen-H_eigens(iphi)).gt.1.d-10) exit       
+    !    tmp_eigen=H_eigens(iphi)
+    ! end do
+    ! Ndegen=iphi-1
+    ! proj_gs=zero
+    ! do iphi=1,1
+    !    proj_gs = proj_gs + H_projectors(:,iphi)/sqrt(dble(Ndegen))
+    ! end do
+    ! write(*,*) 'Ndegen!!',Ndegen
+    !TEST_DEGENERATE>
+    proj_gs = H_projectors(:,1)
     !
     do is=1,Ns
        do js=1,Ns
           !
-          proj_variational_density(1,is,js) = trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens(is,js,:,:))
-          proj_variational_density(2,is,js) = trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens_anomalous(is,js,:,:))
+          proj_variational_density(1,is,js) = trace_phi_basis(proj_gs,phi_traces_basis_dens(is,js,:,:))
+          proj_variational_density(2,is,js) = trace_phi_basis(proj_gs,phi_traces_basis_dens_anomalous(is,js,:,:))
           !
+          write(*,*) proj_variational_density(1,is,js)
        end do
     end do
     delta_proj_variational_density = proj_variational_density
@@ -915,34 +995,280 @@ contains
        delta_proj_variational_density(1,istate,istate) = & 
             delta_proj_variational_density(1,istate,istate) - n0_target(istate) 
     end do
-    !
-    delta = 0.d0
-    do is=1,Ns
-       do js=1,Ns
-          imap = opt_map(is,js)   
-          jmap = opt_map_anomalous(is,js)
-          if(imap.gt.0) then
-             delta(imap) = delta(imap) + dreal(delta_proj_variational_density(1,is,js))**2.d0
-             delta(imap+Nopt_lgr) = delta(imap+Nopt_lgr) + dimag(delta_proj_variational_density(1,is,js))**2.d0
-          end if
-          if(jmap.gt.0) then
-             delta(jmap+Nopt_normal) = delta(jmap+Nopt_normal) +  dreal(delta_proj_variational_density(2,is,js))**2.d0
-             delta(jmap+Nopt_normal+Nopt_lgr) = delta(jmap+Nopt_normal+Nopt_lgr) +  dimag(delta_proj_variational_density(2,is,js))**2.d0
-          end if
-       end do
+    !    
+    delta=0.d0
+    allocate(delta_cmplx(Nvdm_NC_opt))
+    call vdm_NC_stride_m2v(delta_proj_variational_density(1,:,:),delta_cmplx)
+    do i=1,Nvdm_NC_opt
+       delta(i) = dreal(delta_cmplx(i))
+       delta(i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
     end do
+    deallocate(delta_cmplx)
+    i0 = 2*Nvdm_NC_opt
+    allocate(delta_cmplx(Nvdm_AC_opt))
+    call vdm_AC_stride_m2v(delta_proj_variational_density(2,:,:),delta_cmplx)
+    do i=1,Nvdm_AC_opt
+       delta(i0+i) = dreal(delta_cmplx(i))
+       delta(i0+i+Nvdm_AC_opt) = dimag(delta_cmplx(i))       
+    end do
+    deallocate(delta_cmplx)
+    !
+
+
+    ! delta = 0.d0
+    ! do is=1,Ns
+    !    do js=1,Ns
+    !       imap = opt_map(is,js)   
+    !       jmap = opt_map_anomalous(is,js)
+    !       if(imap.gt.0) then
+    !          delta(imap) = delta(imap) + dreal(delta_proj_variational_density(1,is,js))**2.d0
+    !          delta(imap+Nopt_lgr) = delta(imap+Nopt_lgr) + dimag(delta_proj_variational_density(1,is,js))**2.d0
+    !       end if
+    !       if(jmap.gt.0) then
+    !          delta(jmap+Nopt_normal) = delta(jmap+Nopt_normal) +  dreal(delta_proj_variational_density(2,is,js))**2.d0
+    !          delta(jmap+Nopt_normal+Nopt_lgr) = delta(jmap+Nopt_normal+Nopt_lgr) +  dimag(delta_proj_variational_density(2,is,js))**2.d0
+    !       end if
+    !    end do
+    ! end do
     !
     !<DEBUG
-    write(*,*) 'gz_proj lgr params'
-    write(*,*) delta
-    write(*,*) 'xxxxxxxxxx'
-    write(*,*) lm_
-    write(*,*) 
+    ! write(*,*) lm_
+    !write(225,*) lm_(1),H_eigens(1:5)
+    ! write(*,*) delta
+    ! write(*,*) 'xxxxxxxxxx'
+    ! write(*,*) lm_
+    ! write(*,*) 
     !DEBUG>
     !stop
+    ! write(226,*) lm_(1)
+    ! write(226,*)
+    ! do istate=1,Nphi
+    !    write(226,*) H_projectors(istate,1)
+    ! end do
     !
   end function fix_Density
   !
+
+
+
+  ! function fix_density_(lm_) result(delta)
+  !   real(8),dimension(:)         :: lm_
+  !   real(8),dimension(size(lm_)) :: delta
+  !   real(8),dimension(2*Nopt_normal) :: lm_normal,delta_normal
+  !   real(8),dimension(2*Nopt_anomalous) :: lm_anomalous,delta_anomalous
+
+  !   complex(8),dimension(2,Ns,Ns) :: lm
+  !   complex(8),dimension(2,Ns,Ns) :: delta_proj_variational_density,proj_variational_density
+  !   complex(8),dimension(Nphi,Nphi)          :: H_projectors,H_tmp
+  !   complex(8),dimension(Nphi)          :: proj_gs
+  !   real(8),dimension(Nphi)               :: H_eigens
+  !   real(8) :: tmp_ene,tmp_eigen
+
+  !   integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+  !   integer :: iphi,jphi,imap,jmap,js,is,i,Ndegen
+  !   !
+
+  !   if(size(lm_).ne.2*Nopt_lgr) stop 'wrong lgr_parameters size @ gz_projectors_minimization_nlep_superc/fix_density'   
+  !   !+- stride un po' a capocchia -+!
+  !   do i=1,Nopt_normal
+  !      lm_normal(i)=lm_(i)
+  !      lm_normal(i+Nopt_normal)=lm_(i+Nopt_lgr)       
+  !   end do
+  !   do i=1,Nopt_anomalous
+  !      lm_anomalous(i)=lm_(i+Nopt_normal)
+  !      lm_anomalous(i+Nopt_anomalous)=lm_(i+Nopt_normal+Nopt_lgr)       
+  !   end do
+
+  !   lm(1,:,:) = symmetry_stride_vec_mat(lm_normal)
+  !   lm(2,:,:) = symmetry_stride_vec_mat_(lm_anomalous)
+
+  !   !<DEBUG
+  !   ! do istate=1,Ns       
+  !   !    write(*,'(10F8.4)') dreal(lm(1,istate,:)),dimag(lm(1,istate,:))
+  !   ! end do
+  !   ! write(*,*)
+  !   ! do istate=1,Ns       
+  !   !    write(*,'(10F8.4)') dreal(lm(2,istate,:)),dimag(lm(2,istate,:))
+  !   ! end do
+  !   ! stop
+  !   !DEBUG>
+
+
+  !   !
+  !   proj_variational_density=0.d0
+  !   !+- build up the local H_projectors -+!
+  !   call build_H_GZproj_superc(H_projectors,slater_derivatives,n0_target,lm,ifree_)
+  !   ! 
+  !   call matrix_diagonalize(H_projectors,H_eigens)
+
+  !   !<TEST_DEGENERATE
+  !   tmp_eigen=H_eigens(1)
+  !   do iphi=2,Nphi
+  !      if(abs(tmp_eigen-H_eigens(iphi)).gt.1.d-10) exit       
+  !      tmp_eigen=H_eigens(iphi)
+  !   end do
+  !   Ndegen=iphi-1
+  !   proj_gs=zero
+  !   do iphi=1,1
+  !      proj_gs = proj_gs + H_projectors(:,iphi)/sqrt(dble(Ndegen))
+  !   end do
+  !   write(*,*) 'Ndegen!!',Ndegen
+  !   !TEST_DEGENERATE>
+
+  !   !
+  !   do is=1,Ns
+  !      do js=1,Ns
+  !         !
+  !         proj_variational_density(1,is,js) = trace_phi_basis(proj_gs,phi_traces_basis_dens(is,js,:,:))
+  !         proj_variational_density(2,is,js) = trace_phi_basis(proj_gs,phi_traces_basis_dens_anomalous(is,js,:,:))
+  !         !
+  !         write(*,*) proj_variational_density(1,is,js)
+  !      end do
+  !   end do
+  !   delta_proj_variational_density = proj_variational_density
+  !   do istate=1,Ns
+  !      delta_proj_variational_density(1,istate,istate) = & 
+  !           delta_proj_variational_density(1,istate,istate) - n0_target(istate) 
+  !   end do
+  !   !
+
+
+  !   call symmetry_stride_mat_vec(delta_proj_variational_density(1,:,:),delta_normal)
+  !   call symmetry_stride_mat_vec(delta_proj_variational_density(2,:,:),delta_anomalous)
+
+  !   !<DEBUG
+  !   ! do istate=1,Ns       
+  !   !    write(*,'(10F8.4)') dreal(delta_proj_variational_density(1,istate,:)),dimag(delta_proj_variational_density(1,istate,:))
+  !   ! end do
+  !   ! write(*,*)
+  !   ! do istate=1,Ns       
+  !   !    write(*,'(10F8.4)') dreal(delta_proj_variational_density(2,istate,:)),dimag(delta_proj_variational_density(2,istate,:))
+  !   ! end do
+  !   !DEBUG>
+
+  !   do i=1,Nopt_normal
+  !      delta(i) = delta_normal(i)
+  !      delta(i+Nopt_lgr) = delta_normal(i+Nopt_normal)
+  !   end do
+  !   do i=1,Nopt_anomalous
+  !      delta(i+Nopt_normal) = delta_anomalous(i)
+  !      delta(i+Nopt_normal+Nopt_lgr) = delta_anomalous(i+Nopt_anomalous)
+  !   end do
+  ! end function fix_density_
+
+
+
+
+
+
+
+  ! function get_delta_proj_variational_density_(lm_) result(delta)
+  !   real(8),dimension(:)                   :: lm_
+  !   real(8)           :: delta
+  !   real(8),dimension(2*Nopt_normal) :: lm_normal,delta_normal
+  !   real(8),dimension(2*Nopt_anomalous) :: lm_anomalous,delta_anomalous
+
+  !   complex(8),dimension(2,Ns,Ns) :: lm
+  !   complex(8),dimension(2,Ns,Ns) :: delta_proj_variational_density,proj_variational_density
+  !   complex(8),dimension(Nphi,Nphi)          :: H_projectors,H_tmp
+  !   complex(8),dimension(Nphi)          :: proj_gs
+  !   real(8),dimension(Nphi)               :: H_eigens
+  !   real(8) :: tmp_ene,tmp_eigen
+
+  !   integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+  !   integer :: iphi,jphi,imap,jmap,js,is,i,Ndegen
+
+
+
+  !   ! real(8),dimension(2*Nopt_normal) :: lm_normal,delta_normal
+  !   ! real(8),dimension(2*Nopt_anomalous) :: lm_anomalous,delta_anomalous
+
+  !   ! real(8),dimension(Ns,Ns) :: lm
+  !   ! real(8),dimension(Ns,Ns) :: delta_proj_variational_density,proj_variational_density
+  !   ! complex(8),dimension(Nphi,Nphi)          :: H_projectors,H_tmp
+  !   ! real(8),dimension(Nphi)               :: H_eigens
+  !   ! real(8) :: tmp_ene
+
+  !   ! integer                                :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+  !   ! integer :: iphi,jphi,imap,i,is,js
+  !   !
+
+  !   !+- stride un po' a capocchia -+!
+  !   do i=1,Nopt_normal
+  !      lm_normal(i)=lm_(i)
+  !      lm_normal(i+Nopt_normal)=lm_(i+Nopt_lgr)       
+  !   end do
+  !   do i=1,Nopt_anomalous
+  !      lm_anomalous(i)=lm_(i+Nopt_normal)
+  !      lm_anomalous(i+Nopt_anomalous)=lm_(i+Nopt_normal+Nopt_lgr)       
+  !   end do
+
+  !   lm(1,:,:) = symmetry_stride_vec_mat(lm_normal)
+  !   lm(2,:,:) = symmetry_stride_vec_mat_(lm_anomalous)
+
+  !   !<DEBUG
+  !   ! do istate=1,Ns       
+  !   !    write(*,'(10F8.4)') dreal(lm(1,istate,:)),dimag(lm(1,istate,:))
+  !   ! end do
+  !   ! write(*,*)
+  !   ! do istate=1,Ns       
+  !   !    write(*,'(10F8.4)') dreal(lm(2,istate,:)),dimag(lm(2,istate,:))
+  !   ! end do
+  !   ! stop
+  !   !DEBUG>
+
+
+  !   !
+  !   proj_variational_density=0.d0
+  !   !+- build up the local H_projectors -+!
+  !   call build_H_GZproj_superc(H_projectors,slater_derivatives,n0_target,lm,ifree_)
+  !   ! 
+  !   call matrix_diagonalize(H_projectors,H_eigens)
+
+  !   !<TEST_DEGENERATE
+  !   ! tmp_eigen=H_eigens(1)
+  !   ! do iphi=2,Nphi
+  !   !    if(abs(tmp_eigen-H_eigens(iphi)).gt.1.d-10) exit       
+  !   !    tmp_eigen=H_eigens(iphi)
+  !   ! end do
+  !   ! Ndegen=iphi-1
+  !   ! proj_gs=zero
+  !   ! do iphi=1,1
+  !   !    proj_gs = proj_gs + H_projectors(:,iphi)/sqrt(dble(Ndegen))
+  !   ! end do
+  !   ! write(*,*) 'Ndegen!!',Ndegen
+  !   !TEST_DEGENERATE>
+
+  !   proj_gs = H_projectors(:,1)
+
+  !   do is=1,Ns
+  !      do js=1,Ns
+  !         !
+  !         proj_variational_density(1,is,js) = trace_phi_basis(proj_gs,phi_traces_basis_dens(is,js,:,:))
+  !         proj_variational_density(2,is,js) = trace_phi_basis(proj_gs,phi_traces_basis_dens_anomalous(is,js,:,:))
+  !         !
+  !         write(*,*) proj_variational_density(1,is,js)
+  !      end do
+  !   end do
+  !   delta_proj_variational_density = proj_variational_density
+  !   do istate=1,Ns
+  !      delta_proj_variational_density(1,istate,istate) = & 
+  !           delta_proj_variational_density(1,istate,istate) - n0_target(istate) 
+  !   end do
+  !   !
+  !   ! call symmetry_stride_mat_vec(delta_proj_variational_density(1,:,:),delta_normal)
+  !   ! call symmetry_stride_mat_vec(delta_proj_variational_density(2,:,:),delta_anomalous)
+  !   delta=0.d0
+  !   do istate=1,Ns     
+  !      do jstate=1,Ns
+  !         delta = delta + delta_proj_variational_density(1,istate,jstate)*conjg(delta_proj_variational_density(1,istate,jstate))
+  !         delta = delta + delta_proj_variational_density(2,istate,jstate)*conjg(delta_proj_variational_density(2,istate,jstate))
+  !      end do
+  !   end do
+  !   !write(*,*) lm_,delta
+  ! end function get_delta_proj_variational_density_
+
+
 end subroutine gz_projectors_minimization_nlep_superc
 
 
@@ -984,16 +1310,64 @@ subroutine gz_proj_minimization_fixed_lgr_superc(n0,slater_derivatives,lgr_multi
   !    end do
   !    write(*,*) proj_variational_density(istate,:)
   ! end do
-  write(*,*)
-  do istate=1,Nphi
-     write(*,*) H_eigens(istate),H_projectors(istate,1)
-  end do
-  do is=1,Ns
-     write(*,*) slater_derivatives(1,is,:)
-  end do
+  ! write(*,*)
+  ! do istate=1,Nphi
+  !    write(*,*) H_eigens(istate),H_projectors(istate,1)
+  ! end do
+  ! do is=1,Ns
+  !    write(*,*) slater_derivatives(1,is,:)
+  ! end do
   !DEBUG>
   !
 end subroutine gz_proj_minimization_fixed_lgr_superc
+
+
+!subroutine get_GZproj_ground_state_fixR(n0,lgr_multip_dens,lgr_multip_Rhop,E_Hloc,GZvect) 
+
+subroutine gz_proj_minimization_fixed_lgr_superc_(n0,lgr_multip,lgr_multip_Rhop,lgr_multip_Qhop,E_Hloc,GZvect,free_flag) 
+  real(8),dimension(Ns)           :: n0
+  complex(8),dimension(2,Ns,Ns)   :: lgr_multip
+  complex(8),dimension(Ns,Ns)     :: lgr_multip_Rhop,lgr_multip_Qhop
+  real(8)                         :: E_Hloc
+  complex(8),dimension(Nphi)      :: GZvect
+  logical,optional                :: free_flag
+  logical                         :: free_flag_
+  complex(8),dimension(Nphi,Nphi) :: H_projectors
+  real(8),dimension(Nphi)         :: H_eigens  
+  integer                         :: iorb,jorb,ispin,jspin,istate,jstate,ifock,jfock
+  integer                         :: iphi,jphi,is,js
+  real(8),dimension(Ns,Ns)        :: proj_variational_density
+  !
+  !+- build up the local H_projectors -+!
+  free_flag_=.false.; if(present(free_flag)) free_flag_=free_flag
+  !
+  H_projectors=zero
+  H_projectors = phi_traces_basis_free_Hloc
+  if(.not.free_flag_) H_projectors = phi_traces_basis_Hloc
+  do is=1,Ns
+     do js=1,Ns
+        ! !        
+        H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens(is,js,:,:)
+        H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens_hc(is,js,:,:)
+        ! !
+        H_projectors = H_projectors + lgr_multip(2,is,js)*phi_traces_basis_dens_anomalous(is,js,:,:)
+        H_projectors = H_projectors + conjg(lgr_multip(2,is,js))*phi_traces_basis_dens_anomalous_hc(is,js,:,:)
+        ! !
+        H_projectors = H_projectors - lgr_multip_Rhop(is,js)*phi_traces_basis_Rhop(is,js,:,:)
+        H_projectors = H_projectors - conjg(lgr_multip_Rhop(is,js))*phi_traces_basis_Rhop_hc(is,js,:,:)
+        ! !
+        H_projectors = H_projectors - lgr_multip_Qhop(is,js)*phi_traces_basis_Qhop(is,js,:,:)
+        H_projectors = H_projectors - conjg(lgr_multip_Qhop(is,js))*phi_traces_basis_Qhop_hc(is,js,:,:)
+        ! !
+     end do
+  end do
+  !
+  call matrix_diagonalize(H_projectors,H_eigens,'V','L')
+  !
+  GZvect=H_projectors(1:Nphi,1)
+  E_Hloc=trace_phi_basis(GZvect,phi_traces_basis_Hloc)
+  !
+end subroutine gz_proj_minimization_fixed_lgr_superc_
 
 
 
@@ -1045,12 +1419,13 @@ subroutine build_H_GZproj_superc(H_projectors,slater_derivatives,n0,lgr_multip,i
         !
         H_projectors = H_projectors + slater_derivatives(1,is,js)*phi_traces_basis_Rhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))          
         H_projectors = H_projectors + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))          
+        !
         H_projectors = H_projectors + slater_derivatives(2,is,js)*phi_traces_basis_Qhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))          
         H_projectors = H_projectors + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))          
-        !        
-        H_projectors = H_projectors + lgr_multip(1,is,js)*phi_traces_basis_dens(is,js,:,:)
-        H_projectors = H_projectors + conjg(lgr_multip(1,is,js))*phi_traces_basis_dens_hc(is,js,:,:)
-        !
+        ! !        
+        H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens(is,js,:,:)
+        H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens_hc(is,js,:,:)
+        ! !
         H_projectors = H_projectors + lgr_multip(2,is,js)*phi_traces_basis_dens_anomalous(is,js,:,:)
         H_projectors = H_projectors + conjg(lgr_multip(2,is,js))*phi_traces_basis_dens_anomalous_hc(is,js,:,:)
         !

@@ -29,10 +29,13 @@ program GUTZ_mb
   integer                            :: out_unit,iter
   integer                            :: lattice ! 2=square;3=cubic
   real(8),dimension(:),allocatable :: epsik,hybik
-  integer :: Nx,is,js,imap,jmap
+  integer :: Nx,is,js,imap,jmap,Nopt
   !
   real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter
-
+  real(8),dimension(:),allocatable :: dump_seed
+  integer :: expected_flen,flen,unit
+  logical :: seed_file
+  !
   character(len=5) :: dir_suffix
   character(len=6) :: dir_iter
   !
@@ -49,13 +52,10 @@ program GUTZ_mb
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
-
   if(Norb.eq.1.and.wf_symmetry.eq.1) then
      write(*,*) 'WARNING THE O(1) x SU(2)c x ORBITAL_ROTATION = O(1) x SU(2)c for the Norb=1 case!'
      wf_symmetry=0
   end if
-
-
   !NOTE: ON HUNDS COUPLINGS:
   !NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
@@ -66,8 +66,8 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-  !
   call init_variational_matrices
+  !
   do is=1,Ns
      do js=1,Ns        
         write(*,*) '!+----------------------------------------------+!'
@@ -112,67 +112,72 @@ program GUTZ_mb
   Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+  Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   !
-
-
-
-  ! allocate(variational_density_natural_simplex(Ns+1,Ns))
-  ! allocate(variational_density_natural(Ns))
-  ! call initialize_variational_density_simplex(variational_density_natural_simplex)
-  
-  ! !
-  ! call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
-  ! call get_gz_ground_state_superc(GZ_vector)
-  ! call print_output_superc(variational_density_natural_simplex)
-  ! stop
-
-
-  
-
-
+  !
   allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
   allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
-  slater_lgr_init(1,:,:)=0.1d0
-  slater_lgr_init(2,:,:)=0.1d0
-  gzproj_lgr_init(1,:,:)=0.1d0
-  gzproj_lgr_init(2,:,:)=0.1d0
-  
-  R_init=zero
-  do is=1,Ns
-     R_init(is,is) = 1.d0/sqrt(2.d0)
-  end do
-  Q_init=zero
   !
-  do iorb=1,Norb
-     do jorb=1,Norb
-        do ispin=1,2
-           jspin=3-ispin           
-           is=index(ispin,iorb)
-           js=index(jspin,jorb)
-           if(iorb.eq.jorb) then 
-              Q_init(is,js) = 1.d0/sqrt(2.d0)
-           else
-              Q_init(is,js) = 0.d0
-           end if
+  !+- inquire if existe a seed file and read the input -+!
+  !
+  expected_flen=2*Nopt
+  inquire(file="RQn0_root_seed.conf",exist=seed_file)
+  if(seed_file) then
+     flen=file_length("RQn0_root_seed.conf")
+     unit=free_unit()
+     open(unit,file="RQn0_root_seed.conf")
+     write(*,*) 'reading root seed from file RQn0_root_seed.conf'
+     if(flen.eq.expected_flen) then
+        allocate(dump_seed(flen))
+        !+- read from file -+!
+        do i=1,flen
+           read(unit,*) dump_seed(i)
+        end do
+        !+------------------+!        
+        call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)        
+     else
+        write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
+        write(*,*) 'please check your initialization file for the root finding'
+        stop
+     end if
+  else
+     !
+     R_init=zero
+     do is=1,Ns
+        R_init(is,is) = 1.d0/sqrt(2.d0)
+     end do
+     Q_init=zero
+     !
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,2
+              jspin=3-ispin           
+              is=index(ispin,iorb)
+              js=index(jspin,jorb)
+              if(iorb.eq.jorb) then 
+                 Q_init(is,js) = 1.d0/sqrt(2.d0)
+              else
+                 Q_init(is,js) = 0.d0
+              end if
+           end do
         end do
      end do
-  end do
-
-  allocate(vdm_init(Ns)); vdm_init=0.5d0
-
-
+     !
+     slater_lgr_init(1,:,:)=0.1d0
+     slater_lgr_init(2,:,:)=0.1d0
+     gzproj_lgr_init(1,:,:)=0.1d0
+     gzproj_lgr_init(2,:,:)=0.1d0  
+     !
+  end if
+  !
   Uloc=0.d0
-  Uiter=0.1d0
+  Uiter=-5.d0
   Jh_ratio=Jh
-  do i=1,5
-     Uiter = Uiter - 0.1d0
+  do i=1,50
+     Uiter = Uiter + 0.1d0
      do iorb=1,Norb
         Uloc(iorb) = Uiter
      end do
-     ! Jh = Jh_ratio*Uiter
-     ! Jsf = Jh
-     ! Jph = Jh
-     ! Ust = Uiter-2.d0*Jh
      !
      call build_local_hamiltonian     
      phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
@@ -183,18 +188,12 @@ program GUTZ_mb
      call system('mkdir -v '//dir_iter)     
      !
      call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-     call get_gz_ground_state_superc(GZ_vector)  
-     !
-     ! write(*,*) "R_init"
-     ! do is=1,Ns
-     !    write(*,*) R_init(is,:)
-     ! end do
+     call get_gz_ground_state_superc(GZ_vector)
      !
      call print_output_superc
-     call system('cp * '//dir_iter)
+     call system('cp *.out *.data fort* '//dir_iter)
      call system('rm *.out *.data fort* ')
   end do
-
   !
 CONTAINS
   !
@@ -216,16 +215,15 @@ CONTAINS
     test_n1=0.d0;test_n2=0.d0
     do ix=1,Lk
        wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       !wtk(ix) = 1.d0/Wband*de
        if(ix==1.or.ix==Lk) wtk(ix)=0.d0
        test_n1=test_n1+wtk(ix)*fermi(epsik(ix)+Cfield*0.5d0,beta)
        test_n2=test_n2+wtk(ix)*fermi(epsik(ix)-Cfield*0.5d0,beta)
        write(77,*) epsik(ix),wtk(ix)
     end do
     hybik=0.d0
-    !write(*,*) test_n1,test_n2,Cfield; stop
-
-
+    write(*,*) 'BARE MODEL ORBITAL OCCUPATIONS'
+    write(*,*) test_n1,test_n2,Cfield
+    !
     ! allocate(kx(Nx))
     ! kx = linspace(0.d0,pi,Nx,.true.,.true.)
     ! Lk=Nx*Nx*Nx
@@ -242,10 +240,9 @@ CONTAINS
     !       end do
     !    end do
     ! end do
-
+    !
     call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
-    !stop
-
+    !
     allocate(Hk_tb(Ns,Ns,Lk))    
     Hk_tb=0.d0
     do ik=1,Lk
@@ -264,18 +261,8 @@ CONTAINS
           end do
        end do
     end do
-    !<EXTREMA RATIO TEST
-    ! e0test=0.d0
-    ! do ik=1,Lk
-    !    e0test = e0test + fermi_zero(epsik(ik),0.d0)*epsik(ik)*wtk(ik)
-    ! end do
-    !EXTREMA RATIO TEST>
   end subroutine build_lattice_model
-
-
-
-
-
+  !
   subroutine print_output(vdm_simplex)
     real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
     integer :: out_unit,istate,iorb,iphi,ifock,jfock
@@ -358,7 +345,7 @@ CONTAINS
     write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
     close(out_unit)
     !
-    
+
 
     if(present(vdm_simplex)) then
        out_unit=free_unit()
@@ -579,7 +566,6 @@ CONTAINS
   !   complex(8),dimension(:)   :: Qhop_indep
   !   complex(8),dimension(:,:) :: Qhop_mat
   !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   write(*,*) "entrato"
   !   if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
   !   if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
   !   if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
@@ -765,7 +751,6 @@ CONTAINS
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    write(*,*) "entrato"
     if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
     if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
     if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
@@ -776,7 +761,6 @@ CONTAINS
              jspin=3-ispin
              is=index(ispin,iorb)
              js=index(jspin,jorb)
-             write(*,*) is,js,size(Qhop_mat,1),size(Qhop_mat,2)
              if(iorb.eq.jorb) then
                 Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
              else
@@ -790,7 +774,6 @@ CONTAINS
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    write(*,*) "entrato"
     if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
     if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
     if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    

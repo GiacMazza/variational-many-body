@@ -5,24 +5,15 @@ MODULE GZ_AUX_FUNX
   implicit none
   private
   !
-  !  public :: initialize_local_fock_space
-  !  public :: build_local_operators_fock_space
-  !  public :: build_local_hamiltonian
   public :: bdecomp
-  !  public :: get_spin_indep_states
-  !public :: initialize_local_density
   public :: vec2mat_stride,mat2vec_stride
   public :: initialize_variational_density_simplex
-  public :: initialize_variational_density
-  
+  public :: initialize_variational_density  
   !+- at some point these two subroutines should be merged in SCIFOR -+!
   public :: simultaneous_diag
   public :: fixed_point_sub   
-
-  
-  
+  !
   public :: fermi_zero
-
   !
 CONTAINS
 
@@ -112,10 +103,10 @@ CONTAINS
 
 
   subroutine initialize_variational_density(variational_density)
-    real(8),dimension(Ns),intent(inout) :: variational_density
+    real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),intent(inout) :: variational_density
     logical                 :: IOfile
     integer                 :: unit,flen,i,j,expected_flen
-    expected_flen=Ns
+    expected_flen=size(variational_density)
     inquire(file="vdm_seed.conf",exist=IOfile)
     if(IOfile) then
        flen=file_length("vdm_seed.conf")
@@ -124,17 +115,17 @@ CONTAINS
        write(*,*) 'reading denisty seed from file vdm_seed.conf'
        if(flen.eq.expected_flen) then
           !+- read from file -+!
-          do i=1,Ns
+          do i=1,flen
              read(unit,*) variational_density(i)
           end do
        else
           write(*,*) 'vdm_seed.conf in the wrong form',flen,expected_flen
-          write(*,*) 'variational density matrix will be initialized to the unpolarized case'
+          write(*,*) 'variational density matrix will be initialized to the homogeneous case'
           variational_density = 0.5d0
        end if
     else
        write(*,*) 'vdm_simplex_seed.conf does not exist'
-       write(*,*) 'variational density matrix will be initialized to the unpolarized case'
+       write(*,*) 'variational density matrix will be initialized to the homogeneous case'
        variational_density = 0.5d0
     end if
   end subroutine initialize_variational_density

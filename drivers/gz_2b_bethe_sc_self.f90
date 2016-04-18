@@ -31,29 +31,31 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: epsik,hybik
   integer :: Nx,is,js,imap,jmap,Nopt
   !
-  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter
+  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter,VDMiter
   real(8),dimension(:),allocatable :: dump_seed
   integer :: expected_flen,flen,unit
   logical :: seed_file
 
 
   character(len=5) :: dir_suffix
-  character(len=6) :: dir_iter
+  character(len=8) :: dir_iter
   !
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
   complex(8),dimension(:,:),allocatable   :: R_init,Q_init
 
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init_,gzproj_lgr_init_
   complex(8),dimension(:,:),allocatable   :: R_init_,Q_init_
-
-
   complex(8),dimension(1) :: tmpQ
+
+  character(len=11) :: task !e_sweep_vdm,min_simplex,min_galahad,nRQfree_min
+
   !
   !+- PARSE INPUT DRIVER -+!
-  call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
+  call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
   call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)  
+  call parse_input_variable(task,"TASK","inputGZ.conf",default="min_galahad")  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -62,8 +64,7 @@ program GUTZ_mb
      write(*,*) 'WARNING THE O(1) x SU(2)c x ORBITAL_ROTATION = O(1) x SU(2)c for the Norb=1 case!'
      wf_symmetry=0
   end if
-
-
+  !
   !NOTE: ON HUNDS COUPLINGS:
   !NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
@@ -74,52 +75,8 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-  !
   call init_variational_matrices
-  do is=1,Ns
-     do js=1,Ns        
-        write(*,*) '!+----------------------------------------------+!'
-        write(*,*) 'IS',is,'JS',js
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              !tmp_real = tmp_real + phi_traces_basis_Rhop(is,js,i,j)*conjg(phi_traces_basis_Rhop(is,js,i,j))
-              tmp_real = tmp_real + phi_traces_basis_sc_order(is,js,i,j)*conjg(phi_traces_basis_sc_order(is,js,i,j))
-           end do
-        end do
-        write(*,*) 'basis sc order',tmp_real
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              tmp_real = tmp_real + phi_traces_basis_Rhop(is,js,i,j)*conjg(phi_traces_basis_Rhop(is,js,i,j))
-           end do
-        end do
-        write(*,*) 'basis Rhop',tmp_real
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              tmp_real = tmp_real + phi_traces_basis_Qhop(is,js,i,j)*conjg(phi_traces_basis_Qhop(is,js,i,j))
-           end do
-        end do
-        write(*,*) 'basis Qhop',tmp_real
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              tmp_real = tmp_real + phi_traces_basis_dens(is,js,i,j)*conjg(phi_traces_basis_dens(is,js,i,j))
-           end do
-        end do
-        write(*,*) 'basis dens',tmp_real
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              tmp_real = tmp_real + phi_traces_basis_dens_anomalous(is,js,i,j)*conjg(phi_traces_basis_dens_anomalous(is,js,i,j))
-           end do
-        end do
-        write(*,*) 'basis dens_anomalous',tmp_real
-        !
-     end do
-  end do
-  !  
+  !
   call build_lattice_model
   !
   NRhop_opt=1;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
@@ -129,155 +86,62 @@ program GUTZ_mb
   Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
   Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   !
-  allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
-  allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
-
-  allocate(R_init_(Ns,Ns),Q_init_(Ns,Ns))
-  allocate(slater_lgr_init_(2,Ns,Ns),gzproj_lgr_init_(2,Ns,Ns))
-
-  slater_lgr_init=0.d0
-  gzproj_lgr_init=0.d0
-
-
-  expected_flen=2*Nopt
-  inquire(file="RQn0_root_seed.conf",exist=seed_file)
-  if(seed_file) then
-     flen=file_length("RQn0_root_seed.conf")
-     unit=free_unit()
-     open(unit,file="RQn0_root_seed.conf")
-     write(*,*) 'reading root seed from file RQn0_root_seed.conf'
-     if(flen.eq.expected_flen) then
-        allocate(dump_seed(flen))
-        !+- read from file -+!
-        do i=1,flen
-           read(unit,*) dump_seed(i)
-        end do
-        !+------------------+!        
-        call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)        
-     else
-        write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
-        write(*,*) 'please check your initialization file for the root finding'
-        stop
+  select case(task)
+  case("min_galahad")
+     !+- nlsq_minimization using the galahad routine -+!     
+     allocate(vdm_init(Nvdm_NC_opt-Nvdm_NCoff_opt),vdm_out(Nvdm_NC_opt-Nvdm_NCoff_opt))
+     !
+     call initialize_variational_density(vdm_init)
+     !
+     call gz_optimization_vdm_nlsq(vdm_init,vdm_out)  
+     !
+     call get_gz_ground_state_superc(GZ_vector)
+     !
+     call print_output_superc(vdm_opt=vdm_out)
+     !
+  case("min_simplex")
+     !+- simplex_minimization using the amoeab routine +-!
+     !
+     allocate(variational_density_natural_simplex(Ns+1,Ns)); allocate(variational_density_natural(Ns))     
+     !
+     call initialize_variational_density_simplex(variational_density_natural_simplex)
+     !
+     call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
+     !
+     call get_gz_ground_state_superc(GZ_vector)
+     !
+     call print_output_superc(variational_density_natural_simplex)
+     !
+  case("e_sweep_vdm")
+     !+- energy computation for a fixed Variational Density Matrix provided by the user -+!
+     ! (read independent vdm elements from file and compute the optimized GZ_energy) !
+     allocate(vdm_init(Nvdm_NC_opt-Nvdm_NCoff_opt),vdm_out(Nvdm_NC_opt-Nvdm_NCoff_opt))
+     !
+     call initialize_variational_density(vdm_init)
+     !
+     opt_energy_unit=free_unit()
+     open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+     opt_rhop_unit=free_unit()
+     if(gz_superc) then
+        open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+        opt_qhop_unit=free_unit()
      end if
-  else
-     !
-     R_init=zero
-     do is=1,Ns
-        R_init(is,is) = 1.d0/sqrt(2.d0)
-     end do
-     Q_init=zero
-     !
-     do iorb=1,Norb
-        do jorb=1,Norb
-           do ispin=1,2
-              jspin=3-ispin           
-              is=index(ispin,iorb)
-              js=index(jspin,jorb)
-              if(iorb.ne.jorb) then 
-                 Q_init(is,js) = 1.d0/sqrt(2.d0)
-              else
-                 Q_init(is,js) = 0.d0
-              end if
-           end do
-        end do
-     end do
-     !
-     slater_lgr_init(1,:,:)=0.1d0
-     slater_lgr_init(2,:,:)=0.1d0
-     gzproj_lgr_init(1,:,:)=0.1d0
-     gzproj_lgr_init(2,:,:)=0.1d0  
-     !
-  end if
-  ! R_init=zero
-  ! do is=1,Ns
-  !    R_init(is,is) = 1.d0
-  ! end do
-  ! Q_init=zero
-  ! !
-  ! do iorb=1,Norb
-  !    do jorb=1,Norb
-  !       do ispin=1,2
-  !          jspin=3-ispin           
-  !          is=index(ispin,iorb)
-  !          js=index(jspin,jorb)
-  !          if(iorb.eq.jorb) then 
-  !             Q_init(is,js) = 0.d0
-  !          else
-  !             Q_init(is,js) = 0.d0
-  !          end if
-  !       end do
-  !    end do
-  ! end do
-
-  R_init_=R_init
-  Q_init_=Q_init
-  slater_lgr_init_=slater_lgr_init
-  gzproj_lgr_init_=gzproj_lgr_init
-  Jiter = -0.36d0
-  do i=1,35
-     Jiter = Jiter + 0.01d0
-     !+ T^2-Tz^2 hamiltonian
-     Jh = Jiter
-     Jsf = Jh
-     Jph = 0.d0
-     !
-     call build_local_hamiltonian     
-     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-     !
-     write(dir_suffix,'(F4.2)') abs(Jiter)
-     dir_iter="J"//trim(dir_suffix)
-     call system('mkdir -v '//dir_iter)     
-     !
-     ! if(i.ge.1) then
-     !    R_init=R_init_
-     !    Q_init=Q_init_
-     !    slater_lgr_init=slater_lgr_init_
-     !    gzproj_lgr_init=gzproj_lgr_init_
-     ! end if
-     call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-     !slater_lgr_init=dreal(slater_lgr_init)
-     call get_gz_ground_state_superc(GZ_vector)  
-     !
+     open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
+     opt_GZ_unit=free_unit()
+     open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+     if(GZmin_verbose) then
+        GZmin_unit=free_unit()
+        open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+        GZmin_unit_=free_unit()
+        open(GZmin_unit_,file='GZ_proj_min.out')
+     end if
+     optimization_flag=.true.
+     if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
+     tmp_emin = gz_energy_vdm(vdm_init);
+     call get_gz_ground_state_superc(GZ_vector)     !                                                                                                                                                               
      call print_output_superc
-     call system('cp * '//dir_iter)
-     call system('rm *.out *.data fort.* ')
-  end do
-
-
-  ! Uiter=-0.1d0
-  ! Jh_ratio=Jh
-  ! do i=1,50
-  !    Uiter = Uiter + 0.1d0
-  !    do iorb=1,Norb
-  !       Uloc(iorb) = Uiter
-  !    end do
-  !    Jh = Jh_ratio*Uiter
-  !    Jsf = Jh
-  !    Jph = Jh
-  !    Ust = Uiter-2.d0*Jh
-  !    !
-  !    call build_local_hamiltonian     
-  !    phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-  !    phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-  !    !
-  !    write(dir_suffix,'(F4.2)') Uiter
-  !    dir_iter="U"//trim(dir_suffix)
-  !    call system('mkdir -v '//dir_iter)     
-  !    !
-  !    call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-  !    call get_gz_ground_state_superc(GZ_vector)  
-  !    !
-  !    write(*,*) "R_init"
-  !    do is=1,Ns
-  !       write(*,*) R_init(is,:)
-  !    end do
-  !    !
-  !    call print_output_superc
-  !    call system('cp * '//dir_iter)
-  !    call system('rm *.out *.data fort* ')
-  ! end do
-
+     !
+  end select
   !
 CONTAINS
   !
@@ -477,14 +341,16 @@ CONTAINS
 
 
 
-  subroutine print_output_superc(vdm_simplex)
+  subroutine print_output_superc(vdm_simplex,vdm_opt)
     real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
+    real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),optional :: vdm_opt
     integer :: out_unit,istate,iorb,iphi,ifock,jfock
     integer,dimension(Ns) :: fock_state
     complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
 
     real(8),dimension(nFock,nFock) :: test_full_phi
+
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
@@ -607,6 +473,15 @@ CONTAINS
        close(out_unit)
     end if
     !
+    if(present(vdm_opt)) then
+       out_unit=free_unit()
+       open(out_unit,file='vdm_seed.restart')
+       do istate=1,Nvdm_NC_opt-Nvdm_NCoff_opt
+          write(out_unit,'(10F18.10)')  vdm_opt(istate)
+       end do
+       close(out_unit)
+    end if
+
   end subroutine print_output_superc
 
 

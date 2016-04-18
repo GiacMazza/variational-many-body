@@ -24,6 +24,9 @@ MODULE GZ_OPTIMIZED_ENERGY
   public :: gz_optimization_vdm_Rhop
   public :: gz_optimization_vdm_Rhop_superc
   !
+  public :: dump2mats_superc,dump2vec_superc
+  integer :: root_unit,xmin_unit
+  !
 CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
   !+- PURPOSE: Minimize the GUTZWILLER ENERGY FUNCTIONAL WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
@@ -212,7 +215,7 @@ CONTAINS
     !Nopt = 2*NRhop_opt + 2*NQhop_opt + 2*Nvdm_NC_opt + 2*Nvdm_AC_opt + 2*Nvdm_NCoff_opt + 2*Nvdm_AC_opt
     Nopt = NRhop + NQhop + Nslater_lgr + Nproj_lgr
     allocate(xmin(Nopt),xout(Nopt))    
-    
+
     if(present(init_vdm)) then
        tmp_vdm = zero
        tmp_vdm(1,:,:) = init_vdm
@@ -221,78 +224,90 @@ CONTAINS
        end do
        call slater_minimization_lgr_superc(init_Rhop,init_Qhop,vdm,tmp_ene,init_lgr_slater,iverbose=.true.)    
     end if
-    
+
+    if(GZmin_verbose) then
+       write(*,*) 'RQn0_minimization: INPUT PARAMETERS'
+       write(*,*) 'Rhop'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_Rhop(is,:)
+       end do
+       write(*,*) 'Qhop'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_Qhop(is,:)
+       end do
+       write(*,*) 'init_lgr_slater Normal'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_slater(1,is,:)
+       end do
+       write(*,*) 'init_lgr_slater Anomalous'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_slater(2,is,:)
+       end do
+       write(*,*) 'init_lgr_proj Normal'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_proj(1,is,:)
+       end do
+       write(*,*) 'init_lgr_proj Anomalous'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_proj(2,is,:)
+       end do
+    end if
     !
     call dump2vec_superc(xmin,init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj)
+    !  
+    if(GZmin_verbose) then
+       write(*,*) 'DUMPED OPTIMIZATION VECTOR'
+       do is=1,Nopt
+          write(*,*) is,xmin(is)
+       end do
+    end if
+    !
+    !
+    if(GZmin_verbose) then
+       root_unit=free_unit()
+       open(unit=root_unit,file='RQn0_root_finding.out')
+       xmin_unit=free_unit()
+       open(unit=xmin_unit,file='RQn0_root_finding_xmin.out')
+    end if
+    !
+    call fsolve(R_Q_VDM_free_zeros_superc,xmin,tol=1.d-10,info=iter)
+    ! call fmin_cg(xmin,R_Q_VDM_free_opt_superc,iter,out_err,ftol=10d-15,istop=2)
+    ! write(*,*) 'ITER',iter
     !    
-    do is=1,Ns
-       write(*,'(10F8.4)') init_Rhop(is,:)
-    end do
-    write(*,*)
-    do is=1,Ns
-       write(*,'(10F8.4)') init_Qhop(is,:)
-    end do
-    write(*,*)
-    do is=1,Ns
-       write(*,'(10F8.4)') init_lgr_slater(1,is,:)
-    end do
-    write(*,*)
-    do is=1,Ns
-       write(*,'(10F8.4)') init_lgr_slater(2,is,:)
-    end do
-    write(*,*)
-    do is=1,Ns
-       write(*,'(10F8.4)') init_lgr_proj(1,is,:)
-    end do
-    write(*,*)
-    do is=1,Ns
-       write(*,'(10F8.4)') init_lgr_proj(2,is,:)
-    end do
-    write(*,*)
-
-    do is=1,Nopt
-       write(*,*) is,xmin(is)
-    end do
-    
-    !
-    call fmin_cg(xmin,R_Q_VDM_free_opt_superc,iter,out_err)
-    !
-    !    call fsolve(R_Q_VDM_free_zeros_superc,xmin,tol=1.d-10,info=iter)
-    !
     !+- once optimization is achieved store the ground state results -+!
     optimization_flag=.true.
     if(allocated(GZ_vector)) deallocate(GZ_vector)
     allocate(GZ_vector(Nphi))
     if(allocated(GZ_opt_slater_lgr_superc)) deallocate(GZ_opt_slater_lgr_superc)
     allocate(GZ_opt_slater_lgr_superc(2,Ns,Ns))
-
-    ! xout = R_Q_VDM_free_zeros_superc(xmin)
-    ! out_err=0.d0
-    ! do is=1,Nopt
-    !    out_err = out_err + xout(is)**2.d0
-    ! end do
-    out_err = R_Q_VDM_free_opt_superc(xmin)
-
+    !
+    xout = R_Q_VDM_free_zeros_superc(xmin)
+    out_err=0.d0
+    do is=1,Nopt
+       out_err = out_err + xout(is)**2.d0
+    end do
     !
     if(GZmin_verbose) then       
-       write(*,*) 'ROOT FUNCTION VDM-RHOP OPTIMIZATION',out_err
+       write(root_unit,*)
+       write(root_unit,*)
+       write(root_unit,*) out_err
        do is=1,Nopt
-!          write(*,*) is,xout(is),xmin(is)
-          write(*,*) is,xmin(is),xmin(is)
+          write(root_unit,*) is,xout(is),xmin(is)
        end do
+       close(root_unit)
+       close(xmin_unit)
     end if
     call dump2mats_superc(xmin,init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj)
+    !
   end subroutine gz_optimization_vdm_Rhop_superc
-
-
   !
   !+---------------------------------------------------------------------------+!
   !+- CONSTRAINED MINIMIZATION WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
   !+---------------------------------------------------------------------------+!
   !
   subroutine gz_optimization_vdm_nlsq(init_vdm,optimized_vdm)
-    real(8),dimension(Nopt_diag),intent(in)  :: init_vdm
-    real(8),dimension(Nopt_diag),intent(out) :: optimized_vdm
+    real(8),dimension(:),intent(in)  :: init_vdm
+    real(8),dimension(size(init_vdm)),intent(out) :: optimized_vdm
     integer                             :: iter,unit_vdm_opt,icall
     real(8)                             :: GZ_energy
     !
@@ -302,17 +317,21 @@ CONTAINS
     real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
     real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
     integer                           :: iunit,err_unit,ene_unit,Nsuccess    
-
+    !
+    if(size(init_vdm).ne.Nvdm_NC_opt-Nvdm_NCoff_opt) stop "wrong dimensions @ gz_optimizatoin_vdm_nlsq"
     optimized_vdm=init_vdm
-
+    !
     unit_vdm_opt=free_unit()
     open(unit_vdm_opt,file='vdm_optimization.out'); icall=0
-
-
+    !
     opt_energy_unit=free_unit()
     open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
     opt_rhop_unit=free_unit()
     open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+    if(gz_superc) then
+       opt_qhop_unit=free_unit()
+       open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
+    end if
     opt_GZ_unit=free_unit()
     open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
     if(GZmin_verbose) then
@@ -325,7 +344,7 @@ CONTAINS
 
 
     ! LANCELOT configuration parameters 
-    n_min       = Nopt_diag  ! number of minimization parameters  
+    n_min       = Nvdm_NC_opt-Nvdm_NCoff_opt  ! number of minimization parameters  
     neq         = 0   ! number of equality constraints                   
     nin         = 0           ! number of in-equality constraints                   
     maxit       = 1000        ! maximum iteration number 

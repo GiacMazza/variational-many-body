@@ -256,38 +256,39 @@ end function R_VDM_free_zeros
 
 
 
+!+- SUPERCONDUCTING ROUTINES -+!
+
 
 !
 !
 function R_Q_VDM_free_zeros_superc(x)  result(Fout)
-  real(8),dimension(:) :: x      
-  real(8),dimension(size(x))      :: Fout
-  real(8),dimension(size(x))      :: tmp_x
-  real(8)                         :: E_Hstar,E_Hloc
-  complex(8),dimension(Nphi)      :: GZvect
-
-  complex(8),dimension(Ns,Ns)   :: Rhop,Rhop_GZproj
-  complex(8),dimension(Ns,Ns)   :: Qhop,Qhop_GZproj
-  complex(8),dimension(2,Ns,Ns) :: slater_derivatives
-  complex(8),dimension(2,Ns,Ns)    :: slater_lgr_multip
-  complex(8),dimension(2,Ns,Ns)    :: proj_lgr_multip
-  complex(8),dimension(Ns,Ns) :: Rhop_lgr_multip
-  complex(8),dimension(Ns,Ns) :: Qhop_lgr_multip
+  real(8),dimension(:)                :: x      
   !
-  complex(8),dimension(2,Ns,Ns)    :: n0_slater,n0_GZproj
-  real(8),dimension(Ns)       :: n0_diag
-  real(8)                     :: tmp
-  complex(8)                     :: tmpR
-  integer                     :: imap,is,js,i,ix,i0
-  integer :: Nslater_lgr,NQhop,NRhop,Nproj_lgr,Nopt
-
+  real(8),dimension(size(x))          :: Fout
+  real(8),dimension(size(x))          :: tmp_x
+  real(8)                             :: E_Hstar,E_Hloc
+  complex(8),dimension(Nphi)          :: GZvect
+  !
+  complex(8),dimension(Ns,Ns)         :: Rhop,Rhop_GZproj
+  complex(8),dimension(Ns,Ns)         :: Qhop,Qhop_GZproj
+  complex(8),dimension(2,Ns,Ns)       :: slater_derivatives
+  complex(8),dimension(2,Ns,Ns)       :: slater_lgr_multip
+  complex(8),dimension(2,Ns,Ns)       :: proj_lgr_multip
+  complex(8),dimension(Ns,Ns)         :: Rhop_lgr_multip
+  complex(8),dimension(Ns,Ns)         :: Qhop_lgr_multip
+  !
+  complex(8),dimension(2,Ns,Ns)       :: n0_slater,n0_GZproj
+  real(8),dimension(Ns)               :: n0_diag
+  real(8)                             :: tmp,delta_out
+  complex(8)                          :: tmpR
+  integer                             :: imap,is,js,i,ix,i0
+  integer                             :: Nslater_lgr,NQhop,NRhop,Nproj_lgr,Nopt
+  !
   complex(8),dimension(:),allocatable :: dump_input
   complex(8),dimension(:),allocatable :: dump_output
   !
-  complex(8),dimension(Ns,Ns) :: Rhop_out,Qhop_out
-  complex(8),dimension(2,Ns,Ns) :: slater_out,GZproj_out
-
-
+  complex(8),dimension(Ns,Ns)         :: Rhop_out,Qhop_out
+  complex(8),dimension(2,Ns,Ns)       :: slater_out,GZproj_out
   !
   NRhop = 2*NRhop_opt
   NQhop = 2*NQhop_opt
@@ -296,39 +297,47 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
   Nproj_lgr = 2*(Nvdm_NCoff_opt+Nvdm_AC_opt) 
   !
   Nopt = NRhop + NQhop + Nslater_lgr + Nproj_lgr
-  if(size(x).ne.Nopt) stop "what the fuck are you doing!?!?!?"
+  if(size(x).ne.Nopt) stop "R_Q_VDM_free_seros_superc: size input vector not equal to Nopt."
+  !
   call dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
   !
-  write(*,*) "DENTRO R_Q_VDM"
-  do is=1,Nopt
-     write(*,*) is,x(is)
-  end do
-
-  do is=1,Ns
-     write(*,*) Rhop(is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) Qhop(is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) slater_lgr_multip(1,is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) slater_lgr_multip(2,is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) proj_lgr_multip(1,is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) proj_lgr_multip(2,is,:)
-  end do
-  write(*,*)   
+  ! write(*,*) "DENTRO R_Q_VDM"
+  ! do is=1,Nopt
+  !    write(*,*) is,x(is)
+  ! end do
+  ! do is=1,Ns
+  !    write(*,*) Rhop(is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) Qhop(is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) slater_lgr_multip(1,is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) slater_lgr_multip(2,is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) proj_lgr_multip(1,is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) proj_lgr_multip(2,is,:)
+  ! end do
+  ! write(*,*)   
   !
+
+  !<TMP TEST
+  slater_lgr_multip(1,:,:)=dreal(slater_lgr_multip(1,:,:))
+  slater_lgr_multip(2,:,:)=zero
+  proj_lgr_multip(:,:,:)=zero
+  !TMP TEST>
+
+
   call slater_minimization_fixed_lgr_superc(Rhop,Qhop,slater_lgr_multip,E_Hstar,n0_slater,slater_derivatives)
   !
   do is=1,Ns
@@ -353,7 +362,7 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
   end do
   !  
   call gz_proj_minimization_fixed_lgr_superc_(n0_diag,proj_lgr_multip,Rhop_lgr_multip,Qhop_lgr_multip,E_Hloc,GZvect)
-
+  !
   n0_GZproj = 0.d0
   do is=1,Ns
      do js=1,Ns
@@ -378,26 +387,35 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
         GZproj_out(2,is,js) = n0_GZproj(2,is,js)
      end do
   end do
+  
+  
+  
+
+  
   !<DEBUG
-  write(*,*) "DEBUG_N0"
-  do is=1,Ns
-     write(*,'(10F8.4)') GZproj_out(1,is,:)
-  end do
-  write(*,*)
-  do is=1,Ns
-     write(*,'(10F8.4)') GZproj_out(2,is,:)
-  end do
+  ! write(*,*) "DEBUG_N0"
+  ! do is=1,Ns
+  !    write(*,'(10F8.4)') GZproj_out(1,is,:)
+  ! end do
+  ! write(*,*)
+  ! do is=1,Ns
+  !    write(*,'(10F8.4)') GZproj_out(2,is,:)
+  ! end do
   !DEBUG>
 
 
   call dump2vec_superc(tmp_x,Rhop_out,Qhop_out,slater_out,GZproj_out)
   Fout=tmp_x
-  !<DEBUG
+
+  delta_out=0.d0
   do is=1,Nopt
-     write(*,*) Fout(is)
+     delta_out = delta_out + Fout(is)*Fout(is)
   end do
-  write(*,*) '!+------------------+!'
-  !DEBUG>
+  !
+  if(GZmin_verbose) then
+     write(root_unit,'(30F18.10)') delta_out,Fout(1:Nopt)
+     write(xmin_unit,'(30F18.10)') x(1:Nopt)
+  end if
   !
   if(optimization_flag) then
      !+- store final informations to global variables -+!                   
@@ -407,27 +425,10 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
      GZ_opt_Eloc    = E_Hloc
      !+- here I should modify this
      GZ_opt_slater_lgr_superc = slater_lgr_multip
-     !<TMP DEBUG
-     ! if(allocated(GZ_opt_slater_lgr_superc)) write(*,*) 'allocated prima'
-     ! write(*,*) '?????',size(GZ_opt_slater_lgr_superc,1),size(GZ_opt_slater_lgr_superc,2),size(GZ_opt_slater_lgr_superc,3)
-     ! write(*,*) GZ_opt_slater_lgr_superc(1,1,1)
-     ! if(allocated(GZ_opt_slater_lgr_superc)) write(*,*) 'allocated dopo'
-     !TMP DEBUG>
   end if
-
-
+  !
 end function R_Q_VDM_free_zeros_superc
-
-
-
-! subroutine R_VDM_free_opt_function(x,delta_opt,i)     
-!   real(8),dimension(:),intent(in) :: x      
-!   real(8),intent(out)             :: delta_opt
-!   integer,optional,intent(in)     :: i
-
-
-
-
+!
 function R_Q_VDM_free_opt_superc(x)  result(Fout)
   real(8),dimension(:) :: x      
   real(8)      :: Fout
@@ -468,35 +469,35 @@ function R_Q_VDM_free_opt_superc(x)  result(Fout)
   if(size(x).ne.Nopt) stop "what the fuck are you doing!?!?!?"
   call dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
   !
-  write(*,*) "DENTRO R_Q_VDM"
-  do is=1,Nopt
-     write(*,*) is,x(is)
-  end do
+  ! write(*,*) "DENTRO R_Q_VDM"
+  ! do is=1,Nopt
+  !    write(*,*) is,x(is)
+  ! end do
 
-  do is=1,Ns
-     write(*,*) Rhop(is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) Qhop(is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) slater_lgr_multip(1,is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) slater_lgr_multip(2,is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) proj_lgr_multip(1,is,:)
-  end do
-  write(*,*) 
-  do is=1,Ns
-     write(*,*) proj_lgr_multip(2,is,:)
-  end do
-  write(*,*)   
+  ! do is=1,Ns
+  !    write(*,*) Rhop(is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) Qhop(is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) slater_lgr_multip(1,is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) slater_lgr_multip(2,is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) proj_lgr_multip(1,is,:)
+  ! end do
+  ! write(*,*) 
+  ! do is=1,Ns
+  !    write(*,*) proj_lgr_multip(2,is,:)
+  ! end do
+  ! write(*,*)   
   !
   call slater_minimization_fixed_lgr_superc(Rhop,Qhop,slater_lgr_multip,E_Hstar,n0_slater,slater_derivatives)
   !
@@ -607,20 +608,6 @@ subroutine dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
   integer                             :: NRhop,NQhop,Nslater_lgr,Nproj_lgr,Nopt  
   integer                             :: i,ix,i0,imap,is,js
   complex(8),dimension(:),allocatable :: dump_input
-  !
-  ! NRhop = 2*Nopt_normal
-  ! NQhop = 2*Nopt_anomalous
-  ! !
-  ! Nslater_lgr = 2*Nopt_lgr  
-  ! Nproj_lgr = 2*(Nopt_lgr - Nopt_diag)
-  ! !
-  ! Nopt = NRhop + NQhop + Nslater_lgr + Nproj_lgr
-  ! write(*,*) 'NOPT',Nopt
-  ! write(*,*) 'NRhop',NRhop
-  ! write(*,*) 'NQhop',NQhop
-  ! write(*,*) 'Nslater_lgr',Nslater_lgr
-  ! write(*,*) 'Nproj_lgr',Nproj_lgr
-
   Nopt = 2*NRhop_opt + 2*NQhop_opt + 2*Nvdm_NC_opt + 2*Nvdm_AC_opt + 2*Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   if(size(x).ne.Nopt) stop "wrong dimensions @ dump2mats_superc"
   !
@@ -636,16 +623,7 @@ subroutine dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
      do ix=1,NRhop_opt
         dump_input(ix) = x(i0+ix)+xi*x(i0+ix+NRhop_opt); i=i+2
      end do
-     !+- HERE WE NEED A FUNCTION (user defined in the driver ->so probably a pointer to a function)
-     !   so that ===> the number of Nopt_normal is automatically spread into the (Ns,Ns) matrix (or automatically defined by symmetry...)
-     !   Rhop = symmetry_stride_vec2mat_Rhop(dump_input)
      call Rhop_stride_v2m(dump_input,Rhop)
-     ! do is=1,Ns
-     !    do js=1,Ns
-     !       imap=opt_map(is,js)
-     !       if(imap.gt.0) Rhop(is,js) = dump_input(imap)
-     !    end do
-     ! end do
      deallocate(dump_input)
   end if
   !
@@ -656,12 +634,6 @@ subroutine dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
         dump_input(ix) = x(i0+ix)+xi*x(i0+ix+NQhop_opt); i=i+2
      end do
      call Qhop_stride_v2m(dump_input,Qhop)
-     ! do is=1,Ns
-     !    do js=1,Ns
-     !       imap=opt_map_anomalous(is,js)
-     !       if(imap.gt.0) Qhop(is,js) = dump_input(imap)  !AAAAAA here the SU(2) symmetry requires Q_{up,dn} = -Q_{dn,up} 
-     !    end do
-     ! end do
      deallocate(dump_input)
   end if
   !
@@ -672,12 +644,6 @@ subroutine dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
         dump_input(ix) = x(i0+ix)+xi*x(i0+ix+Nvdm_NC_opt); i=i+2
      end do
      call vdm_NC_stride_v2m(dump_input,slater_lgr_multip(1,:,:))
-     ! do is=1,Ns
-     !    do js=1,Ns
-     !       imap=opt_map(is,js)           
-     !       if(imap.gt.0) slater_lgr_multip(1,is,js) = dump_input(imap)
-     !    end do
-     ! end do
      deallocate(dump_input)
   end if
   i0=i
@@ -687,12 +653,6 @@ subroutine dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
         dump_input(ix) = x(i0+ix)+xi*x(i0+ix+Nvdm_AC_opt); i=i+2
      end do
      call vdm_AC_stride_v2m(dump_input,slater_lgr_multip(2,:,:))
-     ! do is=1,Ns
-     !    do js=1,Ns
-     !       imap=opt_map_anomalous(is,js)           
-     !       if(imap.gt.0) slater_lgr_multip(2,is,js) = dump_input(imap)
-     !    end do
-     ! end do
      deallocate(dump_input)
   end if
   i0=i
@@ -702,12 +662,6 @@ subroutine dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
         dump_input(ix) = x(i0+ix)+xi*x(i0+ix+Nvdm_NCoff_opt); i=i+2
      end do
      call vdm_NCoff_stride_v2m(dump_input,proj_lgr_multip(1,:,:))
-     ! do is=1,Ns
-     !    do js=1,Ns
-     !       imap=opt_map(is,js)           
-     !       if(imap.gt.0.and.is.ne.js) proj_lgr_multip(1,is,js) = dump_input(imap)
-     !    end do
-     ! end do
      deallocate(dump_input)
   end if
   i0=i
@@ -717,21 +671,11 @@ subroutine dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
         dump_input(ix) = x(i0+ix)+xi*x(i0+ix+Nvdm_AC_opt); i=i+2
      end do
      call vdm_AC_stride_v2m(dump_input,proj_lgr_multip(2,:,:))
-     ! do is=1,Ns
-     !    do js=1,Ns
-     !       imap=opt_map_anomalous(is,js)           
-     !       if(imap.gt.0) proj_lgr_multip(2,is,js) = dump_input(imap)
-     !    end do
-     ! end do
      deallocate(dump_input)
   end if
   !
 end subroutine dump2mats_superc
-
-
-
-
-
+!
 subroutine dump2vec_superc(x,Rhop,Qhop,slater_lgr,GZproj_lgr)
   real(8),dimension(:)                :: x
   complex(8),dimension(Ns,Ns)         :: Rhop
@@ -744,12 +688,6 @@ subroutine dump2vec_superc(x,Rhop,Qhop,slater_lgr,GZproj_lgr)
   !
   Nopt = 2*NRhop_opt + 2*NQhop_opt + 2*Nvdm_NC_opt + 2*Nvdm_AC_opt + 2*Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   if(size(x).ne.Nopt) stop "wrong dimensions @ dump2vec_superc"
-  !
-  ! write(*,*) 'NOPT',Nopt
-  ! write(*,*) 'NRhop',NRhop
-  ! write(*,*) 'NQhop',NQhop
-  ! write(*,*) 'Nslater_lgr',Nslater_lgr
-  ! write(*,*) 'Nproj_lgr',Nproj_lgr
   !
   i=0
   i0=i

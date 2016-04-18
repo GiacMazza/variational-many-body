@@ -208,7 +208,6 @@ contains
        if(.not.gz_superc) then
           GZenergy=gz_energy_recursive_nlep(vdm)
        else
-          write(*,*) 'TEST CALCOLO GZenergy supercond'
           GZenergy=gz_energy_recursive_nlep_superc(vdm)
        end if
     case('cmin')
@@ -221,8 +220,9 @@ contains
     real(8),intent(out)              :: GZ_energy
     integer,intent(in),optional :: i
     real(8),dimension(Ns) :: vdm
-    complex(8),dimension(Ns,Ns) :: Rhop
+    complex(8),dimension(Ns,Ns) :: Rhop,vdm_matrix
     complex(8),dimension(Ns,Ns) :: slater_derivatives    
+    complex(8),dimension(size(x)) :: x_cmplx
     real(8),dimension(Ns)           :: slater_lgr_multip,R_diag
     real(8),dimension(Ns,Ns,2) :: GZproj_lgr_multip  ! 
     real(8),dimension(Ns,Ns) :: GZproj_lgr_multip_  ! 
@@ -231,9 +231,12 @@ contains
     integer :: is,imap
     !
     do is=1,Ns
-       !imap = vdm_map(is)
-       imap = opt_map(is,is)       
-       if(imap.gt.0) vdm(is) = x(imap)
+    end do
+    !
+    x_cmplx = x
+    call vdm_NC_stride_v2m(x_cmplx,vdm_matrix)
+    do is=1,Ns
+       vdm(is) = dreal(vdm_matrix(is,is))
     end do
     !
     GZ_energy = gz_energy_vdm(vdm)
@@ -374,8 +377,11 @@ contains
 
 
 
-  function gz_energy_recursive_nlep_superc(n0)   result(GZ_energy)
-    real(8),dimension(:),intent(in) :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
+  function gz_energy_recursive_nlep_superc(n0,R_init_,Q_init_)   result(GZ_energy)
+    real(8),dimension(:),intent(in) :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)       
+    complex(8),dimension(Ns,Ns),optional     :: R_init_        ! initial guess for the NORMAL hopping renormalization matrices
+    complex(8),dimension(Ns,Ns),optional     :: Q_init_        ! initial guess for the ANOMALOUS hopping renormalization matri
+    
     real(8)                         :: GZ_energy !INPUT: Optimized GZ energy at fixed 
     real(8)                         :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
     !
@@ -405,19 +411,14 @@ contains
     !
     if(.not.bound) then
        !+- initialize Rhop according to a given wanted symmetry
-       ! R_init = 0.d0
-       ! Q_init = zero
-       ! do istate=1,Ns
-       !    do jstate=1,Ns
-       !       imap = opt_map(istate,jstate)
-       !       jmap = opt_map_anomalous(istate,jstate)             
-       !       if(imap.gt.0) R_init(istate,istate)=Rseed
-       !       if(jmap.gt.0) Q_init(istate,jstate)=zero
-       !    end do
-       ! end do
+
+
+       if(present(R_init_)) R_init=R_init_
+       if(present(Q_init_)) Q_init=Q_init_
+
        R_init=zero
        do is=1,Ns
-          R_init(is,is) = 1.d0/sqrt(2.d0)
+          R_init(is,is) = 0.7029111945
        end do
        Q_init=zero
        !                                                                                                                                                                            
@@ -427,20 +428,14 @@ contains
                 jspin=3-ispin
                 is=index(ispin,iorb)
                 js=index(jspin,jorb)
-                if(iorb.eq.jorb) then
-                   Q_init(is,js) = 1.d0/sqrt(2.d0)
+                if(iorb.ne.jorb) then
+                   Q_init(is,js) = (-1.d0)**dble(jspin)*0.7029107761
                 else
                    Q_init(is,js) = zero
                 end if
              end do
           end do
        end do
-       !
-       !
-       ! call initialize_GZprojectors(GZvect_iter,n0)
-       ! !GZvect_iter = 1.d0/sqrt(dble(Nphi))
-       ! R_init=hopping_renormalization_normal(GZvect_iter,n0)
-       ! Q_init=hopping_renormalization_anomalous(GZvect_iter,n0)
        !
        GZ_energy=0.d0    
        R_iter = R_init
@@ -463,18 +458,14 @@ contains
           !+----------------------------+!    
           !
           call gz_projectors_minimization_nlep_superc(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)
-          !<DEBUG
-          !stop
-          !DEBUG>
 
           !
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
           Q_iter=hopping_renormalization_anomalous(GZvect_iter,n0)
           !
-
           R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
           Q_iter=Rmix*Q_iter+(1.d0-Rmix)*Q_old
-
+          !
           do istate=1,Ns
              R_diag(istate)=R_iter(istate,istate)
           end do

@@ -363,7 +363,6 @@ program GUTZ_mb
      do iorb=1,2
         do ispin=1,2
            is = index(ispin,iorb)
-
            select case(iorb)
            case(1)
               variational_density_natural_simplex(:,is) = 0.5d0 - orb_pol
@@ -372,18 +371,10 @@ program GUTZ_mb
            end select
         end do
      end do
-
-
      write(dir_suffix,'(F5.3)') orb_pol
-
      dir_iter="P"//trim(dir_suffix)
-
      write(*,*) dir_iter
-
      call system('mkdir -p '//dir_iter)     
-
-
-
      opt_energy_unit=free_unit()
      open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
      opt_rhop_unit=free_unit()
@@ -406,23 +397,14 @@ program GUTZ_mb
      optimization_flag=.true.
      if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))     
      tmp_emin = gz_energy_vdm(variational_density_natural_simplex(1,:)); 
-
-
-     !call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)      
-     !
-     call get_gz_ground_state(GZ_vector)
-     !
+     call get_gz_ground_state(GZ_vector)     !
      call print_output
-
      call system('cp * '//dir_iter)
-
      call system('rm *.out *.data fort* ')
-
      ! Rseed=0.d0
      ! do is=1,Ns
      !    Rseed = Rseed + dreal(GZ_opt_Rhop(is,is))/dble(Ns)
      ! end do
-
      orb_pol = orb_pol + 0.025d0
   end do
 

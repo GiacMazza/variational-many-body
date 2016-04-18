@@ -126,7 +126,7 @@ contains
        do jstate=1,Ns
           !
           proj_variational_density(istate,jstate) = trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens(istate,jstate,:,:))
-          write(*,*) proj_variational_density(istate,jstate)
+          !write(*,*) proj_variational_density(istate,jstate)
           !
        end do
     end do
@@ -141,7 +141,7 @@ contains
           delta = delta + abs(delta_proj_variational_density(istate,jstate))**2.d0
        end do
     end do
-    write(*,*) lm_,delta
+    !write(*,*) lm_,delta
   end function get_delta_proj_variational_density
 
 
@@ -781,7 +781,7 @@ subroutine gz_projectors_minimization_nlep_superc(slater_derivatives,n0_target,E
   case('f_zero')
      call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
-     write(*,*) delta_out
+     !write(*,*) delta_out
      delta=0.d0
      do is=1,2*Nopt_lgr
         delta = delta + delta_out(is)**2.d0
@@ -886,7 +886,7 @@ contains
        do jstate=1,Ns
           !
           proj_variational_density(istate,jstate) = trace_phi_basis(H_projectors(:,1),phi_traces_basis_dens(istate,jstate,:,:))
-          write(*,*) proj_variational_density(istate,jstate)
+          !write(*,*) proj_variational_density(istate,jstate)
           !
        end do
     end do
@@ -901,7 +901,7 @@ contains
           delta = delta + abs(delta_proj_variational_density(istate,jstate))**2.d0
        end do
     end do
-    write(*,*) lm_,delta
+    !write(*,*) lm_,delta
   end function get_delta_proj_variational_density
 
 
@@ -987,7 +987,7 @@ contains
           proj_variational_density(1,is,js) = trace_phi_basis(proj_gs,phi_traces_basis_dens(is,js,:,:))
           proj_variational_density(2,is,js) = trace_phi_basis(proj_gs,phi_traces_basis_dens_anomalous(is,js,:,:))
           !
-          write(*,*) proj_variational_density(1,is,js)
+          !          write(*,*) proj_variational_density(1,is,js)
        end do
     end do
     delta_proj_variational_density = proj_variational_density
@@ -1423,8 +1423,8 @@ subroutine build_H_GZproj_superc(H_projectors,slater_derivatives,n0,lgr_multip,i
         H_projectors = H_projectors + slater_derivatives(2,is,js)*phi_traces_basis_Qhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))          
         H_projectors = H_projectors + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))          
         ! !        
-        H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens(is,js,:,:)
-        H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens_hc(is,js,:,:)
+        H_projectors = H_projectors + lgr_multip(1,is,js)*phi_traces_basis_dens(is,js,:,:)
+        H_projectors = H_projectors + conjg(lgr_multip(1,is,js))*phi_traces_basis_dens_hc(is,js,:,:)
         ! !
         H_projectors = H_projectors + lgr_multip(2,is,js)*phi_traces_basis_dens_anomalous(is,js,:,:)
         H_projectors = H_projectors + conjg(lgr_multip(2,is,js))*phi_traces_basis_dens_anomalous_hc(is,js,:,:)

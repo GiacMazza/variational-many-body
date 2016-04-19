@@ -1,5 +1,5 @@
 MODULE GZ_VARS_INPUT
-  USE DMFT_PARSE_INPUT
+  USE SF_PARSE_INPUT
   implicit none
 
   public :: read_input
@@ -11,7 +11,7 @@ MODULE GZ_VARS_INPUT
   real(8)              :: Jsf,Jph
   real(8)              :: xmu
   real(8),parameter    :: beta=1000.d0
-  
+
   !# Minimization flags  #!
   integer          :: lancelot_verbose
   logical          :: amoeba_verbose
@@ -25,7 +25,7 @@ MODULE GZ_VARS_INPUT
   real(8) :: Rseed 
   real(8) :: Rmix
   integer :: Niter_self
-  
+
 
 
 
@@ -53,7 +53,7 @@ contains
     call parse_input_variable(Niter_self,"NITER_SELF",INPUTunit,default=100)
     call parse_input_variable(err_self,"ERR_SELF",INPUTunit,default=1.d-10)
     call parse_input_variable(amoeba_min_tol,"AMOEBA_MIN_TOL",INPUTunit,default=1.d-12)
-    
+
     !call parse_input_variable(new_input,"NEW",INPUTunit,default=1.d-12)
 
 

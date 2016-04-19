@@ -33,12 +33,12 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
   case('CG_min')
      call fmin_cg(lgr,get_delta_local_density_matrix,iter,delta,itmax=20)
   case('f_zero')
-     call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
+     call f_fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
      delta=0.d0
      do is=1,Nopt_diag+Nopt_odiag
         delta = delta + delta_out(is)**2.d0
-     end do     
+     end do
   end select
   !lgr_init_slater=lgr
   !
@@ -154,8 +154,6 @@ contains
     real(8),dimension(Ns)          :: ek
     integer                              :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,imap
     !
-
-
     lm=0.d0
     do istate=1,Ns
        do jstate=1,Ns

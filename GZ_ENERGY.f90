@@ -4,9 +4,10 @@ MODULE GZ_ENERGY_MINIMIZATION
   USE SF_IOTOOLS
   USE SF_SPECIAL
   USE SF_OPTIMIZE
-  ! lancelot routines
-  USE LANCELOT_simple_double
+  !lancelot routines
+  !USE LANCELOT_simple_double
   ! GZ routines
+  USE LANCELOT_WRAP
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
   USE GZ_AUX_FUNX

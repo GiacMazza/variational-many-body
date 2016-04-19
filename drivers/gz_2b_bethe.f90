@@ -1,30 +1,16 @@
 program GUTZ_mb
   USE SCIFOR
-  !
-  USE DMFT_MISC
-  USE DMFT_PARSE_INPUT
-  !
-  USE GZ_AUX_FUNX
-  USE GZ_VARS_GLOBAL
-  USE GZ_LOCAL_FOCK
-  USE GZ_OPTIMIZED_ENERGY
-  !
-
-  !
-  USE GZ_MATRIX_BASIS
-  !
+  USE SOLVE_GZ
   implicit none
   !
   !+- hamiltonian details -+!
-  integer                            :: ispin,iorb,i,istate,jstate,ifock,jorb
-  integer,dimension(:),allocatable   :: fock_vec
-!  real(8),dimension(3)               :: GZene  
-  real(8),dimension(:),allocatable   :: variational_density_natural
-  real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
-!  real(8),allocatable,dimension(:)   :: local_density,local_dens_min
-!  integer                            :: ix,iy,iz,ik,Nk
-  integer                            :: out_unit,iter
-  integer                            :: lattice ! 2=square;3=cubic
+  integer                             :: ispin,iorb,i,istate,jstate,ifock,jorb
+  integer                             :: out_unit,iter,Nx
+  integer                             :: lattice ! 2=square;3=cubic
+  integer,dimension(:),allocatable    :: fock_vec
+  real(8),dimension(:),allocatable    :: epsik,wt,hybik
+  real(8),dimension(:),allocatable    :: variational_density_natural
+  real(8),dimension(:,:),allocatable  :: variational_density_natural_simplex
 
 
   !+- PARSE INPUT DRIVER -+!
@@ -42,11 +28,11 @@ program GUTZ_mb
   Jph = Jh
   Ust = Uloc(1)-2.d0*Jh
   !
-  
+
   call initialize_local_fock_space
-  
+
   call init_variational_matrices
-  
+
   !call build_gz_local_traces_diag  
   !
   allocate(variational_density_natural_simplex(Ns+1,Ns))
@@ -55,43 +41,40 @@ program GUTZ_mb
 
   call build_lattice_model
 
-  !
-  call gz_optimization_simplex(variational_density_natural_simplex,variational_density_natural)  
-  !
-  call get_gz_ground_state_estimation(variational_density_natural)
-  !
+  call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
+
+  ! call get_gz_ground_state(variational_density_natural)
+  call get_gz_ground_state(GZ_vector)
+
   call print_output(variational_density_natural_simplex)
+
+
   !
 CONTAINS
   !
   subroutine build_lattice_model  
     !
-    integer :: ix,iy,iz,ik,Nk
-    real(8),allocatable,dimension(:)   :: kx
-    real(8)                            :: ts,test_k,kx_,ky_,kz_,wini,wfin,de
+    integer                          :: ix,iy,iz,ik,Nk
+    real(8),allocatable,dimension(:) :: kx
+    real(8)                          :: ts,test_k,kx_,ky_,kz_,wini,wfin,de
     !
-
-
     Lk=Nx
-    allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    
+    allocate(epsik(Lk),wt(Lk),hybik(Lk))
     wini=-Wband/2.d0
     wfin= Wband/2.d0
     epsik=linspace(wini,wfin,Lk,mesh=de)
     !
     test_k=0.d0
     do ix=1,Lk
-       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       !wtk(ix) = 1.d0/Wband*de
-       if(ix==1.or.ix==Lk) wtk(ix)=0.d0
-       test_k=test_k+wtk(ix)
-       write(77,*) epsik(ix),wtk(ix)
+       wt(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       !wt(ix) = 1.d0/Wband*de
+       if(ix==1.or.ix==Lk) wt(ix)=0.d0
+       test_k=test_k+wt(ix)
+       write(77,*) epsik(ix),wt(ix)
     end do
     hybik=0.d0
     write(*,*) test_k,de
-
     allocate(Hk_tb(Ns,Ns,Lk))
-    
     Hk_tb=0.d0
     do ik=1,Lk
        do iorb=1,Norb
@@ -107,13 +90,13 @@ CONTAINS
 
 
 
-  
+
   subroutine print_output(vdm_simplex)
     real(8),dimension(Ns+1,Ns) :: vdm_simplex
-    integer :: out_unit,istate,iorb,iphi
-    integer,dimension(Ns) :: fock_state
-    real(8),dimension(Ns) :: tmp
-    real(8) :: deltani,delta_tmp,vdm_tmp
+    integer                    :: out_unit,istate,iorb,iphi
+    integer,dimension(Ns)      :: fock_state
+    real(8),dimension(Ns)      :: tmp
+    real(8)                    :: deltani,delta_tmp,vdm_tmp
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
@@ -122,11 +105,11 @@ CONTAINS
     !    call bdecomp(ifock,fock_state)
     !    write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(ifock),'#|',ifock,' >',fock_state(:)
     ! end do
-    do iphi=1,Nphi
-       ifock=indep2full_fock(iphi,1)
-       call bdecomp(ifock,fock_state)
-       write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(iphi),'#|',ifock,' >',fock_state(:)
-    end do
+    ! do iphi=1,Nphi
+    !    ifock=indep2full_fock(iphi,1)
+    !    call bdecomp(ifock,fock_state)
+    !    write(out_unit,'(F18.10,A,I4,A,20I3)') GZ_opt_projector_diag(iphi),'#|',ifock,' >',fock_state(:)
+    ! end do
     !BUP>
     close(out_unit)
     !

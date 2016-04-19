@@ -6,7 +6,8 @@ MODULE GZ_OPTIMIZED_ENERGY
   USE GZ_EFFECTIVE_HOPPINGS
   USE GZ_LOCAL_FOCK  
   !
-  USE LANCELOT_simple_double
+  !USE LANCELOT_simple_double
+  USE LANCELOT_WRAP
   !
   USE GZ_MATRIX_BASIS
   USE GZ_ENERGY_MINIMIZATION
@@ -164,7 +165,7 @@ CONTAINS
        end do
     end do
     !
-    call fsolve(R_VDM_free_zeros,xmin,tol=1.d-10,info=iter)
+    call f_fsolve(R_VDM_free_zeros,xmin,tol=1.d-10,info=iter)
     xout=R_VDM_free_zeros(xmin)
     !
     if(GZmin_verbose) then       

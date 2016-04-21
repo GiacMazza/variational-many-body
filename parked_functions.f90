@@ -1,3 +1,100 @@
+
+  !
+  subroutine gz_optimization_vdm_Rhop_ghld(init_Rhop,init_vdm) 
+    complex(8),dimension(Ns,Ns) :: init_Rhop
+    real(8),dimension(Ns,Ns) :: init_vdm
+    real(8),dimension(Ns,Ns) :: init_lgr
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    real(8) :: delta,tmp_ene
+    integer :: iter    !
+    !
+    integer                           :: n_min,neq,nin,maxit,print_level,exit_code
+    real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
+    real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess  
+    real(8),dimension(:),allocatable  :: xmin
+    integer :: Nopt,iopt,Nslater_lgr,NRhop,Nproj_lgr
+    integer :: is,js,imap
+
+    Nslater_lgr = Nopt_diag + Nopt_odiag
+    NRhop = Nopt_diag + Nopt_odiag
+    Nproj_lgr = Nopt_odiag
+    !
+    Nopt = Nslater_lgr + 2*NRhop + Nproj_lgr
+    allocate(xmin(Nopt))    
+
+    !
+    !+- initialize slater_density_constraints starting from the initial guess for the variational density_matrix
+    !   
+    do is=1,Ns
+       vdm(is) = init_vdm(is,is)
+    end do
+    call  slater_minimization_lgr(init_Rhop,vdm,tmp_ene,init_lgr)
+    !
+    iopt=0
+    do is=1,Ns
+       do js=1,Ns
+          imap = opt_map(is,js)
+          if(imap.gt.0) then
+             xmin(imap) = init_lgr(is,js)
+             xmin(imap+Nslater_lgr) = dreal(init_Rhop(is,js))
+             xmin(imap+Nslater_lgr+NRhop) = dimag(init_Rhop(is,js))
+             if(is.ne.js) xmin(iopt+Nslater_lgr+2*NRhop) = 0.d0
+          end if
+       end do
+    end do
+    n_min       = Nopt      ! number of minimization parameters  
+    neq         = 0         ! number of equality constraints                   
+    nin         = 0         ! number of in-equality constraints                   
+    maxit       = 300       ! maximum iteration number 
+    gradtol     = 1.d-7     ! maximum norm of the gradient at convergence 
+    feastol     = 1.d-7     ! maximum violation of parameters at convergence  
+    print_level = lancelot_verbose           ! verbosity
+    allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
+    !    
+    bL=0.d0
+    bU=0.d0
+    do is=1,Nslater_lgr  !+- 1,...,Nslater_lgr
+       bL(is) = -10.d0               ! lower bounds for minimization parameters
+       bU(is) = 10.d0                ! upper bounds for minimization parameters          
+    end do
+    do is=1,NRhop !+- 1,....,NRhop Real + Imag
+       !
+       bL(is+Nslater_lgr) =  -1.d0               ! lower bounds for minimization parameters
+       bU(is+Nslater_lgr) =  1.d0                 ! upper bounds for minimization parameters          
+       !
+       bL(is+Nslater_lgr+NRhop) = 0.d0               ! lower bounds for minimization parameters
+       bU(is+Nslater_lgr+NRhop) = 0.d0                 ! upper bounds for minimization parameters    
+    end do
+    do is=1,Nproj_lgr
+       !           !+- 1,....,Nproj_lgr
+       bL(is+Nslater_lgr+2*NRhop) = 0.d0               ! lower bounds for minimization parameters
+       bU(is+Nslater_lgr+2*NRhop) = 0.d0                 ! upper bounds for minimization parameters
+    end do
+
+    delta=1.d0
+    call lancelot_simple(n_min,xmin,delta,exit_code,my_fun=R_VDM_free_opt_function, &
+         bl = bl, bu = bu,                                                                      &
+         neq = neq, nin = nin,                                                                  &
+         cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
+         gradtol = gradtol, feastol = feastol,                                                  &
+         print_level = print_level )
+    !+--------------------------------------------------------------------------------------+!    
+    if(GZmin_verbose) then
+       write(*,*) 'DELTA OPTIMIZATION',delta,exit_code,xmin,cx
+    end if
+    optimization_flag=.true.
+    if(allocated(GZ_vector)) deallocate(GZ_vector)
+    allocate(GZ_vector(Nphi))
+    call R_VDM_free_opt_function(xmin,delta)
+  end subroutine gz_optimization_vdm_Rhop_ghld
+
+
+
+
+
+
   function gz_energy_broyden(n0)   result(GZ_energy)
     real(8),dimension(:),intent(in)        :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                                :: GZ_energy !INPUT: Optimized GZ energy at fixed 

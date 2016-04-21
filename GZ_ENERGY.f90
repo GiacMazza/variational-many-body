@@ -27,21 +27,25 @@ MODULE GZ_ENERGY_MINIMIZATION
   interface gz_proj_minimization_lgr
      module procedure gz_projectors_minimization_nlep
      module procedure gz_projectors_minimization_cmin
-  end interface
+  end interface gz_proj_minimization_lgr
   !
   interface gz_proj_minimization_fixed_lgr
      module procedure get_GZproj_ground_state
      module procedure get_GZproj_ground_state_fixR
-  end interface
+  end interface gz_proj_minimization_fixed_lgr
 
-  public :: slater_minimization_lgr
-  public :: slater_minimization_fixed_lgr
+  public :: slater_minimization_lgr,slater_minimization_lgr_
+  public :: slater_minimization_fixed_lgr,slater_minimization_fixed_lgr_
   !
   public :: slater_minimization_lgr_superc
   public :: slater_minimization_fixed_lgr_superc
   !
+  !+-
   public :: gz_proj_minimization_lgr
   public :: gz_proj_minimization_fixed_lgr
+  !+-tmp
+  public :: gz_proj_minimization_fixed_lgr_
+  public :: gz_proj_minimization_fixed_Rhop
 
   public :: gz_proj_minimization_fixed_lgr_superc_
 
@@ -78,7 +82,7 @@ contains
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
     !
     !
-    call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM)
+    call slater_minimization_fixed_lgr_(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM)
     !
     !    
     !+- GET OBSERVABLES -+!
@@ -137,7 +141,7 @@ contains
     if(.not.allocated(GZ_opt_Rhop)) allocate(GZ_opt_Rhop(Ns,Ns))
     if(.not.allocated(GZ_opt_Qhop)) allocate(GZ_opt_Qhop(Ns,Ns))
     !
-    
+
     if(.not.allocated(GZ_opt_VDM_superc)) allocate(GZ_opt_VDM_superc(2,Ns,Ns))
     if(.not.allocated(GZ_opt_slater_superc)) allocate(GZ_opt_slater_superc(2,Ns,Ns,Lk))
     !
@@ -150,7 +154,7 @@ contains
     end do
     !
 
-    
+
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
     GZ_opt_Qhop=hopping_renormalization_anomalous(GZ_vector,n0)            
     !
@@ -206,7 +210,8 @@ contains
     select case(min_method)
     case('nlep')
        if(.not.gz_superc) then
-          GZenergy=gz_energy_recursive_nlep(vdm)
+          !GZenergy=gz_energy_recursive_nlep(vdm)
+          GZenergy=gz_energy_recursive_nlep_(vdm)
        else
           GZenergy=gz_energy_recursive_nlep_superc(vdm)
        end if
@@ -364,24 +369,134 @@ contains
     end if
     !
   end function gz_energy_recursive_nlep
+  !
 
-
-
-
-
-
-
-
-
-
-
-
-
-  function gz_energy_recursive_nlep_superc(n0,R_init_,Q_init_)   result(GZ_energy)
+  !
+  function gz_energy_recursive_nlep_(n0)   result(GZ_energy)
     real(8),dimension(:),intent(in) :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)       
-    complex(8),dimension(Ns,Ns),optional     :: R_init_        ! initial guess for the NORMAL hopping renormalization matrices
-    complex(8),dimension(Ns,Ns),optional     :: Q_init_        ! initial guess for the ANOMALOUS hopping renormalization matri
-    
+    !
+    ! complex(8),dimension(Ns,Ns),optional     :: R_init_        ! initial guess for the NORMAL hopping renormalization matrices
+    ! complex(8),dimension(Ns,Ns),optional     :: Q_init_        ! initial guess for the ANOMALOUS hopping renormalization matri
+    !
+    real(8)                         :: GZ_energy !INPUT: Optimized GZ energy at fixed 
+    real(8)                         :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
+    !
+    complex(8),dimension(Ns,Ns)     :: R_init        ! initial guess for the NORMAL hopping renormalization matrices
+    complex(8),dimension(Ns,Ns)     :: R_iter,R_old ! hopping matrix renormalization (during iterations)
+    !
+    complex(8),dimension(Ns,Ns)     :: slater_derivatives    
+    !
+    real(8),dimension(Ns)           :: R_diag
+    complex(8),dimension(Ns,Ns)        :: slater_lgr_multip  ! 
+    complex(8),dimension(Ns,Ns) :: GZproj_lgr_multip
+    real(8)                         :: E_Hstar,E_Hloc
+    complex(8),dimension(Nphi)      :: GZvect_iter  ! GZ vector (during iterations)
+    !
+    integer                         :: istate,iter,jstate,ifock,jfock,iphi,jphi,is,js,imap,jmap    
+    integer                         :: unit,iorb,jorb,ispin,jspin
+    logical                         :: bound
+    !
+    write(*,*) '********************'
+    write(*,*) 'INPUT DENSITY',n0(:)
+    bound=.false.
+    do istate=1,Ns
+       if(n0(istate).lt.0.d0.or.n0(istate).gt.1.d0) bound=.true.
+    end do
+    !
+    if(.not.bound) then
+       !+- initialize Rhop and Qhop from seed file (if no seed file initialization to the not interacting values)       
+       call init_Rhop_seed(R_init)
+       !
+       GZ_energy=0.d0 
+       R_iter = R_init
+       GZvect_iter=0.d0
+       !
+       do iter=1,Niter_self
+          !+- update hopping matrices -+!
+          GZ_energy_old=GZ_energy
+          R_old = R_iter          
+          !+----------------------------+!
+          !+- SLATER STEP MINIMIZATION -+!
+          !+----------------------------+!    
+          call slater_minimization_lgr_(R_iter,n0,E_Hstar,slater_lgr_multip, &
+               slater_derivatives=slater_derivatives,iverbose=GZmin_verbose)       
+          !
+          !+----------------------------+!
+          !+- GZproj STEP MINIMIZATION -+!
+          !+----------------------------+!    
+          !
+          call gz_projectors_minimization_lgr_(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)
+          !
+          R_iter=hopping_renormalization_normal(GZvect_iter,n0)
+          !
+          R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
+          !
+          do istate=1,Ns
+             R_diag(istate)=R_iter(istate,istate)
+          end do
+          ! update GZ-energy
+          GZ_energy=E_Hstar+E_Hloc
+          if(iter.lt.2) then 
+             energy_err=1.d0
+          else
+             energy_err=abs(GZ_energy-GZ_energy_old)
+          end if
+          if(GZmin_verbose) then
+             write(GZmin_unit,'(20F18.10)') dble(iter),energy_err,GZ_energy,E_Hstar,E_Hloc,R_diag(1:Ns)
+          end if
+          if(energy_err.lt.err_self) exit
+       end do
+       if(GZmin_verbose) write(GZmin_unit,*) 
+       if(GZmin_verbose) write(GZmin_unit,*) 
+       if(iter-1.eq.Niter_self) then
+          write(*,*) 'Self consistent Gutzwiller minimization'
+          write(*,*) 'Input VDM',n0
+          write(*,*) 'final error',energy_err
+          write(*,*) "Not converged after",Niter_self,'iterations: exiting'
+          stop 
+       end if
+       write(opt_GZ_unit,*) n0
+       write(opt_GZ_unit,*)
+       !
+       do iphi=1,Nphi
+          write(opt_GZ_unit,*) GZvect_iter(iphi)
+       end do
+       !
+       write(opt_GZ_unit,*)
+       write(opt_GZ_unit,*)
+       write(opt_energy_unit,*) n0,GZ_energy,E_Hloc,E_Hstar
+       !
+       write(opt_rhop_unit,*) n0
+       do istate=1,Ns
+          write(opt_rhop_unit,'(20F8.4)') dreal(R_iter(istate,:)),dimag(R_iter(istate,:))
+       end do
+       write(opt_rhop_unit,*)
+       !
+    else
+       GZ_energy=100.d0
+    end if
+    if(optimization_flag) then
+       !+- store final informations to global variables -+!              
+       !
+       GZ_vector      = GZvect_iter
+       GZ_opt_energy  = GZ_energy
+       GZ_opt_kinetic = E_Hstar
+       GZ_opt_Eloc    = E_Hloc
+       GZ_opt_slater_lgr = slater_lgr_multip
+       !
+    end if
+    !
+  end function gz_energy_recursive_nlep_
+  !
+
+
+
+
+  function gz_energy_recursive_nlep_superc(n0)   result(GZ_energy)
+    real(8),dimension(:),intent(in) :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)       
+    ! complex(8),dimension(Ns,Ns),optional     :: R_init_        ! initial guess for the NORMAL hopping renormalization matrices
+    ! complex(8),dimension(Ns,Ns),optional     :: Q_init_        ! initial guess for the ANOMALOUS hopping renormalization matri
+
     real(8)                         :: GZ_energy !INPUT: Optimized GZ energy at fixed 
     real(8)                         :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
     !
@@ -410,32 +525,9 @@ contains
     end do
     !
     if(.not.bound) then
-       !+- initialize Rhop according to a given wanted symmetry
-
-
-       if(present(R_init_)) R_init=R_init_
-       if(present(Q_init_)) Q_init=Q_init_
-
-       R_init=zero
-       do is=1,Ns
-          R_init(is,is) = 0.7029111945
-       end do
-       Q_init=zero
-       !                                                                                                                                                                            
-       do iorb=1,Norb
-          do jorb=1,Norb
-             do ispin=1,2
-                jspin=3-ispin
-                is=index(ispin,iorb)
-                js=index(jspin,jorb)
-                if(iorb.ne.jorb) then
-                   Q_init(is,js) = (-1.d0)**dble(jspin)*0.7029107761
-                else
-                   Q_init(is,js) = zero
-                end if
-             end do
-          end do
-       end do
+       !+- initialize Rhop and Qhop from seed file (if no seed file initialization to the not interacting values)
+       call init_Rhop_seed(R_init)
+       call init_Qhop_seed(R_init)
        !
        GZ_energy=0.d0    
        R_iter = R_init
@@ -458,7 +550,6 @@ contains
           !+----------------------------+!    
           !
           call gz_projectors_minimization_nlep_superc(slater_derivatives,n0,E_Hloc,GZvect_iter,GZproj_lgr_multip,iverbose=GZmin_verbose)
-
           !
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
           Q_iter=hopping_renormalization_anomalous(GZvect_iter,n0)
@@ -519,11 +610,6 @@ contains
     end if
     if(optimization_flag) then
        !+- store final informations to global variables -+!              
-       ! GZ_vector             = GZvect_iter
-       ! GZ_opt_energy         = GZ_energy
-       ! GZ_opt_kinetic        = E_Hstar
-       ! GZ_opt_Eloc           = E_Hloc
-       ! GZ_opt_slater_lgr     = Slater_lgr_multip
        !
        GZ_vector      = GZvect_iter
        GZ_opt_energy  = GZ_energy
@@ -534,21 +620,14 @@ contains
     end if
     !
   end function gz_energy_recursive_nlep_superc
+  !
 
-
-
-
-
-
-
-
-  
+  !
   function gz_energy_recursive_cmin(n0)  result(GZ_energy)
     real(8),dimension(:),intent(in)           :: n0 !INPUT: Variational Density Matrix (VDM) (diagonal in istate)    
     real(8)                                   :: GZ_energy !INPUT: Optimized GZ energy at fixed 
     real(8)                                   :: GZ_energy_old,energy_err     ! Value of the GZ energy functional
     complex(8),dimension(Nphi)                  :: GZvect_iter,GZvect_iter_  ! GZ vector (during iterations)
-
     complex(8),dimension(Ns,Ns)    :: R_iter,R_old ! hopping matrix renormalization (during iterations)
 
     complex(8),dimension(Ns,Ns)    :: R_init        ! initial guess for the hopping renormalization matrix    
@@ -587,7 +666,7 @@ contains
           R_old = R_iter
 
           !GZvect_iter_ = GZvect_iter
-          
+
           !
           !+----------------------------+!
           !+- SLATER STEP MINIMIZATION -+!
@@ -605,7 +684,7 @@ contains
           R_iter=hopping_renormalization_normal(GZvect_iter,n0)
           R_iter=Rmix*R_iter+(1.d0-Rmix)*R_old
           !GZvect_iter = 0.5d0*GZvect_iter + 0.5d0*GZvect_iter_
-        
+
           !
           do istate=1,Ns
              R_diag(istate)=R_iter(istate,istate)

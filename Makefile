@@ -5,14 +5,19 @@ FPP=
 
 #EXE=GZ_MB
 #EXE=gz_2band_minN
-#EXE=gz_2b_bethe
+
 #EXE=gz_test_symm
 #EXE=gz_optimize_VS_nR
 #EXE=gz_optimize_janus
 #EXE=gz_sc_test
-#EXE=gz_2b_bethe_sc
-EXE=gz_2b_bethe_sc_self
 #EXE=gz_1b_attractiveU_self
+
+
+EXE=gz_2b_bethe
+EXE=gz_2b_bethe_nR
+EXE=gz_bethe_janus
+#EXE=gz_2b_bethe_sc
+#EXE=gz_2b_bethe_sc_self
 
 
 DIR=drivers

@@ -33,6 +33,10 @@ program GUTZ_mb
   !
   real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,Jh_ratio
 
+  complex(8),dimension(:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
+
+
+
   character(len=5) :: dir_suffix
   character(len=6) :: dir_iter
 
@@ -67,17 +71,6 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-  
-  Nopt_diag=Norb
-  Nopt_odiag=0  
-  allocate(opt_map(Ns,Ns))  
-  opt_map = 0
-  do ispin=1,2
-     do iorb=1,Norb
-        is=index(ispin,iorb)
-        opt_map(is,is) = iorb
-     end do
-  end do
   !
   call init_variational_matrices
   !  
@@ -86,14 +79,22 @@ program GUTZ_mb
 
   call build_lattice_model
   !
-  allocate(lgr_init_slater(Nopt_diag+Nopt_odiag))
-  allocate(lgr_init_gzproj(Nopt_diag+Nopt_odiag))
+
+
   !
-  lgr_init_slater(1) =  0.5d0
-  lgr_init_slater(2) = -0.5d0
+  NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
+  Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
+  Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   !
-  lgr_init_gzproj(1) =  0.5d0
-  lgr_init_gzproj(2) = -0.5d0
+  allocate(Rhop_init_matrix(Ns,Ns)); call init_Rhop_seed(Rhop_init_matrix)
+  allocate(slater_lgr_init(Ns,Ns),gzproj_lgr_init(Ns,Ns))  
+  slater_lgr_init(1,1) =  Cfield*0.5d0
+  slater_lgr_init(2,2) = -Cfield*0.5d0
+  gzproj_lgr_init=zero
+  !
+
+
+  
   !
   allocate(vdm_init(Ns))
   !call initialize_variational_density(vdm_init)
@@ -102,10 +103,7 @@ program GUTZ_mb
   do is=1,Ns
      variational_density_matrix(is,is) = vdm_init(is)
   end do
-  allocate(Rhop_init_matrix(Ns,Ns)); Rhop_init_matrix=zero
-  do is=1,Ns
-     Rhop_init_matrix(is,is) = Rseed
-  end do
+
   !  
   Uiter = -0.1
   Jh_ratio=Jh
@@ -128,11 +126,11 @@ program GUTZ_mb
      dir_iter="U"//trim(dir_suffix)
      call system('mkdir -v '//dir_iter)     
      !
-     call gz_optimization_vdm_Rhop(Rhop_init_matrix,variational_density_matrix)
+     call gz_optimization_vdm_Rhop_(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
      call get_gz_ground_state(GZ_vector)
      Rhop_init_matrix = GZ_opt_Rhop
      variational_density_matrix = GZ_opt_VDM     
-     call print_output(GZ_opt_VDM)
+     call print_output
      call system('cp * '//dir_iter)
      call system('rm *.out *.data fort* ')
   end do
@@ -219,44 +217,34 @@ CONTAINS
 
 
 
-
-
-  subroutine print_output(vdm)
-    real(8),dimension(Ns,Ns),optional :: vdm
+  subroutine print_output(vdm_simplex,vdm_opt)
+    real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
+    real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),optional :: vdm_opt
     integer :: out_unit,istate,iorb,iphi,ifock,jfock
     integer,dimension(Ns) :: fock_state
-    real(8),dimension(Ns) :: tmp
+    complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
 
     real(8),dimension(nFock,nFock) :: test_full_phi
 
+
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
-
-    !+- CHANGE THE NAME OF GZ_opt_projector_diag -+!
     test_full_phi=0.d0
     do iphi=1,Nphi
-       ! write(*,*) iphi
-       ! do ifock=1,nFock
-       !    write(*,'(20F7.1)') phi_basis(iphi,ifock,:)
-       ! end do
-       ! write(*,*)
        !
        test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
+       write(out_unit,*) GZ_vector(iphi)
     end do
+    write(out_unit,*) '!+-----------------------------+!'
+    write(out_unit,*) '!+-----------------------------+!'
+    write(out_unit,*) '!+-----------------------------+!'
     do ifock=1,nFock
        do jfock=1,nFock
           write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
        end do
     end do
-
-    do iphi=1,Nphi
-       write(*,*) GZ_vector(iphi)
-    end do
     close(out_unit)    
-
-
-
 
     !
     out_unit=free_unit()
@@ -266,7 +254,7 @@ CONTAINS
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_variational_density_matrix.data')
-    !write(out_unit,'(20F18.10)') variational_density_natural(1:Ns)
+    write(out_unit,*) 'NORMAL VDM'
     do istate=1,Ns
        tmp(istate)=GZ_opt_VDM(istate,istate)
        write(out_unit,'(20F18.10)') GZ_opt_VDM(istate,:)
@@ -287,7 +275,11 @@ CONTAINS
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_density.data')
-    write(out_unit,'(20F18.10)') gz_dens(1:Ns)
+    do istate=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_matrix(istate,1:Ns)
+    end do
+    write(out_unit,*) ! on the last line store the diagonal elements
+    write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
     close(out_unit)
     !
     out_unit=free_unit()
@@ -302,17 +294,143 @@ CONTAINS
     end do
     close(out_unit)
     !
+    out_unit=free_unit()
+    open(out_unit,file='local_angular_momenta.data')
+    write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
+    close(out_unit)
 
-    if(present(vdm)) then
+
+    if(present(vdm_simplex)) then
        out_unit=free_unit()
-       open(out_unit,file='vdm_seed.restart')
-       do istate=1,Ns
-          write(out_unit,'(20F18.10)') vdm(istate,istate)
+       open(out_unit,file='vdm_simplex.restart')
+       do jstate=1,Ns+1
+          if(jstate.le.Ns) then
+             do istate=1,Ns
+                write(out_unit,'(20F18.10)') vdm_simplex(jstate,istate)
+             end do
+             if(jstate.le.Ns) write(out_unit,*)  'x'
+          else
+             do istate=1,Ns
+                deltani=vdm_simplex(jstate,istate)-0.5
+                if(deltani.gt.0.d0) then
+                   delta_tmp=0.9999-vdm_simplex(jstate,istate)
+                   vdm_tmp=vdm_simplex(jstate,istate)+delta_tmp*0.1
+                   write(out_unit,'(20F18.10)') vdm_tmp
+                else
+                   delta_tmp=vdm_simplex(jstate,istate)-0.0001
+                   vdm_tmp=vdm_simplex(jstate,istate)-delta_tmp*0.1
+                   write(out_unit,'(20F18.10)') vdm_tmp
+                end if
+             end do
+          end if
        end do
        close(out_unit)
     end if
     !
+    if(present(vdm_opt)) then
+       out_unit=free_unit()
+       open(out_unit,file='vdm_seed.restart')
+       do istate=1,Nvdm_NC_opt-Nvdm_NCoff_opt
+          write(out_unit,'(10F18.10)')  vdm_opt(istate)
+       end do
+       close(out_unit)
+    end if
+
   end subroutine print_output
+
+  subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
+    complex(8),dimension(:)   :: Rhop_indep
+    complex(8),dimension(:,:) :: Rhop_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
+    if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
+    if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
+    Rhop_mat = zero
+    do iorb=1,Norb
+       do ispin=1,2
+          is=index(ispin,iorb)
+          Rhop_mat(is,is) = Rhop_indep(iorb)
+       end do
+    end do
+    !
+  end subroutine Rhop_vec2mat
+  subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
+    complex(8),dimension(:,:) :: Rhop_mat
+    complex(8),dimension(:)   :: Rhop_indep
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    complex(8) :: test_stride
+    real(8) :: test
+    if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
+    if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
+    if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
+    !
+    ispin=1;iorb=1;is=index(ispin,iorb)
+    Rhop_indep(1)=Rhop_mat(is,is)
+    ispin=1;iorb=2;is=index(ispin,iorb)
+    Rhop_indep(2)=Rhop_mat(is,is)
+    !
+  end subroutine Rhop_mat2vec
+
+
+
+  subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
+    !
+    vdm_NC_mat = zero
+    do iorb=1,Norb
+       do ispin=1,2
+          is=index(ispin,iorb)
+          vdm_NC_mat(is,is) = vdm_NC_indep(iorb)
+       end do
+    end do
+    Nopt_odiag = 0
+    !
+  end subroutine vdm_NC_vec2mat
+  subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
+    !
+    ispin=1;iorb=1;is=index(ispin,iorb)
+    vdm_NC_indep(1)=vdm_NC_mat(is,is)
+    ispin=1;iorb=2;is=index(ispin,iorb)
+    vdm_NC_indep(2)=vdm_NC_mat(is,is)
+    !
+  end subroutine vdm_NC_mat2vec
+
+
+
+  subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
+    !
+    vdm_NC_mat = zero
+    !
+  end subroutine vdm_NCoff_vec2mat
+  subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
+    !
+    vdm_NC_indep = zero
+    !
+  end subroutine vdm_NCoff_mat2vec
+
 
 
 end program GUTZ_mb

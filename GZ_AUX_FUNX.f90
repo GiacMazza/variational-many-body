@@ -9,9 +9,10 @@ MODULE GZ_AUX_FUNX
   public :: vec2mat_stride,mat2vec_stride
   public :: initialize_variational_density_simplex
   public :: initialize_variational_density  
+  public :: init_Rhop_seed,init_Qhop_seed
   !+- at some point these two subroutines should be merged in SCIFOR -+!
   public :: simultaneous_diag
-  public :: fixed_point_sub   
+  public :: fixed_point_sub
   !
   public :: fermi_zero
   !
@@ -103,9 +104,10 @@ CONTAINS
 
 
   subroutine initialize_variational_density(variational_density)
-    real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),intent(inout) :: variational_density
+    real(8),dimension(:),intent(inout) :: variational_density
     logical                 :: IOfile
     integer                 :: unit,flen,i,j,expected_flen
+    if(size(variational_density).ne.Nvdm_NC_opt-Nvdm_NCoff_opt) stop "initialize variational density /= Nvdm_NC_opt-Nvdm_NCoff_opt"
     expected_flen=size(variational_density)
     inquire(file="vdm_seed.conf",exist=IOfile)
     if(IOfile) then
@@ -131,6 +133,104 @@ CONTAINS
   end subroutine initialize_variational_density
 
 
+
+
+  subroutine init_Rhop_seed(Rhop_init)
+    complex(8),dimension(Ns,Ns) :: Rhop_init
+    logical :: IOfile
+    real(8) :: buffer_real,buffer_imag  
+    integer :: expected_flen,flen,unit,is,js
+    complex(8),dimension(NRhop_opt) :: tmp_init
+    !
+    inquire(file="Rhop_seed.conf",exist=IOfile)
+    if(IOfile) then
+       expected_flen=Ns*Ns
+       flen=file_length("Rhop_seed.conf")
+       unit=free_unit()
+       open(unit,file="Rhop_seed.conf")
+       write(*,*) 'reading Rhop_seed from file Rhop_seed.conf'
+       if(flen.eq.expected_flen) then
+          !+- read from file -+!
+          do is=1,Ns
+             do js=1,Ns
+                read(unit,*) buffer_real,buffer_imag
+                Rhop_init(is,js)= buffer_real+xi*buffer_imag
+             end do
+          end do
+       else
+          write(*,*) 'Rhop_seed.conf in the wrong form',flen,expected_flen
+          write(*,*) 'Rhop will be initialized to the non-interacting case'
+          !
+          if(.not.gz_superc) then
+             tmp_init = 1.d0
+          else
+             tmp_init = 1.d0/sqrt(2.d0)
+          end if
+          call Rhop_stride_v2m(tmp_init,Rhop_init)
+          !
+       end if
+    else
+       !
+       if(.not.gz_superc) then
+          tmp_init = 1.d0
+       else
+          tmp_init = 1.d0/sqrt(2.d0)
+       end if
+       call Rhop_stride_v2m(tmp_init,Rhop_init)
+       !
+    end if
+    !
+    do is=1,Ns
+       write(*,'(20F8.4)') dreal(Rhop_init(is,1:Ns)),dimag(Rhop_init(is,1:Ns))
+    end do
+    !
+  end subroutine init_Rhop_seed
+
+
+
+
+  subroutine init_Qhop_seed(Qhop_init)
+    complex(8),dimension(Ns,Ns) :: Qhop_init
+    logical :: IOfile
+    real(8) :: buffer_real,buffer_imag  
+    integer :: expected_flen,flen,unit,is,js
+    complex(8),dimension(NRhop_opt) :: tmp_init
+    !
+    inquire(file="Qhop_seed.conf",exist=IOfile)
+    if(IOfile) then
+       expected_flen=Ns*Ns
+       flen=file_length("Qhop_seed.conf")
+       unit=free_unit()
+       open(unit,file="Qhop_seed.conf")
+       write(*,*) 'reading Qhop_seed from file Qhop_seed.conf'
+       if(flen.eq.expected_flen) then
+          !+- read from file -+!
+          do is=1,Ns
+             do js=1,Ns
+                read(unit,*) buffer_real,buffer_imag
+                Qhop_init(is,js)= buffer_real+xi*buffer_imag
+             end do
+          end do
+       else
+          write(*,*) 'Qhop_seed.conf in the wrong form',flen,expected_flen
+          write(*,*) 'Qhop will be initialized to the non-interacting case'
+          !
+          tmp_init = 1.d0/sqrt(2.d0)
+          call Qhop_stride_v2m(tmp_init,Qhop_init)
+          !
+       end if
+    else
+       !
+       tmp_init = 1.d0/sqrt(2.d0)
+       call Qhop_stride_v2m(tmp_init,Qhop_init)
+       !
+    end if
+    !
+    do is=1,Ns
+       write(*,'(20F8.4)') dreal(Qhop_init(is,1:Ns)),dimag(Qhop_init(is,1:Ns))
+    end do
+    !
+  end subroutine init_Qhop_seed
 
 
 

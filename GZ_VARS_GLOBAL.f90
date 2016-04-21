@@ -95,10 +95,10 @@ MODULE GZ_VARS_GLOBAL
   complex(8),allocatable                    :: GZ_opt_Rhop(:,:)         
   complex(8),allocatable                    :: GZ_opt_Qhop(:,:)         
   !
-  real(8),allocatable                       :: GZ_opt_vdm(:,:)           
+  complex(8),allocatable                       :: GZ_opt_vdm(:,:)           
   complex(8),dimension(:,:,:),allocatable   :: GZ_Opt_vdm_superc
 
-  real(8),dimension(:,:),allocatable        :: GZ_opt_slater_lgr(:,:)
+  complex(8),dimension(:,:),allocatable        :: GZ_opt_slater_lgr(:,:)
   complex(8),dimension(:,:,:),allocatable   :: GZ_opt_slater_lgr_superc(:,:,:)
 
   

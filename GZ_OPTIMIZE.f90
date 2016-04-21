@@ -20,8 +20,8 @@ MODULE GZ_OPTIMIZED_ENERGY
   public :: gz_optimization_vdm_nlsq      !+- constrained NonLinearLeastSquare method (GALHAD)
 
   !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
-  public :: gz_optimization_vdm_Rhop_ghld 
   public :: gz_optimization_vdm_Rhop
+  public :: gz_optimization_vdm_Rhop_
   public :: gz_optimization_vdm_Rhop_superc
   !
   public :: dump2mats_superc,dump2vec_superc
@@ -33,104 +33,9 @@ CONTAINS
   !+-----------------------------------------------------------------------------------------------------+!
   include 'gz_optimization.f90'
   !
-  subroutine gz_optimization_vdm_Rhop_ghld(init_Rhop,init_vdm) 
-    complex(8),dimension(Ns,Ns) :: init_Rhop
-    real(8),dimension(Ns,Ns) :: init_vdm
-    real(8),dimension(Ns,Ns) :: init_lgr
-    real(8),dimension(Ns) :: vdm
-    complex(8),dimension(Ns,Ns) :: Rhop
-    real(8) :: delta,tmp_ene
-    integer :: iter    !
-    !
-    integer                           :: n_min,neq,nin,maxit,print_level,exit_code
-    real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
-    real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
-    integer                           :: iunit,err_unit,ene_unit,Nsuccess  
-    real(8),dimension(:),allocatable  :: xmin
-    integer :: Nopt,iopt,Nslater_lgr,NRhop,Nproj_lgr
-    integer :: is,js,imap
-
-    Nslater_lgr = Nopt_diag + Nopt_odiag
-    NRhop = Nopt_diag + Nopt_odiag
-    Nproj_lgr = Nopt_odiag
-    !
-    Nopt = Nslater_lgr + 2*NRhop + Nproj_lgr
-    allocate(xmin(Nopt))    
-
-    !
-    !+- initialize slater_density_constraints starting from the initial guess for the variational density_matrix
-    !   
-    do is=1,Ns
-       vdm(is) = init_vdm(is,is)
-    end do
-    call  slater_minimization_lgr(init_Rhop,vdm,tmp_ene,init_lgr)
-    !
-    iopt=0
-    do is=1,Ns
-       do js=1,Ns
-          imap = opt_map(is,js)
-          if(imap.gt.0) then
-             xmin(imap) = init_lgr(is,js)
-             xmin(imap+Nslater_lgr) = dreal(init_Rhop(is,js))
-             xmin(imap+Nslater_lgr+NRhop) = dimag(init_Rhop(is,js))
-             if(is.ne.js) xmin(iopt+Nslater_lgr+2*NRhop) = 0.d0
-          end if
-       end do
-    end do
-    n_min       = Nopt      ! number of minimization parameters  
-    neq         = 0         ! number of equality constraints                   
-    nin         = 0         ! number of in-equality constraints                   
-    maxit       = 300       ! maximum iteration number 
-    gradtol     = 1.d-7     ! maximum norm of the gradient at convergence 
-    feastol     = 1.d-7     ! maximum violation of parameters at convergence  
-    print_level = lancelot_verbose           ! verbosity
-    allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
-    !    
-    bL=0.d0
-    bU=0.d0
-    do is=1,Nslater_lgr  !+- 1,...,Nslater_lgr
-       bL(is) = -10.d0               ! lower bounds for minimization parameters
-       bU(is) = 10.d0                ! upper bounds for minimization parameters          
-    end do
-    do is=1,NRhop !+- 1,....,NRhop Real + Imag
-       !
-       bL(is+Nslater_lgr) =  -1.d0               ! lower bounds for minimization parameters
-       bU(is+Nslater_lgr) =  1.d0                 ! upper bounds for minimization parameters          
-       !
-       bL(is+Nslater_lgr+NRhop) = 0.d0               ! lower bounds for minimization parameters
-       bU(is+Nslater_lgr+NRhop) = 0.d0                 ! upper bounds for minimization parameters    
-    end do
-    do is=1,Nproj_lgr
-       !           !+- 1,....,Nproj_lgr
-       bL(is+Nslater_lgr+2*NRhop) = 0.d0               ! lower bounds for minimization parameters
-       bU(is+Nslater_lgr+2*NRhop) = 0.d0                 ! upper bounds for minimization parameters
-    end do
-
-    delta=1.d0
-    call lancelot_simple(n_min,xmin,delta,exit_code,my_fun=R_VDM_free_opt_function, &
-         bl = bl, bu = bu,                                                                      &
-         neq = neq, nin = nin,                                                                  &
-         cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
-         gradtol = gradtol, feastol = feastol,                                                  &
-         print_level = print_level )
-    !+--------------------------------------------------------------------------------------+!    
-    if(GZmin_verbose) then
-       write(*,*) 'DELTA OPTIMIZATION',delta,exit_code,xmin,cx
-    end if
-    optimization_flag=.true.
-    if(allocated(GZ_vector)) deallocate(GZ_vector)
-    allocate(GZ_vector(Nphi))
-    call R_VDM_free_opt_function(xmin,delta)
-  end subroutine gz_optimization_vdm_Rhop_ghld
-
-
-
-
   subroutine gz_optimization_vdm_Rhop(init_Rhop,init_vdm) 
     complex(8),dimension(Ns,Ns) :: init_Rhop
     real(8),dimension(Ns,Ns) :: init_vdm
-
-
     real(8),dimension(Ns,Ns) :: init_lgr
     real(8),dimension(Ns) :: vdm
     complex(8),dimension(Ns,Ns) :: Rhop
@@ -174,16 +79,117 @@ CONTAINS
     if(GZmin_verbose) then       
        write(*,*) 'ROOT FUNCTION VDM-RHOP OPTIMIZATION',xout,iter
     end if
+    !
     optimization_flag=.true.
     if(allocated(GZ_vector)) deallocate(GZ_vector)
     allocate(GZ_vector(Nphi))
     xout=R_VDM_free_zeros(xmin)
-
-
+    !
   end subroutine gz_optimization_vdm_Rhop
   !
   !
   !
+
+  subroutine gz_optimization_vdm_Rhop_(init_Rhop,init_lgr_slater,init_lgr_proj,init_vdm) 
+    complex(8),dimension(Ns,Ns),intent(inout) :: init_Rhop
+    complex(8),dimension(Ns,Ns),intent(inout) :: init_lgr_slater,init_lgr_proj
+    !
+    real(8),dimension(Ns,Ns),optional :: init_vdm
+    !complex(8),dimension(Ns,Ns) :: tmp_vdm
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    real(8) :: delta,tmp_ene,out_err
+    integer :: iter    !
+    !
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess  
+    real(8),dimension(:),allocatable  :: xmin,xout
+    integer :: Nopt,iopt,Nslater_lgr,NRhop,NQhop,Nproj_lgr
+    integer :: is,js,imap
+    !
+    NRhop = 2*NRhop_opt
+    !
+    Nslater_lgr = 2*Nvdm_NC_opt 
+    Nproj_lgr = 2*Nvdm_NCoff_opt 
+    !
+    Nopt = NRhop + Nslater_lgr + Nproj_lgr
+    allocate(xmin(Nopt),xout(Nopt))    
+
+    if(present(init_vdm)) then
+       do is=1,Ns
+          vdm(is) = init_vdm(is,is)
+       end do
+       call slater_minimization_lgr_(init_Rhop,vdm,tmp_ene,init_lgr_slater,iverbose=.true.)    
+    end if
+
+    if(GZmin_verbose) then
+       write(*,*) 'Rn0_minimization: INPUT PARAMETERS'
+       write(*,*) 'Rhop'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_Rhop(is,:)
+       end do
+       write(*,*) 'init_lgr_slater'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_slater(is,:)
+       end do
+       write(*,*) 'init_lgr_proj'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_proj(is,:)
+       end do
+    end if
+    !
+    !
+    call dump2vec(xmin,init_Rhop,init_lgr_slater,init_lgr_proj) !
+    !
+    !  
+    if(GZmin_verbose) then
+       write(*,*) 'DUMPED OPTIMIZATION VECTOR'
+       do is=1,Nopt
+          write(*,*) is,xmin(is)
+       end do
+    end if
+    !
+    !
+    if(GZmin_verbose) then
+       root_unit=free_unit()
+       open(unit=root_unit,file='Rn0_root_finding.out')
+       xmin_unit=free_unit()
+       open(unit=xmin_unit,file='Rn0_root_finding_xmin.out')
+    end if
+    !
+    call fsolve(R_VDM_free_zeros_,xmin,tol=1.d-10,info=iter)
+    !    
+    !+- once optimization is achieved store the ground state results -+!
+    optimization_flag=.true.
+    if(allocated(GZ_vector)) deallocate(GZ_vector)
+    allocate(GZ_vector(Nphi))
+    if(allocated(GZ_opt_slater_lgr)) deallocate(GZ_opt_slater_lgr)
+    allocate(GZ_opt_slater_lgr(Ns,Ns))
+    !
+    xout = R_VDM_free_zeros_(xmin)
+    out_err=0.d0
+    do is=1,Nopt
+       out_err = out_err + xout(is)**2.d0
+    end do
+    !
+    if(GZmin_verbose) then       
+       write(root_unit,*)
+       write(root_unit,*)
+       write(root_unit,*) out_err
+       do is=1,Nopt
+          write(root_unit,*) is,xout(is),xmin(is)
+       end do
+       close(root_unit)
+       close(xmin_unit)
+    end if
+    call dump2mats(xmin,init_Rhop,init_lgr_slater,init_lgr_proj)
+    !
+  end subroutine gz_optimization_vdm_Rhop_
+  !
+
+
+
+
+
   !
   !
   subroutine gz_optimization_vdm_Rhop_superc(init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj,init_vdm) 

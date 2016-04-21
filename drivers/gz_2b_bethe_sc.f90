@@ -720,7 +720,6 @@ CONTAINS
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    write(*,*) "entrato"
     if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
     if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
     if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
@@ -731,7 +730,6 @@ CONTAINS
              jspin=3-ispin
              is=index(ispin,iorb)
              js=index(jspin,jorb)
-             write(*,*) is,js,size(Qhop_mat,1),size(Qhop_mat,2)
              if(iorb.ne.jorb) then
                 Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
              else
@@ -745,7 +743,6 @@ CONTAINS
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    write(*,*) "entrato"
     if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
     if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
     if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    

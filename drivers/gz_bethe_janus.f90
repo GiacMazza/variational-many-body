@@ -1,8 +1,6 @@
 program GUTZ_mb
   USE SCIFOR
   !
-  !USE DMFT_MISC
-  !USE DMFT_PARSE_INPUT
   USE DMFT_TOOLS
   !
   USE GZ_AUX_FUNX
@@ -171,7 +169,7 @@ program GUTZ_mb
      !
      Rhop_init_matrix = GZ_opt_Rhop
      slater_lgr_init = GZ_opt_slater_lgr
-     call gz_optimization_vdm_Rhop_(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
+     call gz_optimization_vdm_Rhop(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
      call get_gz_ground_state(GZ_vector)
      call print_output
      call system('cp * '//dir_iter)
@@ -286,7 +284,7 @@ CONTAINS
     allocate(slater_lgr_init(Ns,Ns),gzproj_lgr_init(Ns,Ns))  
     slater_lgr_init = zero
     gzproj_lgr_init=zero
-    call gz_optimization_vdm_Rhop_(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init,variational_density_matrix)
+    call gz_optimization_vdm_Rhop(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init,variational_density_matrix)
     call get_gz_ground_state(GZ_vector)
     !
     variational_density_matrix = dreal(GZ_opt_VDM)

@@ -68,42 +68,6 @@ program GUTZ_mb
   !
   call init_variational_matrices
   !
-  do is=1,Ns
-     do js=1,Ns        
-        write(*,*) '!+----------------------------------------------+!'
-        write(*,*) 'IS',is,'JS',js
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              !tmp_real = tmp_real + phi_traces_basis_Rhop(is,js,i,j)*conjg(phi_traces_basis_Rhop(is,js,i,j))
-              tmp_real = tmp_real + phi_traces_basis_sc_order(is,js,i,j)*conjg(phi_traces_basis_sc_order(is,js,i,j))
-           end do
-        end do
-        write(*,*) 'basis sc order',tmp_real
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              tmp_real = tmp_real + phi_traces_basis_Rhop(is,js,i,j)*conjg(phi_traces_basis_Rhop(is,js,i,j))
-           end do
-        end do
-        write(*,*) 'basis Rhop',tmp_real
-        tmp_real=0.d0
-        do i=1,Nphi
-           do j=1,Nphi
-              tmp_real = tmp_real + phi_traces_basis_Qhop(is,js,i,j)*conjg(phi_traces_basis_Qhop(is,js,i,j))
-           end do
-        end do
-        write(*,*) 'basis Qhop',tmp_real
-        tmp_real=0.d0
-        do i=1,nFock
-           !           write(*,'(20F6.2)') op_sc_order(is,js,i,:)
-           do j=1,nFock
-              tmp_real = tmp_real + op_sc_order(is,js,i,j)*op_sc_order(is,js,i,j)
-           end do
-        end do
-        !
-     end do
-  end do
   !  
   call build_lattice_model
   !

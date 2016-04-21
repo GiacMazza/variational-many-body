@@ -126,7 +126,7 @@ program GUTZ_mb
      dir_iter="U"//trim(dir_suffix)
      call system('mkdir -v '//dir_iter)     
      !
-     call gz_optimization_vdm_Rhop_(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
+     call gz_optimization_vdm_Rhop(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
      call get_gz_ground_state(GZ_vector)
      Rhop_init_matrix = GZ_opt_Rhop
      variational_density_matrix = GZ_opt_VDM     

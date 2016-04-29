@@ -5,7 +5,7 @@ program GUTZ_mb
   !
   !+- hamiltonian details -+!
   integer                             :: ispin,iorb,i,istate,jstate,ifock,jorb
-  integer                             :: out_unit,iter,Nx
+  integer                             :: out_unit,iter,Nx,is
   integer                             :: lattice ! 2=square;3=cubic
   integer,dimension(:),allocatable    :: fock_vec
   real(8),dimension(:),allocatable    :: epsik,wt,hybik
@@ -41,6 +41,19 @@ program GUTZ_mb
 
   call build_lattice_model
 
+  Nopt_diag  = 2
+  Nopt_odiag = 0
+  allocate(opt_map(Ns,Ns))
+  opt_map=0
+  do ispin=1,2
+     do iorb=1,Norb
+        is=index(ispin,iorb)
+        opt_map(is,is) = iorb
+     end do
+  end do
+  allocate(lgr_init_slater(Nopt_diag+Nopt_odiag)); lgr_init_slater = 0.d0
+  allocate(lgr_init_gzproj(Nopt_diag+Nopt_odiag)); lgr_init_gzproj = 0.d0
+
   call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
 
   ! call get_gz_ground_state(variational_density_natural)
@@ -57,23 +70,28 @@ CONTAINS
     integer                          :: ix,iy,iz,ik,Nk
     real(8),allocatable,dimension(:) :: kx
     real(8)                          :: ts,test_k,kx_,ky_,kz_,wini,wfin,de
+    real(8)                          :: test_n1,test_n2
     !
     Lk=Nx
-    allocate(epsik(Lk),wt(Lk),hybik(Lk))
+    allocate(epsik(Lk),wtk(Lk),hybik(Lk))
     wini=-Wband/2.d0
     wfin= Wband/2.d0
     epsik=linspace(wini,wfin,Lk,mesh=de)
     !
     test_k=0.d0
+    test_n1=0.d0
+    test_n2=0.d0
     do ix=1,Lk
-       wt(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       !wt(ix) = 1.d0/Wband*de
-       if(ix==1.or.ix==Lk) wt(ix)=0.d0
-       test_k=test_k+wt(ix)
-       write(77,*) epsik(ix),wt(ix)
+       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       !wtk(ix) = 1.d0/Wband*de
+       if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+       test_k=test_k+wtk(ix)
+       test_n1 = test_n1 + fermi(beta,epsik(ix)+Cfield*0.5d0)*wtk(ix)
+       test_n2 = test_n2 + fermi(beta,epsik(ix)-Cfield*0.5d0)*wtk(ix)
+       write(77,*) epsik(ix),wtk(ix)
     end do
     hybik=0.d0
-    write(*,*) test_k,de
+    write(*,*) 'NOT INTERACTING LIMIT',test_n1,test_n2
     allocate(Hk_tb(Ns,Ns,Lk))
     Hk_tb=0.d0
     do ik=1,Lk

@@ -32,15 +32,13 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
   case('CG_min')
      call fmin_cg(lgr,get_delta_proj_variational_density,iter,delta)
   case('f_zero')
-     call f_fsolve(fix_density,lgr,tol=1.d-10,info=iter)
+     call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
      delta=0.d0
      do is=1,Nopt_diag+Nopt_odiag
         delta = delta + delta_out(is)**2.d0
      end do
   end select
-  !
-  lgr_init_gzproj = lgr
   !
   lgr_multip=0.d0
   do istate=1,Ns

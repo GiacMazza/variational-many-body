@@ -180,7 +180,6 @@ contains
           !+----------------------------+!
           !+- SLATER STEP MINIMIZATION -+!
           !+----------------------------+!    
-          write(*,*) 'basta'
           call slater_minimization_lgr(R_iter,n0,E_Hstar,slater_lgr_multip, &
                slater_derivatives=slater_derivatives,iverbose=GZmin_verbose)       
           !+----------------------------+!

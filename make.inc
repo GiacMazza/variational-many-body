@@ -15,7 +15,7 @@ FPP=
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=$(HOME)/opt
+LIBDIR=$(HOME)/opt_local
 
 
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
@@ -32,7 +32,7 @@ EXE=gz_2b_bethe
 DIR=drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
-DIREXE=$(HOME)/.bin
+DIREXE=$(HOME)/.project_bin
 
 
 ifeq ($(PLAT),intel)
@@ -41,13 +41,16 @@ DFLAG = -p -O0 -g -fpe0 -warn -warn errors  -debug extended -traceback -check al
 OFLAG = -O3 -ftz -prof-use -prof-gen -ip -ipo -fpp -D_$(FPP)
 endif
 
+GALAHAD=$(HOME)/opt_local/galahad
+
+
 ifeq ($(PLAT),gnu)
-INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib
-INCARGS+=-I$(LIBDIR)/dmft_tools/gnu/include -L$(LIBDIR)/dmft_tools/gnu/lib
-INCARGS+=-I$(GALAHAD)/modules/pc64.lnx.gfo/double -L$(GALAHAD)objects/pc64.lnx.gfo/double
+INCARGS=-I$(LIBDIR)/SciFortran/gnu/include -L$(LIBDIR)/SciFortran/gnu/lib
+INCARGS+=-I$(LIBDIR)/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib
+INCARGS+=-I$(GALAHAD)/modules/pc64.lnx.gfo/double -L$(GALAHAD)/objects/pc64.lnx.gfo/double
 FFLAG = -O2 -funroll-all-loops -ffree-line-length-none -cpp -D_$(FPP) $(INCARGS) 
 DFLAG = -O0 -p -g -Wall -fimplicit-none -ffpe-trap=zero,overflow,underflow  -Wall  -Wline-truncation  -Wcharacter-truncation  -Wsurprising  -Waliasing  -Wimplicit-interface  -Wunused-parameter  -fwhole-file  -fcheck=all  -pedantic  -fbacktrace -fcheck=bounds -ffree-line-length-none -cpp -D_$(FPP) $(INCARGS)
-OFLAG = -O3 -ffast-math -march=native -funroll-all-loops -fno-protect-parens -flto -ffree-line-length-none -cpp -D_$(FPP) $(INCARGS 
+OFLAG = -O3 -ffast-math -march=native -funroll-all-loops -fno-protect-parens -flto -ffree-line-length-none -cpp -D_$(FPP) $(INCARGS)
 endif
 
 

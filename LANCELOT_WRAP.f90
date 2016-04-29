@@ -924,8 +924,8 @@ CONTAINS
     INTEGER, INTENT( IN ) :: iel, nelv, ninv, ielt, lw1, lw2
     LOGICAL, INTENT( IN ) :: transp
     REAL ( KIND = wp ), INTENT(  IN ), DIMENSION ( lw1 ) :: W1
-    REAL ( KIND = wp ), DIMENSION ( lw2 ) :: W2
-    !      REAL ( KIND = wp ), INTENT( OUT ), DIMENSION ( lw2 ) :: W2
+    !REAL ( KIND = wp ), DIMENSION ( lw2 ) :: W2
+    REAL ( KIND = wp ), INTENT( OUT ), DIMENSION ( lw2 ) :: W2
     RETURN
   END SUBROUTINE RANGE
   !

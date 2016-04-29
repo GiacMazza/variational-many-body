@@ -28,12 +28,12 @@ subroutine slater_minimization_lgr(Rhop,n0_target,Estar,lgr_multip,n0_out,slater
   allocate(lgr(Nopt_diag+Nopt_odiag));lgr=0.d0
   allocate(delta_out(Nopt_diag+Nopt_odiag))
   !
-  lgr = lgr_init_slater
+!  lgr = lgr_init_slater
   select case(lgr_method)
   case('CG_min')
      call fmin_cg(lgr,get_delta_local_density_matrix,iter,delta,itmax=20)
   case('f_zero')
-     call f_fsolve(fix_density,lgr,tol=1.d-10,info=iter)
+     call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
      delta=0.d0
      do is=1,Nopt_diag+Nopt_odiag
@@ -162,6 +162,7 @@ contains
        end do
     end do
     !
+    !+
     local_density_matrix=0.d0
     !
     do ik=1,Lk
@@ -186,6 +187,7 @@ contains
           end do
        end do
     end do
+
     ! return variation of local density matrix with respect to the target values
     do istate=1,Ns
        do jstate=1,Ns

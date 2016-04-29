@@ -165,7 +165,7 @@ CONTAINS
        end do
     end do
     !
-    call f_fsolve(R_VDM_free_zeros,xmin,tol=1.d-10,info=iter)
+    call fsolve(R_VDM_free_zeros,xmin,tol=1.d-10,info=iter)
     xout=R_VDM_free_zeros(xmin)
     !
     if(GZmin_verbose) then       

@@ -21,7 +21,7 @@ MODULE GZ_VARS_GLOBAL
   integer,dimension(:,:),allocatable :: opt_map_anomalous
 
 
-  integer :: NRhop_opt,NQhop_opt,Nvdm_NC_opt,Nvdm_NCoff_opt,Nvdm_AC_opt
+  integer :: NRhop_opt,NQhop_opt,Nvdm_NC_opt,Nvdm_NCoff_opt,Nvdm_AC_opt,Nopt_reduced
   !
   integer                            :: Nphi                ! dimension of the matrix basis for the GZprojectors
 
@@ -101,7 +101,7 @@ MODULE GZ_VARS_GLOBAL
   complex(8),dimension(:,:),allocatable        :: GZ_opt_slater_lgr(:,:)
   complex(8),dimension(:,:,:),allocatable   :: GZ_opt_slater_lgr_superc(:,:,:)
 
-  
+
   complex(8),dimension(:,:),allocatable   :: slater_ground_state_deriv   ! (Ns,Ns) aka d<H*>/R_{\alpha,\beta} \alpha,\beta=1,Ns
 
   !# Observables #!
@@ -125,7 +125,7 @@ MODULE GZ_VARS_GLOBAL
   real(8),allocatable                :: op_spin_flip(:,:,:,:)     ! spin_flip    (Norb,Norb,:,:)
   real(8),allocatable                :: op_pair_hopping(:,:,:,:)     ! pair_hopping    (Norb,Norb,:,:)
   real(8),allocatable                :: op_sc_order(:,:,:,:)     ! SC-order parameter    (Norb,Norb,:,:)
-  
+
   complex(8),allocatable             :: op_spin2(:,:)
   complex(8),allocatable             :: op_spinZ(:,:)
   complex(8),allocatable             :: op_isospin2(:,:)
@@ -180,4 +180,14 @@ MODULE GZ_VARS_GLOBAL
   procedure (opt_stride_mat2vec),pointer :: vdm_NCoff_stride_m2v => null ()
   procedure (opt_stride_mat2vec),pointer :: vdm_AC_stride_m2v => null ()
   !
+
+  abstract interface
+     subroutine zeros_stride(x1,x2)
+       real(8),dimension(:) :: x1
+       real(8),dimension(:) :: x2
+     end subroutine zeros_stride
+  end interface
+  procedure (zeros_stride),pointer :: stride_zeros_red2orig => null ()
+  procedure (zeros_stride),pointer :: stride_zeros_orig2red => null ()
+
 END MODULE GZ_VARS_GLOBAL

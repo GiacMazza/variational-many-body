@@ -556,7 +556,7 @@ contains
   end function fix_density
 end subroutine slater_minimization_lgr
 !
-subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,slater_matrix_el)
+subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,slater_matrix_el,store)
   complex(8),dimension(Ns,Ns),intent(in)  :: Rhop
   complex(8),dimension(Ns,Ns),intent(in)  :: lm
   real(8)                                 :: Estar
@@ -564,12 +564,16 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
   complex(8),dimension(Ns,Ns),optional    :: n0 
   complex(8),dimension(Ns,Ns),optional    :: slater_derivatives
   complex(8),dimension(Ns,Ns,Lk),optional :: slater_matrix_el
-  complex(8),dimension(Ns,Ns)                :: n0_
+  logical,optional                        :: store
+  logical                                 :: store_
+  complex(8),dimension(Ns,Ns)             :: n0_
   complex(8),dimension(Ns,Ns)             :: slater_derivatives_
   complex(8),dimension(Ns,Ns,Lk)          :: slater_matrix_el_
   complex(8),dimension(Ns,Ns)             :: Hk,tmp,Hk_bare,Hstar
   real(8),dimension(Ns)                   :: ek
   integer                                 :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,is,js,ks,kks
+  integer                                 :: unit_store_slater_el,unit_store_slater_ek,istore
+  complex(8),dimension(Ns*Ns)             :: tmp_matrix_el
   !
   complex(8),dimension(Ns,Ns)             :: Rhop_dag  
   !
@@ -583,6 +587,15 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
   slater_derivatives_=zero
   n0_ = 0.d0
   slater_matrix_el_ = zero
+  !
+  store_=.false.; if(present(store)) store_=store
+  if(store_) then
+     unit_store_slater_ek = free_unit()
+     open(unit_store_slater_ek,file='store_slater_determinant_ground_state_ek.out')
+     unit_store_slater_el = free_unit()
+     open(unit_store_slater_el,file='store_slater_determinant_ground_state_el.out')
+  end if
+  !
   do ik=1,Lk
      !
      Hk=0.d0
@@ -596,6 +609,7 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
      !
      call  matrix_diagonalize(Hk,ek)
      ! store slater determinant matrix elements
+     istore=0; tmp_matrix_el=zero
      do istate=1,Ns
         do jstate=1,Ns
            tmp(istate,jstate)=0.d0
@@ -606,8 +620,18 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
               slater_matrix_el_(istate,jstate,ik) = slater_matrix_el_(istate,jstate,ik) + &
                    conjg(Hk(istate,kstate))*Hk(jstate,kstate)*fermi(ek(kstate),beta)
            end do
+           istore=istore+1
+           tmp_matrix_el(istore) = slater_matrix_el_(istate,jstate,ik)
         end do
      end do
+     !
+     if(store_) then
+        write(unit_store_slater_ek,'(20(F18.10))') ek(:)
+        do is=1,Ns*Ns
+           write(unit_store_slater_el,'(10(F18.10))') tmp_matrix_el(is)
+        end do
+        write(unit_store_slater_el,'(10(F18.10))') 
+     end if
      !
      tmp = slater_matrix_el_(:,:,ik)     
      do is=1,Ns
@@ -974,7 +998,7 @@ contains
 
 end subroutine slater_minimization_lgr_superc
 !
-subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_derivatives,slater_matrix_el)     
+subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_derivatives,slater_matrix_el,store)     
   complex(8),dimension(Ns,Ns),intent(in)      :: Rhop
   complex(8),dimension(Ns,Ns),intent(in)      :: Qhop  
 
@@ -984,21 +1008,28 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
   complex(8),dimension(2,Ns,Ns),optional      :: n0
   complex(8),dimension(2,Ns,Ns),optional      :: slater_derivatives
   complex(8),dimension(2*Ns,2*Ns,Lk),optional :: slater_matrix_el
+  logical,optional                            :: store
   complex(8),dimension(2,Ns,Ns)               :: n0_
   complex(8),dimension(2*Ns,2*Ns)             :: n0_tmp
   complex(8),dimension(2,Ns,Ns)               :: slater_derivatives_
   complex(8),dimension(2*Ns,2*Ns,Lk)          :: slater_matrix_el_
-
+  logical                                     :: store_
+  !
   complex(8),dimension(Ns,Ns)                 :: Rhop_dag
   complex(8),dimension(Ns,Ns)                 :: Qhop_dag  
   complex(8),dimension(2*Ns,2*Ns)             :: Hk,Hstar,tmp
   complex(8),dimension(Ns,Ns)                 :: Hk_tmp
   real(8),dimension(2*Ns)                     :: ek
-
+  real(8),dimension(Ns)                       :: eps_ik
+  !
   complex(8),dimension(Ns,Ns)                 :: Hk_bare
   integer                                     :: iorb,jorb,ispin,jspin,istate,jstate,kstate,kkstate,ik
   integer                                     ::is,js,ks,kks
   real(8)                                     :: nqp
+  !
+  integer                                 :: unit_store_slater_el,unit_store_slater_ek,istore
+  complex(8),dimension(2*Ns*2*Ns)             :: tmp_matrix_el
+
   !
   Estar=0.d0
   slater_derivatives_=zero
@@ -1012,6 +1043,14 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
         Qhop_dag(istate,jstate) = conjg(Qhop(jstate,istate))
      end do
   end do
+  !
+  store_=.false.; if(present(store)) store_=store
+  if(store_) then
+     unit_store_slater_ek = free_unit()
+     open(unit_store_slater_ek,file='store_slater_determinant_ground_state_ek.out')
+     unit_store_slater_el = free_unit()
+     open(unit_store_slater_el,file='store_slater_determinant_ground_state_el.out')
+  end if
   !
   do ik=1,Lk     
      Hk_bare=Hk_tb(:,:,ik)
@@ -1048,7 +1087,11 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
      end do
      ! diagonalize hamiltonian !
      call  matrix_diagonalize(Hk,ek) 
+     do is=1,Ns
+        eps_ik(is) = ek(is)-ek(is+Ns)
+     end do
      !compute local density matrix (now 2Ns x 2Ns)
+     istore=0; tmp_matrix_el=zero
      do is = 1,2*Ns
         do js = 1,2*Ns           
            do ks = 1,Ns
@@ -1066,8 +1109,18 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
                    conjg(Hk(is,ks))*Hk(js,ks)*nqp + &
                    conjg(Hk(is,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)
            end do
+           istore=istore+1
+           tmp_matrix_el(istore) = slater_matrix_el_(istate,jstate,ik)
         end do
      end do
+     !
+     if(store_) then
+        write(unit_store_slater_ek,'(20(F18.10))') eps_ik(:)
+        do is=1,4*Ns*Ns
+           write(unit_store_slater_el,'(10(F18.10))') tmp_matrix_el(is)
+        end do
+        write(unit_store_slater_el,'(10(F18.10))') 
+     end if
      !
      tmp = slater_matrix_el_(:,:,ik)     
      do is=1,Ns
@@ -1089,6 +1142,10 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
   end do
   n0_(1,:,:)=n0_tmp(1:Ns,1:Ns)
   n0_(2,:,:)=n0_tmp(1:Ns,1+Ns:2*Ns)
+
+
+
+
   if(present(n0)) then
      n0=n0_
   end if

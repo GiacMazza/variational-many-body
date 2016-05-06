@@ -91,6 +91,7 @@ CONTAINS
           write(*,*) 'please check your initialization file for the simplex'
           stop
        end if
+       close(unit)
     else
        write(*,*) 'vdm_simplex_seed.conf does not exist'
        write(*,*) 'please provide an initialization file for the simplex'
@@ -125,6 +126,7 @@ CONTAINS
           write(*,*) 'variational density matrix will be initialized to the homogeneous case'
           variational_density = 0.5d0
        end if
+       close(unit)
     else
        write(*,*) 'vdm_simplex_seed.conf does not exist'
        write(*,*) 'variational density matrix will be initialized to the homogeneous case'
@@ -156,7 +158,7 @@ CONTAINS
                 read(unit,*) buffer_real,buffer_imag
                 Rhop_init(is,js)= buffer_real+xi*buffer_imag
              end do
-          end do
+          end do          
        else
           write(*,*) 'Rhop_seed.conf in the wrong form',flen,expected_flen
           write(*,*) 'Rhop will be initialized to the non-interacting case'
@@ -169,6 +171,7 @@ CONTAINS
           call Rhop_stride_v2m(tmp_init,Rhop_init)
           !
        end if
+       close(unit)
     else
        !
        if(.not.gz_superc) then
@@ -219,6 +222,7 @@ CONTAINS
           call Qhop_stride_v2m(tmp_init,Qhop_init)
           !
        end if
+       close(unit)
     else
        !
        tmp_init = 1.d0/sqrt(2.d0)

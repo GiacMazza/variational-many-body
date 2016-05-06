@@ -22,6 +22,7 @@ MODULE GZ_OPTIMIZED_ENERGY
   !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
   public :: gz_optimization_vdm_Rhop
   public :: gz_optimization_vdm_Rhop_superc
+  public :: gz_optimization_vdm_Rhop_superc_reduced
   !
   public :: dump2mats_superc,dump2vec_superc
   public :: dump2mats,dump2vec
@@ -131,6 +132,113 @@ CONTAINS
 
 
 
+  subroutine gz_optimization_vdm_Rhop_reduced(init_Rhop,init_lgr_slater,init_lgr_proj,init_vdm) 
+    complex(8),dimension(Ns,Ns),intent(inout) :: init_Rhop
+    complex(8),dimension(Ns,Ns),intent(inout) :: init_lgr_slater,init_lgr_proj
+    !
+    real(8),dimension(Ns,Ns),optional :: init_vdm
+    !complex(8),dimension(Ns,Ns) :: tmp_vdm
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    real(8) :: delta,tmp_ene,out_err
+    integer :: iter    !
+    !
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess  
+    real(8),dimension(:),allocatable  :: xmin,xout
+    real(8),dimension(:),allocatable  :: xmin_,xout_
+    integer :: Nopt,iopt,Nslater_lgr,NRhop,NQhop,Nproj_lgr
+    integer :: is,js,imap
+    !
+    NRhop = 2*NRhop_opt
+    !
+    Nslater_lgr = 2*Nvdm_NC_opt 
+    Nproj_lgr = 2*Nvdm_NCoff_opt 
+    !
+    Nopt = NRhop + Nslater_lgr + Nproj_lgr
+    allocate(xmin(Nopt),xout(Nopt))    
+
+    if(present(init_vdm)) then
+       do is=1,Ns
+          vdm(is) = init_vdm(is,is)
+       end do
+       call slater_minimization_lgr(init_Rhop,vdm,tmp_ene,init_lgr_slater,iverbose=.true.)    
+    end if
+
+    if(GZmin_verbose) then
+       write(*,*) 'Rn0_minimization: INPUT PARAMETERS'
+       write(*,*) 'Rhop'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_Rhop(is,:)
+       end do
+       write(*,*) 'init_lgr_slater'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_slater(is,:)
+       end do
+       write(*,*) 'init_lgr_proj'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_proj(is,:)
+       end do
+    end if
+    !
+    !
+    call dump2vec(xmin,init_Rhop,init_lgr_slater,init_lgr_proj) !
+    !
+    !  
+    if(GZmin_verbose) then
+       write(*,*) 'DUMPED OPTIMIZATION VECTOR'
+       do is=1,Nopt
+          write(*,*) is,xmin(is)
+       end do
+    end if
+    !
+    !
+    if(GZmin_verbose) then
+       root_unit=free_unit()
+       open(unit=root_unit,file='Rn0_root_finding.out')
+       xmin_unit=free_unit()
+       open(unit=xmin_unit,file='Rn0_root_finding_xmin.out')
+    end if
+    !
+    
+    !
+    allocate(xmin_(Nopt_reduced))
+    call stride_zeros_orig2red(xmin,xmin_)
+    call fsolve(R_VDM_free_zeros__,xmin_,tol=1.d-20,info=iter)
+    call stride_zeros_red2orig(xmin_,xmin)
+    !
+    !call fsolve(R_VDM_free_zeros_,xmin,tol=1.d-10,info=iter)
+    !    
+    !+- once optimization is achieved store the ground state results -+!
+    optimization_flag=.true.
+    if(allocated(GZ_vector)) deallocate(GZ_vector)
+    allocate(GZ_vector(Nphi))
+    if(allocated(GZ_opt_slater_lgr)) deallocate(GZ_opt_slater_lgr)
+    allocate(GZ_opt_slater_lgr(Ns,Ns))
+    !
+    xout = R_VDM_free_zeros_(xmin)
+    out_err=0.d0
+    do is=1,Nopt
+       out_err = out_err + xout(is)**2.d0
+    end do
+    !
+    if(GZmin_verbose) then       
+       write(root_unit,*)
+       write(root_unit,*)
+       write(root_unit,*) out_err
+       do is=1,Nopt
+          write(root_unit,*) is,xout(is),xmin(is)
+       end do
+       close(root_unit)
+       close(xmin_unit)
+    end if
+    call dump2mats(xmin,init_Rhop,init_lgr_slater,init_lgr_proj)
+    !
+  end subroutine gz_optimization_vdm_Rhop_reduced
+
+
+
+
+
 
 
   !
@@ -219,8 +327,8 @@ CONTAINS
        open(unit=xmin_unit,file='RQn0_root_finding_xmin.out')
     end if
     !
-    call fsolve(R_Q_VDM_free_zeros_superc,xmin,tol=1.d-10,info=iter)
-    ! call fmin_cg(xmin,R_Q_VDM_free_opt_superc,iter,out_err,ftol=10d-15,istop=2)
+    call fsolve(R_Q_VDM_free_zeros_superc,xmin,tol=1.d-20,info=iter)
+    !call fmin_cg(xmin,R_Q_VDM_free_opt_superc,iter,out_err,ftol=10d-15,istop=2)
     ! write(*,*) 'ITER',iter
     !    
     !+- once optimization is achieved store the ground state results -+!
@@ -249,6 +357,129 @@ CONTAINS
     call dump2mats_superc(xmin,init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj)
     !
   end subroutine gz_optimization_vdm_Rhop_superc
+  !
+  !
+  !
+  !
+  subroutine gz_optimization_vdm_Rhop_superc_reduced(init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj,init_vdm) 
+    complex(8),dimension(Ns,Ns),intent(inout) :: init_Rhop
+    complex(8),dimension(Ns,Ns),intent(inout) :: init_Qhop
+    complex(8),dimension(2,Ns,Ns),intent(inout) :: init_lgr_slater,init_lgr_proj
+    !
+    real(8),dimension(Ns,Ns),optional :: init_vdm
+    complex(8),dimension(2,Ns,Ns) :: tmp_vdm
+    real(8),dimension(Ns) :: vdm
+    complex(8),dimension(Ns,Ns) :: Rhop
+    real(8) :: delta,tmp_ene
+    integer :: iter    !
+    !
+    integer                           :: n_min,neq,nin,maxit,print_level,exit_code
+    real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_,out_err
+    real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
+    integer                           :: iunit,err_unit,ene_unit,Nsuccess  
+    real(8),dimension(:),allocatable  :: xmin,xout
+    real(8),dimension(:),allocatable  :: xmin_,xout_
+    integer :: Nopt,iopt,Nslater_lgr,NRhop,NQhop,Nproj_lgr
+    integer :: is,js,imap
+    !
+    NRhop = 2*NRhop_opt
+    NQhop = 2*NQhop_opt
+    !
+    Nslater_lgr = 2*Nvdm_NC_opt + 2*Nvdm_AC_opt
+    Nproj_lgr = 2*Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+    !
+    Nopt = NRhop + NQhop + Nslater_lgr + Nproj_lgr
+    allocate(xmin(Nopt),xout(Nopt))    
+
+    if(present(init_vdm)) then
+       tmp_vdm = zero
+       tmp_vdm(1,:,:) = init_vdm
+       do is=1,Ns
+          vdm(is) = init_vdm(is,is)
+       end do
+       call slater_minimization_lgr_superc(init_Rhop,init_Qhop,vdm,tmp_ene,init_lgr_slater,iverbose=.true.)    
+    end if
+
+    if(GZmin_verbose) then
+       write(*,*) 'RQn0_minimization: INPUT PARAMETERS'
+       write(*,*) 'Rhop'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_Rhop(is,:)
+       end do
+       write(*,*) 'Qhop'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_Qhop(is,:)
+       end do
+       write(*,*) 'init_lgr_slater Normal'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_slater(1,is,:)
+       end do
+       write(*,*) 'init_lgr_slater Anomalous'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_slater(2,is,:)
+       end do
+       write(*,*) 'init_lgr_proj Normal'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_proj(1,is,:)
+       end do
+       write(*,*) 'init_lgr_proj Anomalous'
+       do is=1,Ns
+          write(*,'(10F8.4)') init_lgr_proj(2,is,:)
+       end do
+    end if
+    !
+    call dump2vec_superc(xmin,init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj)
+    !  
+    if(GZmin_verbose) then
+       write(*,*) 'DUMPED OPTIMIZATION VECTOR @ REDUCED OPTIMIZATION'
+       do is=1,Nopt
+          write(*,*) is,xmin(is)
+       end do
+    end if
+    !
+    !
+    if(GZmin_verbose) then
+       root_unit=free_unit()
+       open(unit=root_unit,file='RQn0_root_finding.out')
+       xmin_unit=free_unit()
+       open(unit=xmin_unit,file='RQn0_root_finding_xmin.out')
+    end if
+    !    
+    allocate(xmin_(Nopt_reduced))
+    call stride_zeros_orig2red(xmin,xmin_)
+    call fsolve(R_Q_VDM_free_zeros_superc_,xmin_,tol=1.d-20,info=iter)
+    call stride_zeros_red2orig(xmin_,xmin)
+    !
+    !+- once optimization is achieved store the ground state results -+!
+    optimization_flag=.true.
+    if(allocated(GZ_vector)) deallocate(GZ_vector)
+    allocate(GZ_vector(Nphi))
+    if(allocated(GZ_opt_slater_lgr_superc)) deallocate(GZ_opt_slater_lgr_superc)
+    allocate(GZ_opt_slater_lgr_superc(2,Ns,Ns))
+    !
+    xout = R_Q_VDM_free_zeros_superc(xmin)
+    out_err=0.d0
+    do is=1,Nopt
+       out_err = out_err + xout(is)**2.d0
+    end do
+    !
+    if(GZmin_verbose) then       
+       write(root_unit,*)
+       write(root_unit,*)
+       write(root_unit,*) out_err
+       do is=1,Nopt
+          write(root_unit,*) is,xout(is),xmin(is)
+       end do
+       close(root_unit)
+       close(xmin_unit)
+    end if
+    call dump2mats_superc(xmin,init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj)
+    !
+  end subroutine gz_optimization_vdm_Rhop_superc_reduced
+
+
+
+
   !
   !+---------------------------------------------------------------------------+!
   !+- CONSTRAINED MINIMIZATION WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!

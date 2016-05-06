@@ -44,18 +44,12 @@ MODULE GZ_ENERGY_MINIMIZATION
   public :: slater_minimization_lgr_superc
   public :: slater_minimization_fixed_lgr_superc
   !
-  !+-
-
-  !public :: gz_proj_minimization_fixed_lgr
-  !+-tmp
-
-
-    
-
-
+  
+  !
   public :: get_gz_ground_state
   public :: get_gz_ground_state_superc
-
+  !
+  
 contains
   !
   include "slater_min_routines.f90"
@@ -84,7 +78,7 @@ contains
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
     !
     !
-    call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM)
+    call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM,store=.true.)
     !
     !    
     !+- GET OBSERVABLES -+!
@@ -146,7 +140,7 @@ contains
     GZ_opt_Qhop=hopping_renormalization_anomalous(GZ_vector,n0)            
     !
     !
-    call slater_minimization_fixed_lgr_superc(GZ_opt_Rhop,GZ_opt_Qhop,GZ_opt_slater_lgr_superc,E_Hstar,GZ_opt_VDM_superc)
+    call slater_minimization_fixed_lgr_superc(GZ_opt_Rhop,GZ_opt_Qhop,GZ_opt_slater_lgr_superc,E_Hstar,GZ_opt_VDM_superc,store=.true.)
     !
     !    
     !+- GET OBSERVABLES -+!

@@ -252,24 +252,22 @@ CONTAINS
 
     dim_phi=size(phi_fock,1)
     !
-    !dim_phi = nFock*nFock
+    !dim_phi = nFock
     Nphi=dim_phi   
     write(*,*) "NPHI",Nphi
     !
     allocate(phi_basis(dim_phi,nFock,nFock))
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
-
+    
     phi_basis = phi_fock
 
 
-    !< tmp TEST
+    !< TMP_TEST_DIAGONAL_BASIS
     ! phi_basis=0.d0
     ! iphi=0
     ! do ifock=1,nFock
-    !    do jfock=1,nFock
-    !       iphi=iphi+1
-    !       phi_basis(iphi,ifock,jfock) = 1.d0
-    !    end do
+    !    iphi=iphi+1
+    !    phi_basis(iphi,iphi,iphi) = 1.d0
     ! end do
     ! END TMP_TEST>
 

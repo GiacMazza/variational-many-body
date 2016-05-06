@@ -1,4 +1,4 @@
-function R_VDM_free_zeros_(x)  result(Fout)
+function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
   real(8),dimension(:)                :: x      
   !
   real(8),dimension(size(x))          :: Fout
@@ -104,6 +104,44 @@ function R_VDM_free_zeros_(x)  result(Fout)
   !
 end function R_VDM_free_zeros_
 !
+
+
+
+
+
+
+
+
+
+
+
+
+function R_VDM_free_zeros__(x)  result(Fout)   !+- change this name
+  real(8),dimension(:)                :: x      
+  real(8),dimension(size(x))          :: Fout
+  !
+  integer                             :: Nslater_lgr,NQhop,NRhop,Nproj_lgr,Nopt
+  real(8),dimension(:),allocatable    :: x_orig,Fout_orig
+  !
+  NRhop = 2*NRhop_opt
+  !
+  Nslater_lgr = 2*Nvdm_NC_opt
+  Nproj_lgr = 2*Nvdm_NCoff_opt
+  !
+  Nopt = NRhop + Nslater_lgr + Nproj_lgr
+  if(size(x).ne.Nopt_reduced) stop "R_VDM_free_zeros__: size input vector not equal to Nopt_reduced."
+  !
+  allocate(x_orig(Nopt),Fout_orig(Nopt))
+  call stride_zeros_red2orig(x,x_orig)
+  Fout_orig = R_VDM_free_zeros_(x_orig)
+  call stride_zeros_orig2red(Fout_orig,Fout)
+  !
+end function R_VDM_free_zeros__
+!
+
+
+
+
 
 
 
@@ -232,6 +270,45 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
   end if
   !
 end function R_Q_VDM_free_zeros_superc
+
+
+
+
+
+
+
+
+
+
+
+function R_Q_VDM_free_zeros_superc_(x)  result(Fout)
+  real(8),dimension(:)                :: x      
+  real(8),dimension(size(x))          :: Fout
+  !
+  integer                             :: Nslater_lgr,NQhop,NRhop,Nproj_lgr,Nopt
+  !
+  real(8),dimension(:),allocatable                :: x_orig,Fout_orig      
+  NRhop = 2*NRhop_opt
+  NQhop = 2*NQhop_opt
+  !
+  Nslater_lgr = 2*(Nvdm_NC_opt+Nvdm_AC_opt)
+  Nproj_lgr = 2*(Nvdm_NCoff_opt+Nvdm_AC_opt) 
+  !
+  Nopt = NRhop + NQhop + Nslater_lgr + Nproj_lgr
+  !
+  if(size(x).ne.Nopt_reduced) stop "R_Q_VDM_free_zeros_superc_: size input vector not equal to Nopt_reduced."
+  allocate(x_orig(Nopt),Fout_orig(Nopt))
+  call stride_zeros_red2orig(x,x_orig)
+  Fout_orig = R_Q_VDM_free_zeros_superc(x_orig)
+  call stride_zeros_orig2red(Fout_orig,Fout)
+  !
+end function R_Q_VDM_free_zeros_superc_
+
+
+
+
+
+
 !
 subroutine dump2vec(x,Rhop,slater_lgr,GZproj_lgr)
   real(8),dimension(:)                :: x

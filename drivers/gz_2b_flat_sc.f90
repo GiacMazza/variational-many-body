@@ -21,9 +21,9 @@ program GUTZ_mb
   complex(8),dimension(:),allocatable               :: init_vec
   real(8),dimension(:),allocatable   :: variational_density_natural
   real(8),dimension(:),allocatable   :: vdm_init,vdm_out
-  complex(8),dimension(:),allocatable   :: R_out
+  complex(8),dimension(:),allocatable   :: R_out,vdm_tmp
   complex(8),dimension(:),allocatable   :: Rhop_init,Rhop_out
-  complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix
+  complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix,tmp_vdm_mat
   real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
   real(8),dimension(:,:),allocatable :: variational_density_matrix
   integer                            :: out_unit,iter
@@ -31,34 +31,32 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: epsik,hybik
   integer :: Nx,is,js,imap,jmap,Nopt
   !
-  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter
+  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter,VDMiter
   real(8),dimension(:),allocatable :: dump_seed
   integer :: expected_flen,flen,unit
   logical :: seed_file
 
 
   character(len=5) :: dir_suffix
-  character(len=6) :: dir_iter
+  character(len=8) :: dir_iter
   !
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
   complex(8),dimension(:,:),allocatable   :: R_init,Q_init
 
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init_,gzproj_lgr_init_
   complex(8),dimension(:,:),allocatable   :: R_init_,Q_init_
-
   complex(8),dimension(1) :: tmpQ
-  character(len=6) :: sweep !sweepU,sweepJ
-  real(8) :: sweep_start,sweep_stop,sweep_step
-  integer ::  Nsweep
+
+  character(len=11) :: task !e_sweep_vdm,min_simplex,min_galahad,nRQfree_min
+
+
   !
   !+- PARSE INPUT DRIVER -+!
-  call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
+  call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
-  call parse_input_variable(sweep,"SWEEP","inputGZ.conf",default='sweepJ')  
-  call parse_input_variable(sweep_start,"SWEEP_START","inputGZ.conf",default=-0.4d0)  
-  call parse_input_variable(sweep_stop,"SWEEP_STOP","inputGZ.conf",default=0.d0)  
-  call parse_input_variable(sweep_step,"SWEEP_STEP","inputGZ.conf",default=0.05d0)  
+  call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)  
+  call parse_input_variable(task,"TASK","inputGZ.conf",default="min_galahad")  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -79,7 +77,7 @@ program GUTZ_mb
   call initialize_local_fock_space
   !
   call init_variational_matrices
-  !  
+  !
   call build_lattice_model
   !
   NRhop_opt=1;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
@@ -89,120 +87,68 @@ program GUTZ_mb
   Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
   Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   !
-  Nopt_reduced = 1 + 1 + 1
-  !
-  stride_zeros_orig2red => stride2reduced
-  stride_zeros_red2orig => stride2orig
-  !
-  allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
-  allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
-  slater_lgr_init=0.d0
-  gzproj_lgr_init=0.d0
-  !
-  expected_flen=2*Nopt
-  inquire(file="RQn0_root_seed.conf",exist=seed_file)
-  if(seed_file) then
-     flen=file_length("RQn0_root_seed.conf")
-     unit=free_unit()
-     open(unit,file="RQn0_root_seed.conf")
-     write(*,*) 'reading root seed from file RQn0_root_seed.conf'
-     if(flen.eq.expected_flen) then
-        allocate(dump_seed(flen))
-        !+- read from file -+!
-        do i=1,flen
-           read(unit,*) dump_seed(i)
-        end do
-        !+------------------+!        
-        call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)        
-     else
-        write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
-        write(*,*) 'please check your initialization file for the root finding'
-        stop
+  select case(task)
+  case("min_galahad")
+     !+- nlsq_minimization using the galahad routine -+!     
+     allocate(vdm_init(Nvdm_NC_opt-Nvdm_NCoff_opt),vdm_out(Nvdm_NC_opt-Nvdm_NCoff_opt))
+     !
+     call initialize_variational_density(vdm_init)
+     !
+     call gz_optimization_vdm_nlsq(vdm_init,vdm_out)  
+     !
+     call get_gz_ground_state_superc(GZ_vector)
+     !
+     call print_output_superc(vdm_opt=vdm_out)
+     !
+  case("min_simplex")
+     !+- simplex_minimization using the amoeab routine +-!
+     !
+     allocate(variational_density_natural_simplex(Ns+1,Ns)); allocate(variational_density_natural(Ns))     
+     !
+     call initialize_variational_density_simplex(variational_density_natural_simplex)
+     !
+     call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
+     !
+     call get_gz_ground_state_superc(GZ_vector)
+     !
+     call print_output_superc(variational_density_natural_simplex)
+     !
+  case("e_sweep_vdm")
+     !
+     !+- energy computation for a fixed Variational Density Matrix provided by the user (read independent vdm elements from file) -+!
+     !
+     allocate(vdm_tmp(Nvdm_NC_opt-Nvdm_NCoff_opt),vdm_init(Nvdm_NC_opt-Nvdm_NCoff_opt),tmp_vdm_mat(Ns,Ns))
+     !
+     call initialize_variational_density(vdm_init); vdm_tmp=vdm_init; deallocate(vdm_init)
+     call vdm_NC_stride_v2m(vdm_tmp,tmp_vdm_mat); allocate(vdm_init(Ns))
+     !
+     do is=1,Ns
+        vdm_init(is)=dreal(tmp_vdm_mat(is,is))
+     end do
+     !
+     opt_energy_unit=free_unit()
+     open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+     opt_rhop_unit=free_unit()
+     if(gz_superc) then
+        open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+        opt_qhop_unit=free_unit()
      end if
+     open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
+     opt_GZ_unit=free_unit()
+     open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+     if(GZmin_verbose) then
+        GZmin_unit=free_unit()
+        open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+        GZmin_unit_=free_unit()
+        open(GZmin_unit_,file='GZ_proj_min.out')
+     end if
+     optimization_flag=.true.
+     if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
+     tmp_emin = gz_energy_vdm(vdm_init);
+     call get_gz_ground_state_superc(GZ_vector)     !                                                                                                                                                               
+     call print_output_superc
      !
-  else
-     !
-     call init_Rhop_seed(R_init)
-     call init_Qhop_seed(Q_init)
-     !
-     slater_lgr_init(1,:,:)=0.1d0
-     slater_lgr_init(2,:,:)=0.d0
-     gzproj_lgr_init(1,:,:)=0.1d0
-     gzproj_lgr_init(2,:,:)=0.d0  
-     !
-  end if
-
-  select case(sweep)
-  case('sweepJ')
-     !+- sweep JHund -+!
-     Nsweep = abs(sweep_start-sweep_stop)/sweep_step
-     Jiter = sweep_start
-     do i=1,35
-        !+ T^2-Tz^2 hamiltonian
-        Jh = Jiter
-        Jsf = Jh
-        Jph = 0.d0
-        !
-        call build_local_hamiltonian     
-        phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-        !
-        write(dir_suffix,'(F4.2)') abs(Jiter)
-        dir_iter="J"//trim(dir_suffix)
-        call system('mkdir -v '//dir_iter)     
-        !
-        !call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        !
-        call get_gz_ground_state_superc(GZ_vector)  
-        !
-        call print_output_superc
-        call system('cp * '//dir_iter)
-        call system('rm *.out *.data fort.* ')
-        Jiter = Jiter + sweep_step
-     end do
-  case('sweepU')
-
-     
-
-     Nsweep = abs(sweep_start-sweep_stop)/sweep_step
-     Uiter=sweep_start
-     do i=1,Nsweep
-        do iorb=1,Norb
-           Uloc(iorb) = Uiter
-        end do
-        Jsf = Jh
-        Jph = 0.d0
-        Ust = Uiter
-        !
-        call build_local_hamiltonian     
-        phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-        !
-        write(dir_suffix,'(F4.2)') Uiter
-        dir_iter="U"//trim(dir_suffix)
-        call system('mkdir -v '//dir_iter)     
-        !
-        !call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        call get_gz_ground_state_superc(GZ_vector)  
-        !
-        write(*,*) "R_init"
-        do is=1,Ns
-           write(*,*) R_init(is,:)
-        end do
-        !
-        call print_output_superc
-        call system('cp * '//dir_iter)
-        call system('rm *.out *.data fort* ')
-        Uiter = Uiter + sweep_step
-     end do
-
   end select
-
-  !+- sweep U -+!
-
-
   !
 CONTAINS
   !
@@ -223,17 +169,15 @@ CONTAINS
     test_k=0.d0
     test_n1=0.d0;test_n2=0.d0
     do ix=1,Lk
-       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       !wtk(ix) = 1.d0/Wband*de
+       !wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       wtk(ix) = 1.d0/Wband*de
        if(ix==1.or.ix==Lk) wtk(ix)=0.d0
        test_n1=test_n1+wtk(ix)*fermi(epsik(ix)+Cfield*0.5d0,beta)
        test_n2=test_n2+wtk(ix)*fermi(epsik(ix)-Cfield*0.5d0,beta)
        write(77,*) epsik(ix),wtk(ix)
     end do
     hybik=0.d0
-    !write(*,*) test_n1,test_n2,Cfield; stop
-
-
+    !
     ! allocate(kx(Nx))
     ! kx = linspace(0.d0,pi,Nx,.true.,.true.)
     ! Lk=Nx*Nx*Nx
@@ -250,10 +194,9 @@ CONTAINS
     !       end do
     !    end do
     ! end do
-
+    !
     call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
-    !stop
-
+    !
     allocate(Hk_tb(Ns,Ns,Lk))    
     Hk_tb=0.d0
     do ik=1,Lk
@@ -272,12 +215,6 @@ CONTAINS
           end do
        end do
     end do
-    !<EXTREMA RATIO TEST
-    ! e0test=0.d0
-    ! do ik=1,Lk
-    !    e0test = e0test + fermi_zero(epsik(ik),0.d0)*epsik(ik)*wtk(ik)
-    ! end do
-    !EXTREMA RATIO TEST>
   end subroutine build_lattice_model
 
 
@@ -291,7 +228,7 @@ CONTAINS
     real(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
 
-    real(8),dimension(nFock,nFock) :: test_full_phi
+    complex(8),dimension(nFock,nFock) :: test_full_phi
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
@@ -402,14 +339,16 @@ CONTAINS
 
 
 
-  subroutine print_output_superc(vdm_simplex)
+  subroutine print_output_superc(vdm_simplex,vdm_opt)
     real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
+    real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),optional :: vdm_opt
     integer :: out_unit,istate,iorb,iphi,ifock,jfock
     integer,dimension(Ns) :: fock_state
     complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
 
     real(8),dimension(nFock,nFock) :: test_full_phi
+
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
@@ -532,36 +471,22 @@ CONTAINS
        close(out_unit)
     end if
     !
+    if(present(vdm_opt)) then
+       out_unit=free_unit()
+       open(out_unit,file='vdm_seed.restart')
+       do istate=1,Nvdm_NC_opt-Nvdm_NCoff_opt
+          write(out_unit,'(10F18.10)')  vdm_opt(istate)
+       end do
+       close(out_unit)
+    end if
+
   end subroutine print_output_superc
 
 
 
 
 
-  
-  subroutine stride2reduced(x_orig,x_reduced)
-    real(8),dimension(:) :: x_orig
-    real(8),dimension(:) :: x_reduced
-    if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
-    if(size(x_reduced).ne.Nopt_reduced) stop "error reduced @ stride2reduced"
-    !+- pecionata -+!
-    x_reduced(1) = x_orig(1)
-    x_reduced(2) = x_orig(3)
-    x_reduced(3) = x_orig(5)
-  end subroutine stride2reduced
 
-  subroutine stride2orig(x_reduced,x_orig)
-    real(8),dimension(:) :: x_orig
-    real(8),dimension(:) :: x_reduced
-    if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
-    if(size(x_reduced).ne.Nopt_reduced) stop "error reduced @ stride2reduced"
-    !+- pecionata -+!
-    x_orig=0.d0
-    x_orig(1) = x_reduced(1)
-    x_orig(3) = x_reduced(2)
-    x_orig(5) = x_reduced(3)
-  end subroutine stride2orig
-  
 
 
 
@@ -795,7 +720,6 @@ CONTAINS
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    write(*,*) "entrato"
     if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
     if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
     if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
@@ -806,7 +730,6 @@ CONTAINS
              jspin=3-ispin
              is=index(ispin,iorb)
              js=index(jspin,jorb)
-             write(*,*) is,js,size(Qhop_mat,1),size(Qhop_mat,2)
              if(iorb.ne.jorb) then
                 Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
              else
@@ -820,7 +743,6 @@ CONTAINS
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    write(*,*) "entrato"
     if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
     if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
     if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    

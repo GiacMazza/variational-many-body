@@ -49,7 +49,8 @@ program GUTZ_mb
   complex(8),dimension(1) :: tmpQ
   character(len=6) :: sweep !sweepU,sweepJ
   real(8) :: sweep_start,sweep_stop,sweep_step
-  integer ::  Nsweep
+  integer ::  Nsweep,iseed
+  real(8),dimension(:),allocatable :: x_reseed
   !
   !+- PARSE INPUT DRIVER -+!
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
@@ -72,9 +73,9 @@ program GUTZ_mb
   !NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
   ! Jh = Jh*Uloc(1)
-  ! Jsf = Jh
-  ! Jph = Jh
-  ! Ust = Uloc(1)-2.d0*Jh
+  Jsf = Jh
+  Jph = Jh
+  Ust = Uloc(1)-2.d0*Jh
   !
   call initialize_local_fock_space
   !
@@ -87,8 +88,9 @@ program GUTZ_mb
   Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
-  Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   !
+  Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+  Nopt = 2*Nopt
   Nopt_reduced = 1 + 1 + 1
   !
   stride_zeros_orig2red => stride2reduced
@@ -99,7 +101,7 @@ program GUTZ_mb
   slater_lgr_init=0.d0
   gzproj_lgr_init=0.d0
   !
-  expected_flen=2*Nopt
+  expected_flen=Nopt
   inquire(file="RQn0_root_seed.conf",exist=seed_file)
   if(seed_file) then
      flen=file_length("RQn0_root_seed.conf")
@@ -125,23 +127,24 @@ program GUTZ_mb
      call init_Rhop_seed(R_init)
      call init_Qhop_seed(Q_init)
      !
-     slater_lgr_init(1,:,:)=0.1d0
+     slater_lgr_init(1,:,:)=0.3d0
      slater_lgr_init(2,:,:)=0.d0
-     gzproj_lgr_init(1,:,:)=0.1d0
+     gzproj_lgr_init(1,:,:)=0.3d0
      gzproj_lgr_init(2,:,:)=0.d0  
      !
   end if
-
+  allocate(x_reseed(2*Nopt))
   select case(sweep)
   case('sweepJ')
      !+- sweep JHund -+!
-     Nsweep = abs(sweep_start-sweep_stop)/sweep_step
+     Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
      Jiter = sweep_start
-     do i=1,35
-        !+ T^2-Tz^2 hamiltonian
+     do i=1,Nsweep
+        !
         Jh = Jiter
         Jsf = Jh
-        Jph = 0.d0
+        Jph = Jh
+        Ust = Uloc(1)-2.d0*Jh
         !
         call build_local_hamiltonian     
         phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
@@ -163,17 +166,19 @@ program GUTZ_mb
      end do
   case('sweepU')
 
-     
 
-     Nsweep = abs(sweep_start-sweep_stop)/sweep_step
+
+     Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
+
      Uiter=sweep_start
      do i=1,Nsweep
         do iorb=1,Norb
            Uloc(iorb) = Uiter
         end do
+        !
         Jsf = Jh
-        Jph = 0.d0
-        Ust = Uiter
+        Jph = Jh
+        Ust = Uloc(1)-2.d0*Jh
         !
         call build_local_hamiltonian     
         phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
@@ -187,11 +192,32 @@ program GUTZ_mb
         call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
         call get_gz_ground_state_superc(GZ_vector)  
         !
-        write(*,*) "R_init"
-        do is=1,Ns
-           write(*,*) R_init(is,:)
-        end do
+        ! write(*,*) "R_init"
+        ! do is=1,Ns
+        !    write(*,*) R_init(is,:)
+        ! end do
+        ! R_init=R_init+0.1d0
+        ! Q_init=Q_init+0.1d0
         !
+        !+- add small noise to the solution ?
+        ! call dump2vec_superc(x_reseed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+        ! !
+        ! do iseed=1,2*Nopt
+        !    x_reseed(iseed) = x_reseed(iseed) + 0.01
+        ! end do
+        ! call dump2mats_superc(x_reseed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+
+
+
+        ! call init_Rhop_seed(R_init)
+        ! call init_Qhop_seed(Q_init)
+
+        ! slater_lgr_init(1,:,:)=0.5d0
+        ! slater_lgr_init(2,:,:)=0.0d0
+        ! gzproj_lgr_init(1,:,:)=0.5d0
+        ! gzproj_lgr_init(2,:,:)=0.0d0  
+
+
         call print_output_superc
         call system('cp * '//dir_iter)
         call system('rm *.out *.data fort* ')
@@ -537,8 +563,6 @@ CONTAINS
 
 
 
-
-  
   subroutine stride2reduced(x_orig,x_reduced)
     real(8),dimension(:) :: x_orig
     real(8),dimension(:) :: x_reduced
@@ -562,7 +586,6 @@ CONTAINS
     x_orig(5) = x_reduced(3)
   end subroutine stride2orig
   
-
 
 
 
@@ -795,7 +818,6 @@ CONTAINS
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    write(*,*) "entrato"
     if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
     if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
     if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
@@ -806,8 +828,7 @@ CONTAINS
              jspin=3-ispin
              is=index(ispin,iorb)
              js=index(jspin,jorb)
-             write(*,*) is,js,size(Qhop_mat,1),size(Qhop_mat,2)
-             if(iorb.ne.jorb) then
+             if(iorb.eq.jorb) then
                 Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
              else
                 Qhop_mat(is,js) = zero
@@ -820,12 +841,11 @@ CONTAINS
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    write(*,*) "entrato"
     if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
     if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
     if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
     !
-    iorb=1;jorb=2;ispin=1;jspin=2
+    iorb=1;jorb=1;ispin=1;jspin=2
     is=index(ispin,iorb)
     js=index(jspin,jorb)
     Qhop_indep(1) = Qhop_mat(is,js)
@@ -905,7 +925,7 @@ CONTAINS
              jspin=3-ispin
              is=index(ispin,iorb)
              js=index(jspin,jorb)
-             if(iorb.ne.jorb) then
+             if(iorb.eq.jorb) then
                 vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(1)
              else
                 vdm_AC_mat(is,js) = zero
@@ -923,7 +943,7 @@ CONTAINS
     if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
     if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
     !
-    iorb=1;jorb=2;ispin=1;jspin=2
+    iorb=1;jorb=1;ispin=1;jspin=2
     is=index(ispin,iorb)
     js=index(jspin,jorb)
     vdm_AC_indep(1) = vdm_AC_mat(is,js)

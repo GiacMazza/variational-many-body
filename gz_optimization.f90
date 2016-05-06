@@ -34,9 +34,9 @@ function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
   if(size(x).ne.Nopt) stop "R_VDM_free_zeros_: size input vector not equal to Nopt."
   !
   call dump2mats(x,Rhop,slater_lgr_multip,proj_lgr_multip)
-  !
+  !  
   call slater_minimization_fixed_lgr(Rhop,slater_lgr_multip,E_Hstar,n0_slater,slater_derivatives)  
-  !
+  !  
   do is=1,Ns
      do js=1,Ns
         Rhop_lgr_multip(is,js) = -1.d0*slater_derivatives(is,js)/sqrt(n0_slater(js,js)*(1.d0-n0_slater(js,js)))

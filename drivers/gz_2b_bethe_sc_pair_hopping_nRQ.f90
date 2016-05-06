@@ -93,7 +93,6 @@ program GUTZ_mb
   !
   !
   Nopt_reduced = 1 + 1 + 1
-  !
   stride_zeros_orig2red => stride2reduced
   stride_zeros_red2orig => stride2orig
   !
@@ -102,6 +101,8 @@ program GUTZ_mb
   slater_lgr_init=0.d0
   gzproj_lgr_init=0.d0
   !
+
+
   expected_flen=Nopt
   inquire(file="RQn0_root_seed.conf",exist=seed_file)
   if(seed_file) then
@@ -135,6 +136,12 @@ program GUTZ_mb
      !
   end if
   allocate(x_reseed(2*Nopt))
+  !
+  if(.not.associated(stride_zeros_orig2red)) stop "stride_zeros_orig2red NOT ASSOCIATED"
+  if(.not.associated(stride_zeros_red2orig)) stop "stride_zeros_red2orig NOT ASSOCIATED"
+  !
+
+
   select case(sweep)
   case('sweepJ')
      !+- sweep JHund -+!

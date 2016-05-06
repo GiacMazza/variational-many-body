@@ -21,6 +21,7 @@ MODULE GZ_OPTIMIZED_ENERGY
 
   !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
   public :: gz_optimization_vdm_Rhop
+  public :: gz_optimization_vdm_Rhop_reduced
   public :: gz_optimization_vdm_Rhop_superc
   public :: gz_optimization_vdm_Rhop_superc_reduced
   !

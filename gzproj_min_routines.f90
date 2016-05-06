@@ -417,7 +417,12 @@ subroutine gz_proj_minimization_fixed_lgr_hop(n0,lgr_multip,lgr_multip_Rhop,E_Hl
      end do
   end do
   !
+  write(*,*) "before"
+  do is=1,Ns
+     write(*,*) H_projectors(is,:),lgr_multip(is,:)
+  end do
   call matrix_diagonalize(H_projectors,H_eigens)
+  write(*,*) "after",H_eigens
   !
   GZvect=H_projectors(1:Nphi,1)
   E_Hloc=trace_phi_basis(GZvect,phi_traces_basis_Hloc)

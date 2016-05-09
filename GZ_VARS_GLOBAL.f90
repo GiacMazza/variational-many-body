@@ -144,6 +144,9 @@ MODULE GZ_VARS_GLOBAL
   real(8),dimension(:),allocatable :: atomic_energy_levels 
   real(8)                          :: Cfield !+- to be defined in the driver
   real(8),dimension(:,:,:),allocatable :: Hk_tb ! tight binding input matrix
+
+  real(8),dimension(:),allocatable :: wr
+
   !
   !integer                          :: Nx,Lk
   ! real(8),dimension(:),allocatable :: epsik,hybik

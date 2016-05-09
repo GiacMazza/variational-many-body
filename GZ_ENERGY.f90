@@ -4,6 +4,7 @@ MODULE GZ_ENERGY_MINIMIZATION
   USE SF_IOTOOLS
   USE SF_SPECIAL
   USE SF_OPTIMIZE
+  USE DMFT_MISC
   ! lancelot routines
   USE LANCELOT_simple_double
   ! GZ routines
@@ -78,7 +79,7 @@ contains
     GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
     !
     !
-    call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM,store=.true.)
+    call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM,store=slater_store)
     !
     !    
     !+- GET OBSERVABLES -+!
@@ -140,7 +141,7 @@ contains
     GZ_opt_Qhop=hopping_renormalization_anomalous(GZ_vector,n0)            
     !
     !
-    call slater_minimization_fixed_lgr_superc(GZ_opt_Rhop,GZ_opt_Qhop,GZ_opt_slater_lgr_superc,E_Hstar,GZ_opt_VDM_superc,store=.true.)
+    call slater_minimization_fixed_lgr_superc(GZ_opt_Rhop,GZ_opt_Qhop,GZ_opt_slater_lgr_superc,E_Hstar,GZ_opt_VDM_superc,store=slater_store)
     !
     !    
     !+- GET OBSERVABLES -+!

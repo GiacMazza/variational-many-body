@@ -11,6 +11,9 @@ MODULE GZ_VARS_INPUT
   real(8)              :: Jsf,Jph
   real(8)              :: xmu
   real(8),parameter    :: beta=10000.d0
+  integer,parameter    :: lw=512
+  real(8)              :: wini,wfin
+  logical              :: slater_store
   
   !# Minimization flags  #!
   integer          :: lancelot_verbose
@@ -55,7 +58,9 @@ contains
     call parse_input_variable(Niter_self,"NITER_SELF",INPUTunit,default=100)
     call parse_input_variable(err_self,"ERR_SELF",INPUTunit,default=1.d-10)
     call parse_input_variable(amoeba_min_tol,"AMOEBA_MIN_TOL",INPUTunit,default=1.d-12)
-    
+    call parse_input_variable(wini,"WINI",INPUTunit,default=-10.d0)
+    call parse_input_variable(wfin,"WFIN",INPUTunit,default=10.d0)
+    call parse_input_variable(slater_store,"SLATER_STORE",INPUTunit,default=.false.)
     !call parse_input_variable(new_input,"NEW",INPUTunit,default=1.d-12)
 
 

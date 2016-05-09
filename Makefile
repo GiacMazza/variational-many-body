@@ -6,8 +6,9 @@ FPP=
 
 #EXE=gz_1b_nR
 
-EXE=gz_2b_bethe
-#EXE=gz_2b_cubic_hyb
+#EXE=gz_2b_bethe
+EXE=gz_2b_cubic_hyb
+#EXE=gz_2b_cubic_hyb_nR
 #EXE=gz_2b_bethe_pair_hopping
 #EXE=gz_2b_bethe_nR
 #EXE=gz_2b_bethe_pair_hopping_nR

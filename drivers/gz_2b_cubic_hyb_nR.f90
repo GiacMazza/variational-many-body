@@ -7,56 +7,45 @@ program GUTZ_mb
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
-  USE GZ_ENERGY_MINIMIZATION
   USE GZ_OPTIMIZED_ENERGY
-  !
-
+  USE GZ_ENERGY_MINIMIZATION
+  USE GZ_EFFECTIVE_HOPPINGS
   !
   USE GZ_MATRIX_BASIS
   !
   implicit none
+  !
   !+- hamiltonian details -+!
-  integer                            :: ispin,jspin,iorb,i,j,istate,jstate,ifock,jorb
+  integer                            :: ispin,iorb,i,istate,jstate,ifock,jorb
   integer,dimension(:),allocatable   :: fock_vec
   complex(8),dimension(:),allocatable               :: init_vec
   real(8),dimension(:),allocatable   :: variational_density_natural
   real(8),dimension(:),allocatable   :: vdm_init,vdm_out
-  complex(8),dimension(:),allocatable   :: R_out,vdm_tmp
+  complex(8),dimension(:),allocatable   :: R_init,R_out
   complex(8),dimension(:),allocatable   :: Rhop_init,Rhop_out
-  complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix,tmp_vdm_mat
+  complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix
   real(8),dimension(:,:),allocatable :: variational_density_natural_simplex
   real(8),dimension(:,:),allocatable :: variational_density_matrix
   integer                            :: out_unit,iter
   integer                            :: lattice ! 2=square;3=cubic
   real(8),dimension(:),allocatable :: epsik,hybik
-  integer :: Nx,is,js,imap,jmap,Nopt
+  integer :: Nx,is
   !
-  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter,VDMiter
-  real(8),dimension(:),allocatable :: dump_seed
-  integer :: expected_flen,flen,unit
-  logical :: seed_file
+  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,Jh_ratio
+
+  complex(8),dimension(:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
+
 
 
   character(len=5) :: dir_suffix
-  character(len=8) :: dir_iter
-  !
-  complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
-  complex(8),dimension(:,:),allocatable   :: R_init,Q_init
-
-  complex(8),dimension(:,:,:),allocatable :: slater_lgr_init_,gzproj_lgr_init_
-  complex(8),dimension(:,:),allocatable   :: R_init_,Q_init_
-  complex(8),dimension(1) :: tmpQ
-
-  character(len=11) :: task !e_sweep_vdm,min_simplex,min_galahad,nRQfree_min
-
+  character(len=6) :: dir_iter
 
   !
   !+- PARSE INPUT DRIVER -+!
-  call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
+  call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
   call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)  
-  call parse_input_variable(task,"TASK","inputGZ.conf",default="min_galahad")  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -65,90 +54,90 @@ program GUTZ_mb
      write(*,*) 'WARNING THE O(1) x SU(2)c x ORBITAL_ROTATION = O(1) x SU(2)c for the Norb=1 case!'
      wf_symmetry=0
   end if
+
+
+  !NOTE: ON HUNDS COUPLINGS: (see arXiv 1207.3033)
   !
-  !NOTE: ON HUNDS COUPLINGS:
-  !NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
+  !NORB=3 ROTATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
-  Jh = Jh*Uloc(1)
-  Jsf = Jh
-  Jph = Jh
-  Ust = Uloc(1)-2.d0*Jh
+  !
+  !NORB=2 FULLY ROTATIONAL INVARIANCE            :: Jsf=Jh, Jph=0, Ust = U - J  
+  !       PARTIAL O(2) INVARIANCE                :: Jsf=Jh, Jph=0, Ust = U
+  !       ONLY SPIN SU(2) INVARIANCE             :: Jsf=Jh, Jph=J, Ust = U - 2J  
+  ! Jh = Jh*Uloc(1)
+  ! Jsf = Jh
+  ! Jph = Jh
+  ! Ust = Uloc(1)-2.d0*Jh
   !
   call initialize_local_fock_space
   !
-  call init_variational_matrices
   !
+  call init_variational_matrices
+  !  
   allocate(wr(lw))
   wr = linspace(wini,wfin,lw)
-  !
+  
+  
+  allocate(variational_density_natural_simplex(Ns+1,Ns))
+  allocate(variational_density_natural(Ns))
+
   call build_lattice_model
+  !
+
+
   !
   NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
-  !Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+  !
+  allocate(Rhop_init_matrix(Ns,Ns)); call init_Rhop_seed(Rhop_init_matrix)
+  allocate(slater_lgr_init(Ns,Ns),gzproj_lgr_init(Ns,Ns))  
+  slater_lgr_init(1,1) =  Cfield*0.5d0
+  slater_lgr_init(2,2) = -Cfield*0.5d0
+  gzproj_lgr_init=zero
   !
 
-  select case(task)
-  case("min_galahad")
-     !+- nlsq_minimization using the galahad routine -+!     
-     allocate(vdm_init(Nvdm_NC_opt-Nvdm_NCoff_opt),vdm_out(Nvdm_NC_opt-Nvdm_NCoff_opt))
+
+  
+  !
+  allocate(vdm_init(Ns))
+  !call initialize_variational_density(vdm_init)
+  vdm_init=0.5d0
+  allocate(variational_density_matrix(Ns,Ns)); variational_density_matrix=0.d0
+  do is=1,Ns
+     variational_density_matrix(is,is) = vdm_init(is)
+  end do
+
+  !  
+  Uiter = -0.1
+  Jh_ratio=Jh
+  do i=1,30
      !
-     call initialize_variational_density(vdm_init)
-     !
-     call gz_optimization_vdm_nlsq(vdm_init,vdm_out)  
-     !
-     call get_gz_ground_state(GZ_vector)
-     !
-     call print_output(vdm_opt=vdm_out)
-     !
-  case("min_simplex")
-     !+- simplex_minimization using the amoeab routine +-!
-     !
-     allocate(variational_density_natural_simplex(Ns+1,Ns)); allocate(variational_density_natural(Ns))     
-     !
-     call initialize_variational_density_simplex(variational_density_natural_simplex)
-     !
-     call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
-     !
-     call get_gz_ground_state(GZ_vector)
-     !
-     call print_output(variational_density_natural_simplex)
-     !
-  case("e_sweep_vdm")
-     !
-     !+- energy computation for a fixed Variational Density Matrix provided by the user (read independent vdm elements from file) -+!
-     !
-     allocate(vdm_tmp(Nvdm_NC_opt-Nvdm_NCoff_opt),vdm_init(Nvdm_NC_opt-Nvdm_NCoff_opt),tmp_vdm_mat(Ns,Ns))
-     !
-     call initialize_variational_density(vdm_init); vdm_tmp=vdm_init; deallocate(vdm_init)
-     call vdm_NC_stride_v2m(vdm_tmp,tmp_vdm_mat); allocate(vdm_init(Ns))
-     !
-     do is=1,Ns
-        vdm_init(is)=dreal(tmp_vdm_mat(is,is))
+     Uiter = Uiter + 0.1
+     do iorb=1,Norb
+        Uloc(iorb) = Uiter
      end do
+     Jh = Jh_ratio*Uiter
+     Jsf = Jh
+     Jph = Jh
+     Ust = Uiter-2.d0*Jh
      !
-     opt_energy_unit=free_unit()
-     open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
-     opt_rhop_unit=free_unit()
-     open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
-     opt_qhop_unit=free_unit()
-     open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
-     if(GZmin_verbose) then
-        GZmin_unit=free_unit()
-        open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
-        GZmin_unit_=free_unit()
-        open(GZmin_unit_,file='GZ_proj_min.out')
-     end if
-     optimization_flag=.true.
-     if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
-     tmp_emin = gz_energy_vdm(vdm_init);
-     call get_gz_ground_state(GZ_vector)    
+     call build_local_hamiltonian     
+     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
+     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
+     !
+     write(dir_suffix,'(F4.2)') Uiter
+     dir_iter="U"//trim(dir_suffix)
+     call system('mkdir -v '//dir_iter)     
+     !
+     call gz_optimization_vdm_Rhop(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
+     call get_gz_ground_state(GZ_vector)
+     Rhop_init_matrix = GZ_opt_Rhop
+     variational_density_matrix = GZ_opt_VDM     
      call print_output
-     !
-  end select
-
-
+     call system('cp * '//dir_iter)
+     call system('rm *.out *.data fort* ')
+  end do
   !
 CONTAINS
   !
@@ -223,12 +212,6 @@ CONTAINS
     end do
     !
   end subroutine build_lattice_model
-
-
-
-
-
-
 
 
 
@@ -354,12 +337,6 @@ CONTAINS
 
   end subroutine print_output
 
-
-
-
-
-
-
   subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
     complex(8),dimension(:)   :: Rhop_indep
     complex(8),dimension(:,:) :: Rhop_mat
@@ -452,98 +429,6 @@ CONTAINS
     vdm_NC_indep = zero
     !
   end subroutine vdm_NCoff_mat2vec
-
-  
-  
-
-
-
-
-
-
-
-
-  ! subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
-  !   complex(8),dimension(:)   :: Rhop_indep
-  !   complex(8),dimension(:,:) :: Rhop_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
-  !   if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
-  !   Rhop_mat = zero
-  !   do is=1,Ns
-  !      Rhop_mat(is,is) = Rhop_indep(1)
-  !   end do
-  !   !
-  ! end subroutine Rhop_vec2mat
-  ! subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
-  !   complex(8),dimension(:,:) :: Rhop_mat
-  !   complex(8),dimension(:)   :: Rhop_indep
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   complex(8) :: test_stride
-  !   real(8) :: test
-  !   if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
-  !   if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
-  !   !
-  !   Rhop_indep(1)=Rhop_mat(1,1)
-  !   !
-  ! end subroutine Rhop_mat2vec
-
-
-
-  ! subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_mat = zero
-  !   do is=1,Ns       
-  !      vdm_NC_mat(is,is) = vdm_NC_indep(1)
-  !   end do
-  !   Nopt_odiag = 0
-  !   !
-  ! end subroutine vdm_NC_vec2mat
-  ! subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_indep(1) = vdm_NC_mat(1,1)
-  !   !
-  ! end subroutine vdm_NC_mat2vec
-
-
-
-  ! subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_mat = zero
-  !   !
-  ! end subroutine vdm_NCoff_vec2mat
-  ! subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_indep = zero
-  !   !
-  ! end subroutine vdm_NCoff_mat2vec
-
 
 
 

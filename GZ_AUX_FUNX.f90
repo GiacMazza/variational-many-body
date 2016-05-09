@@ -10,6 +10,7 @@ MODULE GZ_AUX_FUNX
   public :: initialize_variational_density_simplex
   public :: initialize_variational_density  
   public :: init_Rhop_seed,init_Qhop_seed
+  public :: get_free_single_paritcle_gf
   !+- at some point these two subroutines should be merged in SCIFOR -+!
   public :: simultaneous_diag
   public :: fixed_point_sub
@@ -158,7 +159,7 @@ CONTAINS
                 read(unit,*) buffer_real,buffer_imag
                 Rhop_init(is,js)= buffer_real+xi*buffer_imag
              end do
-          end do          
+          end do
        else
           write(*,*) 'Rhop_seed.conf in the wrong form',flen,expected_flen
           write(*,*) 'Rhop will be initialized to the non-interacting case'
@@ -237,6 +238,33 @@ CONTAINS
   end subroutine init_Qhop_seed
 
 
+  !+-----------------------------------------------------------------+
+  !PURPOSE  : 
+  !+-----------------------------------------------------------------+
+  subroutine get_free_single_paritcle_gf(ek,gk,wr,eps)
+    real(8)             :: ek
+    complex(8),dimension(:)          :: gk
+    real(8),dimension(:)         :: wr
+    real(8),optional :: eps
+    real(8) :: eta
+    integer                       :: i,ik,Lk,L
+    real(8)                       :: w,dew
+    complex(8)                    :: gf,iw
+    !
+    if(size(gk).ne.size(wr)) stop 'size error in get free single particle gf'
+    L=size(gk)
+    eta  = 0.01d0 ; if(present(eps))eta=eps
+    dew=abs(wfin-wini)/real(L,8)
+    do i=1,L
+       !w  = wini + dble(i-1)*dew;
+       w=wr(i)
+       iw=cmplx(w,eta)
+       gk(i) = 1.d0/(iw-ek)
+    enddo
+  end subroutine get_free_single_paritcle_gf
+
+
+
 
 
 
@@ -283,7 +311,7 @@ CONTAINS
 
     allocate(A_input(N,N,M))
     A_input = A
-    
+
     V=0.d0
     do i=1,N
        V(i,i) = one
@@ -567,6 +595,6 @@ CONTAINS
     write(*,*) "FIXED POINT:exceede number of iterations"
   end subroutine fixed_point_sub
 
-  
+
 
 END MODULE GZ_AUX_FUNX

@@ -7,6 +7,7 @@ program GUTZ_mb
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
+  USE GZ_LOCAL_HAMILTONIAN
   USE GZ_ENERGY_MINIMIZATION
   USE GZ_OPTIMIZED_ENERGY
   !
@@ -49,7 +50,8 @@ program GUTZ_mb
 
   character(len=11) :: task !e_sweep_vdm,min_simplex,min_galahad,nRQfree_min
 
-
+  character(len=200) :: store_dir,read_dir
+  real(8),dimension(:),allocatable :: energy_levels
   !
   !+- PARSE INPUT DRIVER -+!
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
@@ -76,7 +78,21 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-  call init_variational_matrices
+
+  !
+  read_dir='/mnt/home/giacomo.mazza/project_data/OFFICINA/test_gz_mb/TEST_STORE_PHI_TRACES/STORE_DIR/'
+  store_dir='./READ_PHI/'
+  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  !
+  allocate(energy_levels(Ns))
+  do iorb=1,Norb
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        energy_levels(istate) = Cfield*0.5d0
+        if(iorb.eq.2) energy_levels(istate) = -Cfield*0.5d0
+     end do
+  end do
+  call get_local_hamiltonian_trace(energy_levels)
   !
   allocate(wr(lw))
   wr = linspace(wini,wfin,lw)
@@ -298,17 +314,26 @@ CONTAINS
     write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
     close(out_unit)
     !
+    ! out_unit=free_unit()
+    ! open(out_unit,file='orbital_double_occupancy.data')
+    ! write(out_unit,'(20F18.10)') gz_docc(1:Norb)
+    ! close(out_unit)
+    ! !
+    ! out_unit=free_unit()
+    ! open(out_unit,file='orbital_density_density.data')
+    ! do iorb=1,Norb
+    !    write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    ! end do
+    ! close(out_unit)
+
     out_unit=free_unit()
-    open(out_unit,file='orbital_double_occupancy.data')
-    write(out_unit,'(20F18.10)') gz_docc(1:Norb)
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='orbital_density_density.data')
-    do iorb=1,Norb
-       write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    open(out_unit,file='local_density_density.data')
+    do is=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
     end do
     close(out_unit)
+
+
     !
     out_unit=free_unit()
     open(out_unit,file='local_angular_momenta.data')
@@ -453,8 +478,8 @@ CONTAINS
     !
   end subroutine vdm_NCoff_mat2vec
 
-  
-  
+
+
 
 
 

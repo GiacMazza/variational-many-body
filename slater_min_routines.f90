@@ -256,8 +256,6 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
   !
   store_=.false.; if(present(store)) store_=store
   if(store_) then
-     unit_store_slater_ek = free_unit()
-     open(unit_store_slater_ek,file='store_slater_determinant_ground_state_ek.out')
      unit_store_slater_el = free_unit()
      open(unit_store_slater_el,file='store_slater_determinant_ground_state_el.out')
   end if
@@ -313,7 +311,6 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
      end do
      !
      if(store_) then
-        write(unit_store_slater_ek,'(20(F18.10))') ek(:)
         do is=1,Ns*Ns
            write(unit_store_slater_el,'(10(F18.10))') tmp_matrix_el(is)
         end do
@@ -751,8 +748,6 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
   !
   store_=.false.; if(present(store)) store_=store
   if(store_) then
-     unit_store_slater_ek = free_unit()
-     open(unit_store_slater_ek,file='store_slater_determinant_ground_state_ek.out')
      unit_store_slater_el = free_unit()
      open(unit_store_slater_el,file='store_slater_determinant_ground_state_el.out')
   end if
@@ -839,10 +834,8 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
            end do
         end do
      end if
-
-     !+- TMP
+     !
      if(store_) then
-        write(unit_store_slater_ek,'(20(F18.10))') eps_ik(:)
         do is=1,4*Ns*Ns
            write(unit_store_slater_el,'(10(F18.10))') tmp_matrix_el(is)
         end do
@@ -867,9 +860,10 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
      end do
      !
   end do
+  !
   n0_(1,:,:)=n0_tmp(1:Ns,1:Ns)
   n0_(2,:,:)=n0_tmp(1:Ns,1+Ns:2*Ns)
-
+  !
   if(store_) then
      do is=1,Ns
         do js=is,Ns
@@ -884,9 +878,9 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
         end do
      end do
   end if
-
-
-
+  !
+  !
+  !
   if(present(n0)) then
      n0=n0_
   end if
@@ -897,20 +891,4 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
      slater_matrix_el=slater_matrix_el_
   end if
   !
-
-  !<DEBUG
-  ! write(*,*) 'N0_SLATER'
-  ! do istate=1,2*Ns
-  !    write(*,'(20F8.4)') dreal(n0_tmp(istate,:)),dimag(n0_tmp(istate,:))
-  ! end do
-  ! write(*,*)
-  ! do istate=1,Ns
-  !    write(*,'(20F8.4)') dreal(lm(1,istate,:)),dimag(lm(1,istate,:))
-  ! end do
-  ! write(*,*)
-  ! do istate=1,Ns
-  !    write(*,'(20F8.4)') dreal(lm(2,istate,:)),dimag(lm(2,istate,:))
-  ! end do
-  ! !stop
-  !DEBUG>
 end subroutine slater_minimization_fixed_lgr_superc

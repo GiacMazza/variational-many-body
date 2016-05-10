@@ -7,6 +7,7 @@ program GUTZ_mb
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
+  USE GZ_LOCAL_HAMILTONIAN
   USE GZ_OPTIMIZED_ENERGY
   USE GZ_ENERGY_MINIMIZATION
   USE GZ_EFFECTIVE_HOPPINGS
@@ -35,6 +36,8 @@ program GUTZ_mb
 
   complex(8),dimension(:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
 
+  character(len=200) :: store_dir,read_dir
+  real(8),dimension(:),allocatable :: energy_levels
 
 
   character(len=5) :: dir_suffix
@@ -45,17 +48,17 @@ program GUTZ_mb
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
-  call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)  
+  call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
+  call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
-
+  !
   if(Norb.eq.1.and.wf_symmetry.eq.1) then
      write(*,*) 'WARNING THE O(1) x SU(2)c x ORBITAL_ROTATION = O(1) x SU(2)c for the Norb=1 case!'
      wf_symmetry=0
   end if
-
-
+  !
   !NOTE: ON HUNDS COUPLINGS: (see arXiv 1207.3033)
   !
   !NORB=3 ROTATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
@@ -71,8 +74,8 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
+
   !
-  call init_variational_matrices
   !  
   allocate(wr(lw))
   wr = linspace(wini,wfin,lw)
@@ -81,11 +84,21 @@ program GUTZ_mb
   allocate(variational_density_natural_simplex(Ns+1,Ns))
   allocate(variational_density_natural(Ns))
 
+  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  allocate(energy_levels(Ns))
+  do iorb=1,Norb
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        energy_levels(istate) = Cfield*0.5d0
+        if(iorb.eq.2) energy_levels(istate) = -Cfield*0.5d0
+     end do
+  end do
+  !
   call build_lattice_model
   !
 
 
-  !
+  !+- STRIDES -+!
   NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
@@ -100,13 +113,13 @@ program GUTZ_mb
 
   
   !
-  allocate(vdm_init(Ns))
-  !call initialize_variational_density(vdm_init)
-  vdm_init=0.5d0
-  allocate(variational_density_matrix(Ns,Ns)); variational_density_matrix=0.d0
-  do is=1,Ns
-     variational_density_matrix(is,is) = vdm_init(is)
-  end do
+  ! allocate(vdm_init(Ns))
+  ! !call initialize_variational_density(vdm_init)
+  ! vdm_init=0.5d0
+  ! allocate(variational_density_matrix(Ns,Ns)); variational_density_matrix=0.d0
+  ! do is=1,Ns
+  !    variational_density_matrix(is,is) = vdm_init(is)
+  ! end do
 
   !  
   Uiter = -0.1
@@ -122,9 +135,12 @@ program GUTZ_mb
      Jph = Jh
      Ust = Uiter-2.d0*Jh
      !
-     call build_local_hamiltonian     
-     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
+     call get_local_hamiltonian_trace(energy_levels)
+     !
+     !
+     ! call build_local_hamiltonian     
+     ! phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
+     ! phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
      !
      write(dir_suffix,'(F4.2)') Uiter
      dir_iter="U"//trim(dir_suffix)
@@ -133,7 +149,7 @@ program GUTZ_mb
      call gz_optimization_vdm_Rhop(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
      call get_gz_ground_state(GZ_vector)
      Rhop_init_matrix = GZ_opt_Rhop
-     variational_density_matrix = GZ_opt_VDM     
+     !     variational_density_matrix = GZ_opt_VDM     
      call print_output
      call system('cp * '//dir_iter)
      call system('rm *.out *.data fort* ')
@@ -281,15 +297,22 @@ CONTAINS
     write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
     close(out_unit)
     !
-    out_unit=free_unit()
-    open(out_unit,file='orbital_double_occupancy.data')
-    write(out_unit,'(20F18.10)') gz_docc(1:Norb)
-    close(out_unit)
+    ! out_unit=free_unit()
+    ! open(out_unit,file='orbital_double_occupancy.data')
+    ! write(out_unit,'(20F18.10)') gz_docc(1:Norb)
+    ! close(out_unit)
+    ! !
+    ! out_unit=free_unit()
+    ! open(out_unit,file='orbital_density_density.data')
+    ! do iorb=1,Norb
+    !    write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    ! end do
+    ! close(out_unit)
     !
     out_unit=free_unit()
-    open(out_unit,file='orbital_density_density.data')
-    do iorb=1,Norb
-       write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    open(out_unit,file='local_density_density.data')
+    do is=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
     end do
     close(out_unit)
     !

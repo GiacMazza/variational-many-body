@@ -350,7 +350,6 @@ CONTAINS
        do k=1,M
           off = off + off_diag(A(:,:,k))
        end do
-       write(777,*) iloop,off
        if(off.lt.eps) exit
        !
        do i=1,N

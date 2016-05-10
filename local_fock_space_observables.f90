@@ -80,6 +80,26 @@ function local_doubly(cc,ca) result(di)
 end function local_doubly
 
 
+function local_density_density(cc,ca) result(ddi)
+  real(8),dimension(Ns,nFock,nFock) :: cc,ca
+  real(8),dimension(nFock,nFock) :: Id,tmp_ni,tmp_nj
+  real(8),dimension(Ns,Ns,nFock,nFock) :: ddi
+  integer                        :: i,ispin,iorb,istate,jstate,jorb
+  !
+  do istate=1,Ns
+     do jstate=1,Ns
+        ddi(istate,jstate,:,:)=0.d0
+        tmp_ni=matmul(cc(istate,:,:),ca(istate,:,:))
+        tmp_nj=matmul(cc(jstate,:,:),ca(jstate,:,:))
+        ddi(istate,jstate,:,:)=matmul(tmp_ni,tmp_nj)
+     end do
+  end do
+  !    
+end function local_density_density
+
+
+
+
 function local_density_density_orb(cc,ca) result(ddi)
   real(8),dimension(Ns,nFock,nFock) :: cc,ca
   real(8),dimension(nFock,nFock) :: Id,tmp_ni,tmp_nj

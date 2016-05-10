@@ -4,11 +4,13 @@ FC=gfortran
 FPP=
 
 
+EXE=gz_generate_phi_traces
+
 #EXE=gz_1b_nR
 
 #EXE=gz_2b_bethe
-EXE=gz_2b_cubic_hyb
-#EXE=gz_2b_cubic_hyb_nR
+#EXE=gz_2b_cubic_hyb     #
+#EXE=gz_2b_cubic_hyb_nR   #
 #EXE=gz_2b_bethe_pair_hopping
 #EXE=gz_2b_bethe_nR
 #EXE=gz_2b_bethe_pair_hopping_nR
@@ -38,7 +40,7 @@ VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
 #OBJS=MATRIX_SPARSE.o ARPACK_LANCZOS.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
 
-OBJS=MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o
+OBJS=MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o
 
 
 GALLIBDIR  = $(HOME)/opt_local/galahad/objects/pc64.lnx.gfo/double

@@ -256,8 +256,6 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
   !
   store_=.false.; if(present(store)) store_=store
   if(store_) then
-     unit_store_slater_ek = free_unit()
-     open(unit_store_slater_ek,file='store_slater_determinant_ground_state_ek.out')
      unit_store_slater_el = free_unit()
      open(unit_store_slater_el,file='store_slater_determinant_ground_state_el.out')
   end if
@@ -304,7 +302,7 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
                     w=wr(i)
                     iw=cmplx(w,0.05d0)
                     tmp_gk = 1.d0/(iw-ek(kstate))
-                    qp_gloc(istate,jstate,i) = qp_gloc(istate,jstate,i) + conjg(Hk(istate,kstate))*Hk(jstate,kstate)*tmp_gk*wtk(ik)
+                    qp_gloc(istate,jstate,i) = qp_gloc(istate,jstate,i) + Hk(istate,kstate)*conjg(Hk(jstate,kstate))*tmp_gk*wtk(ik)
                  enddo
               end do
            end if
@@ -313,7 +311,6 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
      end do
      !
      if(store_) then
-        write(unit_store_slater_ek,'(20(F18.10))') ek(:)
         do is=1,Ns*Ns
            write(unit_store_slater_el,'(10(F18.10))') tmp_matrix_el(is)
         end do
@@ -342,10 +339,6 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
               write(unit_store_qp,'(5(F18.10))') wr(i),-dimag(qp_gloc(is,js,i))/pi,dreal(qp_gloc(is,js,i)),dimag(qp_gloc(is,js,i))
            end do
            close(unit_store_qp)
-           !
-           ! write(store_file_suffix,'(I2.2)') is
-           ! store_file="QPspectrum"//trim(store_file_suffix)//".data"
-           ! call get_free_dos(ek_store(is,:),wtk,file=store_file,eps=0.05d0)
         end do
      end do
   end if
@@ -706,7 +699,6 @@ end subroutine slater_minimization_lgr_superc
 subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_derivatives,slater_matrix_el,store)     
   complex(8),dimension(Ns,Ns),intent(in)      :: Rhop
   complex(8),dimension(Ns,Ns),intent(in)      :: Qhop  
-
   complex(8),dimension(2,Ns,Ns),intent(in)    :: lm  
   real(8)                                     :: Estar
   ! optional inputs
@@ -732,9 +724,15 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
   integer                                     ::is,js,ks,kks
   real(8)                                     :: nqp
   !
-  integer                                 :: unit_store_slater_el,unit_store_slater_ek,istore
+  integer                                 :: unit_store_slater_el,unit_store_slater_ek,istore,i,unit_store_qp
   complex(8),dimension(2*Ns*2*Ns)             :: tmp_matrix_el
   !
+  complex(8),dimension(Ns,Ns,lw)          :: qp_gloc
+  complex(8)                :: tmp_gk,iw
+  real(8) :: w
+  character(len=20)                        :: store_file_suffix
+  !
+
   Estar=0.d0
   slater_derivatives_=zero
   n0_ = 0.d0
@@ -750,12 +748,12 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
   !
   store_=.false.; if(present(store)) store_=store
   if(store_) then
-     unit_store_slater_ek = free_unit()
-     open(unit_store_slater_ek,file='store_slater_determinant_ground_state_ek.out')
      unit_store_slater_el = free_unit()
      open(unit_store_slater_el,file='store_slater_determinant_ground_state_el.out')
   end if
   !
+  !
+  if(store_) qp_gloc=zero
   do ik=1,Lk     
      Hk_bare=Hk_tb(:,:,ik)
      Hk=0.d0
@@ -838,7 +836,25 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
 
 
      if(store_) then
-        write(unit_store_slater_ek,'(20(F18.10))') eps_ik(:)
+        do is=1,Ns
+           do js=1,Ns
+              if(store_) then !+- compute the single-particle greens function for the QP spectrum      
+                 do i=1,lw
+                    do kstate=1,Ns
+                       w=wr(i)
+                       iw=cmplx(w,0.01d0)
+                       tmp_gk = 1.d0/(iw-(ek(kstate)-ek(kstate+Ns)))
+                       qp_gloc(is,js,i) = qp_gloc(is,js,i) + Hk(is,kstate)*conjg(Hk(js,kstate))*tmp_gk*wtk(ik)
+                       tmp_gk = 1.d0/(iw+(ek(kstate)-ek(kstate+Ns)))
+                       qp_gloc(is,js,i) = qp_gloc(is,js,i) + Hk(is,kstate+Ns)*conjg(Hk(js,kstate+Ns))*tmp_gk*wtk(ik)
+                    enddo
+                 end do
+              end if
+           end do
+        end do
+     end if
+     !
+     if(store_) then
         do is=1,4*Ns*Ns
            write(unit_store_slater_el,'(10(F18.10))') tmp_matrix_el(is)
         end do
@@ -863,12 +879,27 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
      end do
      !
   end do
+  !
   n0_(1,:,:)=n0_tmp(1:Ns,1:Ns)
   n0_(2,:,:)=n0_tmp(1:Ns,1+Ns:2*Ns)
-
-
-
-
+  !
+  if(store_) then
+     do is=1,Ns
+        do js=is,Ns
+           unit_store_qp = free_unit()
+           store_file_suffix="_is"//reg(txtfy(is))//"_js"//reg(txtfy(js))
+           open(unit_store_qp,file="QP_GLOC_realw"//reg(store_file_suffix)//".data")
+           !
+           do i=1,lw
+              write(unit_store_qp,'(5(F18.10))') wr(i),-dimag(qp_gloc(is,js,i))/pi,dreal(qp_gloc(is,js,i)),dimag(qp_gloc(is,js,i))
+           end do
+           close(unit_store_qp)
+        end do
+     end do
+  end if
+  !
+  !
+  !
   if(present(n0)) then
      n0=n0_
   end if
@@ -879,20 +910,4 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
      slater_matrix_el=slater_matrix_el_
   end if
   !
-
-  !<DEBUG
-  ! write(*,*) 'N0_SLATER'
-  ! do istate=1,2*Ns
-  !    write(*,'(20F8.4)') dreal(n0_tmp(istate,:)),dimag(n0_tmp(istate,:))
-  ! end do
-  ! write(*,*)
-  ! do istate=1,Ns
-  !    write(*,'(20F8.4)') dreal(lm(1,istate,:)),dimag(lm(1,istate,:))
-  ! end do
-  ! write(*,*)
-  ! do istate=1,Ns
-  !    write(*,'(20F8.4)') dreal(lm(2,istate,:)),dimag(lm(2,istate,:))
-  ! end do
-  ! !stop
-  !DEBUG>
 end subroutine slater_minimization_fixed_lgr_superc

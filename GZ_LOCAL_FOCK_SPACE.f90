@@ -97,7 +97,7 @@ CONTAINS
             Uloc(iorb)*matmul(state_dens(is_up,:,:),state_dens(is_dn,:,:))
     end do
     
-    if(iorb.gt.1) then
+    if(Norb.gt.1) then
        !+- INTER-ORBITAL density-density opposite spins -+!
        do iorb=1,Norb
           do jorb=iorb+1,Norb
@@ -178,8 +178,10 @@ CONTAINS
 
     allocate(op_dens(Ns,nFock,nFock))
     allocate(op_local_dens(Ns,Ns,nFock,nFock))
-    allocate(op_docc(Norb,nFock,nFock))
-    allocate(op_dens_dens_orb(Norb,Norb,nFock,nFock))
+    
+    !allocate(op_docc(Norb,nFock,nFock)) !+- TO BE REM
+    !allocate(op_dens_dens_orb(Norb,Norb,nFock,nFock)) !!+- TO BE REM
+    allocate(op_dens_dens(Ns,Ns,nFock,nFock))
     allocate(op_spin_flip(Norb,Norb,nFock,nFock))
     allocate(op_pair_hopping(Norb,Norb,nFock,nFock))
     allocate(op_sc_order(Ns,Ns,nFock,nFock))
@@ -195,12 +197,15 @@ CONTAINS
 
     !    Uhubbard=density_density_interaction(CC,CA)    
     !dens_dens_interaction=rotationally_invariant_density_density(CC,CA)  !HERE MAY ADD SINGLET SPLITTING TERMS, SPIN FLIPS, PAIR HOPPINGS, etc...
-    op_docc                 = local_doubly(CC,CA)
-    op_dens                 = local_density(CC,CA)
+    !op_docc                 = local_doubly(CC,CA)
+    
+    !op_dens                 = local_density(CC,CA) !+- TO BE REMOVED
+    
     op_local_dens           = local_density_matrix(CC,CA)
     op_local_dens_anomalous = local_density_matrix_anomalous(CC,CA)
     !
-    op_dens_dens_orb        = local_density_density_orb(CC,CA)
+    !op_dens_dens_orb        = local_density_density_orb(CC,CA) !+- TO BE REMOVED    
+    op_dens_dens            = local_density_density(CC,CA)
     op_spin_flip            = local_spin_flip(CC,CA)
     op_pair_hopping         = local_pair_hopping(CC,CA)
     op_sc_order             = local_sc_order(CC,CA)

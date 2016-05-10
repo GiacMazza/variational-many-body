@@ -92,16 +92,24 @@ contains
           gz_dens_matrix(istate,jstate) = trace_phi_basis(phi_vec,phi_traces_basis_local_dens(istate,jstate,:,:))
        end do
     end do
-    ! density-density same orbital -aka orbital doubly occupancy-!
-    if(.not.allocated(gz_docc)) allocate(gz_docc(Norb))
-    do iorb=1,Norb
-       gz_docc(iorb) = trace_phi_basis(phi_vec,phi_traces_basis_docc_orb(iorb,:,:))
-    end do
-    ! density-density different orbitals !
-    if(.not.allocated(gz_dens_dens_orb)) allocate(gz_dens_dens_orb(Norb,Norb))
-    do iorb=1,Norb
-       do jorb=1,Norb
-          gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
+    !
+    ! ! density-density same orbital -aka orbital doubly occupancy-!
+    ! if(.not.allocated(gz_docc)) allocate(gz_docc(Norb))
+    ! do iorb=1,Norb
+    !    gz_docc(iorb) = trace_phi_basis(phi_vec,phi_traces_basis_docc_orb(iorb,:,:))
+    ! end do
+    ! ! density-density different orbitals !
+    ! if(.not.allocated(gz_dens_dens_orb)) allocate(gz_dens_dens_orb(Norb,Norb))
+    ! do iorb=1,Norb
+    !    do jorb=1,Norb
+    !       gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
+    !    end do
+    ! end do
+    !
+    if(.not.allocated(gz_dens_dens)) allocate(gz_dens_dens(Ns,Ns))
+    do is=1,Ns
+       do js=1,Ns
+          gz_dens_dens(is,js)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens(is,js,:,:))
        end do
     end do
     !+-
@@ -154,16 +162,11 @@ contains
           gz_dens_matrix(istate,jstate) = trace_phi_basis(phi_vec,phi_traces_basis_local_dens(istate,jstate,:,:))
        end do
     end do
-    ! density-density same orbital -aka orbital doubly occupancy-!
-    if(.not.allocated(gz_docc)) allocate(gz_docc(Norb))
-    do iorb=1,Norb
-       gz_docc(iorb) = trace_phi_basis(phi_vec,phi_traces_basis_docc_orb(iorb,:,:))
-    end do
-    ! density-density different orbitals !
-    if(.not.allocated(gz_dens_dens_orb)) allocate(gz_dens_dens_orb(Norb,Norb))
-    do iorb=1,Norb
-       do jorb=1,Norb
-          gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
+    !+- density-density -+!
+    if(.not.allocated(gz_dens_dens)) allocate(gz_dens_dens(Ns,Ns))
+    do is=1,Ns
+       do js=1,Ns
+          gz_dens_dens(is,js)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens(is,js,:,:))
        end do
     end do
     !+-

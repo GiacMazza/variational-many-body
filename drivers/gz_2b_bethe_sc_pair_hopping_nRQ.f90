@@ -82,6 +82,8 @@ program GUTZ_mb
   call init_variational_matrices
   !  
   call build_lattice_model
+  allocate(wr(lw))
+  wr = linspace(wini,wfin,lw)
   !
   NRhop_opt=1;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   NQhop_opt=1;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec

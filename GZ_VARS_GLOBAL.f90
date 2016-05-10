@@ -68,8 +68,11 @@ MODULE GZ_VARS_GLOBAL
   complex(8),allocatable                :: phi_traces_basis_Hloc(:,:)     ! Single matrix of dimension (nPhi X nPhi) 
   complex(8),allocatable                :: phi_traces_basis_free_Hloc(:,:)     ! Single matrix of dimension (nPhi X nPhi) 
   complex(8),allocatable                :: phi_traces_basis_local_dens(:,:,:,:)  !Ns x Ns matrices (c+a cb)
-  complex(8),allocatable                            :: phi_traces_basis_dens_dens_orb(:,:,:,:)
-  complex(8),allocatable                            :: phi_traces_basis_docc_orb(:,:,:)
+  !
+  ! complex(8),allocatable                            :: phi_traces_basis_dens_dens_orb(:,:,:,:)
+  ! complex(8),allocatable                            :: phi_traces_basis_docc_orb(:,:,:)
+  !
+  complex(8),allocatable                            :: phi_traces_basis_dens_dens(:,:,:,:)
   complex(8),allocatable                            :: phi_traces_basis_spin_flip(:,:,:,:)
   complex(8),allocatable                            :: phi_traces_basis_pair_hopping(:,:,:,:)
   complex(8),allocatable                            :: phi_traces_basis_sc_order(:,:,:,:)
@@ -105,8 +108,10 @@ MODULE GZ_VARS_GLOBAL
   complex(8),dimension(:,:),allocatable   :: slater_ground_state_deriv   ! (Ns,Ns) aka d<H*>/R_{\alpha,\beta} \alpha,\beta=1,Ns
 
   !# Observables #!
-  real(8),allocatable                :: gz_docc(:)           ! Double occupancy (1:Norb)
-  real(8),allocatable                :: gz_dens_dens_orb(:,:)  ! density_density different orbitals (1:Norb,1:Norb)
+  ! real(8),allocatable                :: gz_docc(:)           ! Double occupancy (1:Norb)
+  ! real(8),allocatable                :: gz_dens_dens_orb(:,:)  ! density_density different orbitals (1:Norb,1:Norb)
+  !
+  real(8),allocatable                :: gz_dens_dens(:,:)  !  (1:Ns,1:Ns)
   real(8),allocatable                :: gz_dens(:)           ! local density    (1:Ns)
   real(8),allocatable                :: gz_dens_matrix(:,:)           ! local density    (1:Ns)
 
@@ -116,12 +121,15 @@ MODULE GZ_VARS_GLOBAL
 
 
 
-  real(8),allocatable                :: op_docc(:,:,:)              ! Double occupancy (Norb,:,:)
+
   real(8),allocatable                :: op_dens(:,:,:)              ! local density    (1:Ns,:,:)
   real(8),allocatable                :: op_local_dens(:,:,:,:)              ! local density matrix    (1:Ns,1:Ns,:,:)
   real(8),allocatable                :: op_local_dens_anomalous(:,:,:,:)              ! local density matrix    (1:Ns,1:Ns,:,:)
 
-  real(8),allocatable                :: op_dens_dens_orb(:,:,:,:)     ! local density    (Norb,Norb,:,:)
+  !  real(8),allocatable                :: op_docc(:,:,:)              ! Double occupancy (Norb,:,:)
+  !  real(8),allocatable                :: op_dens_dens_orb(:,:,:,:)     ! density-density    (Norb,Norb,:,:)
+  !
+  real(8),allocatable                :: op_dens_dens(:,:,:,:)     ! density-density    (Ns,Ns,:,:)
   real(8),allocatable                :: op_spin_flip(:,:,:,:)     ! spin_flip    (Norb,Norb,:,:)
   real(8),allocatable                :: op_pair_hopping(:,:,:,:)     ! pair_hopping    (Norb,Norb,:,:)
   real(8),allocatable                :: op_sc_order(:,:,:,:)     ! SC-order parameter    (Norb,Norb,:,:)

@@ -17,6 +17,8 @@ MODULE GZ_AUX_FUNX
   !
   public :: fermi_zero
   !
+  public :: search_chemical_potential
+  !
 CONTAINS
 
   !+- Get binary decomposition of the state i into the configuration vector ivec -+!
@@ -236,6 +238,141 @@ CONTAINS
     end do
     !
   end subroutine init_Qhop_seed
+
+
+
+
+
+
+
+
+
+
+  subroutine search_chemical_potential(var,ntmp,converged,nread,ndelta,nerr,niter_)
+    real(8),intent(inout) :: var
+    real(8),intent(in)    :: ntmp
+    logical,intent(inout) :: converged
+    real(8),intent(in)    :: nread,nerr
+    real(8),intent(inout) :: ndelta
+    integer,optional      :: niter_
+    integer               :: niter
+    logical               :: bool
+    real(8)               :: ndiff
+    integer,save          :: count=0,totcount=0,i
+    integer,save          :: nindex=0
+    integer               :: nindex_old(3)
+    real(8)               :: ndelta_old,nratio
+    integer,save          :: nth_magnitude=-2,nth_magnitude_old=-2
+    real(8),save          :: nth=1.d-2
+    logical,save          :: ireduce=.true.
+    integer               :: unit
+    !
+    niter=20;if(present(niter_)) niter=niter_
+    !
+    ndiff=ntmp-nread
+    nratio = 0.5d0;!nratio = 1.d0/(6.d0/11.d0*pi)
+    !
+    !check actual value of the density *ntmp* with respect to goal value *nread*
+    count=count+1
+    totcount=totcount+1
+    if(count>2)then
+       do i=1,2
+          nindex_old(i+1)=nindex_old(i)
+       enddo
+    endif
+    nindex_old(1)=nindex
+    !
+    if(ndiff >= nth)then
+       nindex=-1
+    elseif(ndiff <= -nth)then
+       nindex=1
+    else
+       nindex=0
+    endif
+    
+    !
+    write(*,*) 'cristo santo sto xmu searching'
+    write(*,*) ndiff,nth,nindex
+    !
+    
+    !
+    ndelta_old=ndelta
+    bool=nindex/=0.AND.( (nindex+nindex_old(1)==0).OR.(nindex+sum(nindex_old(:))==0) )
+    !if(nindex_old(1)+nindex==0.AND.nindex/=0)then !avoid loop forth and back
+    if(bool)then
+       ndelta=ndelta_old*nratio !decreasing the step
+    else
+       ndelta=ndelta_old
+    endif
+    !
+    if(ndelta_old<1.d-9)then
+       ndelta_old=0.d0
+       nindex=0
+    endif
+    !update chemical potential
+    var=var+dble(nindex)*ndelta
+    !
+    write(*,*) 'var',var,nindex,ndelta
+    !
+    !xmu=xmu+dble(nindex)*ndelta
+    !
+    !Print information
+    write(*,"(A,f16.9,A,f15.9)")"n    = ",ntmp," /",nread
+    if(nindex>0)then
+       write(*,"(A,es16.9,A)")"shift= ",nindex*ndelta," ==>"
+    elseif(nindex<0)then
+       write(*,"(A,es16.9,A)")"shift= ",nindex*ndelta," <=="
+    else
+       write(*,"(A,es16.9,A)")"shift= ",nindex*ndelta," == "
+    endif
+    write(*,"(A,f15.9)")"var  = ",var
+    write(*,"(A,ES16.9,A,ES16.9)")"dn   = ",ndiff,"/",nth
+    unit=free_unit()
+    open(unit,file="GZsearch_mu_iteration.out",position="append")
+    write(unit,*)var,ntmp,ndiff,nth
+    close(unit)
+    !
+    !check convergence within actual threshold
+    !if reduce is activetd
+    !if density is in the actual threshold
+    !if DMFT is converged
+    !if threshold is larger than nerror (i.e. this is not last loop)
+    bool=ireduce.AND.(abs(ndiff)<nth).AND.converged.AND.(nth>nerr)
+    if(bool)then
+       nth_magnitude_old=nth_magnitude        !save old threshold magnitude
+       nth_magnitude=nth_magnitude_old-1      !decrease threshold magnitude || floor(log10(abs(ntmp-nread)))
+       nth=max(nerr,10.d0**(nth_magnitude))   !set the new threshold 
+       count=0                                !reset the counter
+       converged=.false.                      !reset convergence
+       ndelta=ndelta_old*nratio                  !reduce the delta step
+       !
+    endif
+    !
+    !if density is not converged set convergence to .false.
+    if(abs(ntmp-nread)>nth)converged=.false.
+    !
+    !check convergence for this threshold
+    !!---if smallest threshold-- NO MORE
+    !if reduce is active (you reduced the treshold at least once)
+    !if # iterations > max number
+    !if not yet converged
+    !set threshold back to the previous larger one.
+    !bool=(nth==nerr).AND.ireduce.AND.(count>niter).AND.(.not.converged)
+    bool=ireduce.AND.(count>niter).AND.(.not.converged)
+    if(bool)then
+       ireduce=.false.
+       nth=10.d0**(nth_magnitude_old)
+    endif
+    !
+    write(*,"(A,I5)")"count= ",count
+    write(*,"(A,L2)"),"Converged=",converged
+    print*,""
+    !
+  end subroutine search_chemical_potential
+
+
+
+
 
 
   !+-----------------------------------------------------------------+

@@ -7,6 +7,7 @@ program GUTZ_mb
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
+  USE GZ_LOCAL_HAMILTONIAN
   USE GZ_OPTIMIZED_ENERGY
   USE GZ_ENERGY_MINIMIZATION
   USE GZ_EFFECTIVE_HOPPINGS
@@ -31,21 +32,33 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: epsik,hybik
   integer :: Nx,is
   !
-  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,Jh_ratio
-
+  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,Jh_ratio,Jiter
   complex(8),dimension(:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
-
-
-
+  integer :: Nopt
   character(len=5) :: dir_suffix
   character(len=6) :: dir_iter
+  real(8),dimension(:),allocatable :: dump_seed
+  integer :: expected_flen,flen,unit
+  logical :: seed_file
 
+  !
+  character(len=6) :: sweep !sweepU,sweepJ
+  real(8) :: sweep_start,sweep_stop,sweep_step
+  integer ::  Nsweep,iseed
+  !
+  character(len=200) :: store_dir,read_dir
+  real(8),dimension(:),allocatable :: energy_levels
   !
   !+- PARSE INPUT DRIVER -+!
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
-  call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)  
+  call parse_input_variable(sweep,"SWEEP","inputGZ.conf",default='sweepJ')  
+  call parse_input_variable(sweep_start,"SWEEP_START","inputGZ.conf",default=-0.4d0)  
+  call parse_input_variable(sweep_stop,"SWEEP_STOP","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(sweep_step,"SWEEP_STEP","inputGZ.conf",default=0.05d0)  
+  call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
+  call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -71,13 +84,23 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
+  !  
+  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  allocate(energy_levels(Ns))
+  do iorb=1,Norb
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        energy_levels(istate) = Cfield*0.5d0
+        if(iorb.eq.2) energy_levels(istate) = -Cfield*0.5d0
+     end do
+  end do
   !
-  call init_variational_matrices
+  call build_lattice_model
+
   !  
   allocate(variational_density_natural_simplex(Ns+1,Ns))
   allocate(variational_density_natural(Ns))
 
-  call build_lattice_model
   !
 
 
@@ -85,16 +108,55 @@ program GUTZ_mb
   NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
+  Nopt = NRhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt
+  Nopt = 2*Nopt
   !
-  allocate(Rhop_init_matrix(Ns,Ns)); call init_Rhop_seed(Rhop_init_matrix)
+  allocate(Rhop_init_matrix(Ns,Ns)); 
   allocate(slater_lgr_init(Ns,Ns),gzproj_lgr_init(Ns,Ns))  
-  slater_lgr_init(1,1) =  Cfield*0.5d0
-  slater_lgr_init(2,2) = -Cfield*0.5d0
-  gzproj_lgr_init=zero
   !
+  Nopt_reduced = 1 + 1 + 1 + 1
+  stride_zeros_orig2red => stride2reduced
+  stride_zeros_red2orig => stride2orig
+  !
+  !
+  !
+  expected_flen=Nopt
+  inquire(file="Rn0_root_seed.conf",exist=seed_file)
+  if(seed_file) then
+     flen=file_length("Rn0_root_seed.conf")
+     unit=free_unit()
+     open(unit,file="Rn0_root_seed.conf")
+     write(*,*) 'reading root seed from file RQn0_root_seed.conf'
+     if(flen.eq.expected_flen) then
+        allocate(dump_seed(flen))
+        !+- read from file -+!
+        do i=1,flen
+           read(unit,*) dump_seed(i)
+        end do
+        !+------------------+!        
+        call dump2mats(dump_seed,Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)        
+     else
+        write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
+        write(*,*) 'please check your initialization file for the root finding'
+        stop
+     end if
+     !
+  else
+     !
+     call init_Rhop_seed(Rhop_init_matrix)
+     !
+     slater_lgr_init=0.d0
+     slater_lgr_init(1,1) =  Cfield*0.5d0
+     slater_lgr_init(2,2) = -Cfield*0.5d0
+     gzproj_lgr_init=zero
+     !
+  end if
 
-
+  do is=1,Ns
+     write(*,*) Rhop_init_matrix(is,:)
+  end do
   
+
   !
   allocate(vdm_init(Ns))
   !call initialize_variational_density(vdm_init)
@@ -103,37 +165,59 @@ program GUTZ_mb
   do is=1,Ns
      variational_density_matrix(is,is) = vdm_init(is)
   end do
-
-  !  
-  Uiter = -0.1
-  Jh_ratio=Jh
-  do i=1,50
-     !
-     Uiter = Uiter + 0.1
-     do iorb=1,Norb
-        Uloc(iorb) = Uiter
+  !
+  select case(sweep)
+  case('sweepJ')
+     !+- sweep JHund -+!
+     Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
+     Jiter = sweep_start
+     do i=1,Nsweep
+        !
+        !+ T^2-Tz^2 hamiltonian
+        Jh = Jiter
+        Jsf = Jh
+        Jph = 0.d0
+        !
+        call get_local_hamiltonian_trace(energy_levels)
+        !
+        write(dir_suffix,'(F4.2)') Jiter
+        dir_iter="J"//trim(dir_suffix)
+        call system('mkdir -v '//dir_iter)     
+        !
+        call gz_optimization_vdm_Rhop_reduced(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
+        call get_gz_ground_state(GZ_vector)
+        call print_output
+        call system('cp * '//dir_iter)
+        call system('rm *.out *.data fort* ')
+        Jiter = Jiter + sweep_step
      end do
-     Jh = Jh_ratio*Uiter
-     Jsf = Jh
-     Jph = Jh
-     Ust = Uiter-2.d0*Jh
-     !
-     call build_local_hamiltonian     
-     phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-     phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-     !
-     write(dir_suffix,'(F4.2)') Uiter
-     dir_iter="U"//trim(dir_suffix)
-     call system('mkdir -v '//dir_iter)     
-     !
-     call gz_optimization_vdm_Rhop(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
-     call get_gz_ground_state(GZ_vector)
-     Rhop_init_matrix = GZ_opt_Rhop
-     variational_density_matrix = GZ_opt_VDM     
-     call print_output
-     call system('cp * '//dir_iter)
-     call system('rm *.out *.data fort* ')
-  end do
+  case('sweepU')
+     Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
+     Uiter=sweep_start
+     do i=1,Nsweep
+        do iorb=1,Norb
+           Uloc(iorb) = Uiter
+        end do
+        Jsf = Jh
+        Jph = 0.d0
+        Ust = Uiter
+        !
+        call get_local_hamiltonian_trace(energy_levels)
+        !
+        write(dir_suffix,'(F4.2)') Uiter
+        dir_iter="U"//trim(dir_suffix)
+        call system('mkdir -v '//dir_iter)     
+        !
+        call gz_optimization_vdm_Rhop_reduced(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
+        call get_gz_ground_state(GZ_vector)
+        slater_lgr_init=0.d0
+        call print_output
+        call system('cp * '//dir_iter)
+        call system('rm *.out *.data fort* ')
+        !
+        Uiter = Uiter + sweep_step
+     end do
+  end select
   !
 CONTAINS
   !
@@ -283,14 +367,9 @@ CONTAINS
     close(out_unit)
     !
     out_unit=free_unit()
-    open(out_unit,file='orbital_double_occupancy.data')
-    write(out_unit,'(20F18.10)') gz_docc(1:Norb)
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='orbital_density_density.data')
-    do iorb=1,Norb
-       write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    open(out_unit,file='local_density_density.data')
+    do is=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
     end do
     close(out_unit)
     !
@@ -298,8 +377,7 @@ CONTAINS
     open(out_unit,file='local_angular_momenta.data')
     write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
     close(out_unit)
-
-
+    !
     if(present(vdm_simplex)) then
        out_unit=free_unit()
        open(out_unit,file='vdm_simplex.restart')
@@ -337,6 +415,48 @@ CONTAINS
     end if
 
   end subroutine print_output
+
+
+
+
+
+  subroutine stride2reduced(x_orig,x_reduced)
+    real(8),dimension(:) :: x_orig
+    real(8),dimension(:) :: x_reduced
+    if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
+    if(size(x_reduced).ne.Nopt_reduced) stop "error reduced @ stride2reduced"
+    !
+    x_reduced(1) = x_orig(1)
+    x_reduced(2) = x_orig(2)
+    x_reduced(3) = x_orig(5)
+    x_reduced(4) = x_orig(6)
+    !
+  end subroutine stride2reduced
+
+  subroutine stride2orig(x_reduced,x_orig)
+    real(8),dimension(:) :: x_orig
+    real(8),dimension(:) :: x_reduced
+    if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
+    if(size(x_reduced).ne.Nopt_reduced) stop "error reduced @ stride2reduced"
+    !
+    x_orig=0.d0
+    x_orig(1) = x_reduced(1)
+    x_orig(2) = x_reduced(2)
+    x_orig(5) = x_reduced(3)
+    x_orig(6) = x_reduced(4)
+    !
+  end subroutine stride2orig
+
+
+
+
+
+
+
+
+
+
+
 
   subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
     complex(8),dimension(:)   :: Rhop_indep

@@ -33,7 +33,7 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
      call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
      delta=0.d0
-     do is=1,2*Nopt_lgr
+     do is=1,2*Nopt
         delta = delta + delta_out(is)**2.d0
      end do
   end select
@@ -285,9 +285,12 @@ contains
     real(8),dimension(Ns,Ns)  :: Hk
     !
     integer                       :: iorb,ispin,istate,jstate,ik,ifock,jfock,jorb,jspin,iphi,jphi
-    integer                      :: is,js,imap
+    integer                      :: is,js,imap,Nopt_lgr
     logical :: c_flag
     !
+
+    stop "WORK IN PROGRESS ON THIS SUBROUTINE!!"
+
     f=1.d0
     allocate(phi_(Nphi))
     phi_=x
@@ -343,7 +346,7 @@ contains
           end do
        end do
        !
-       if(i.eq.Nopt_diag+Nopt_odiag+1) then
+       if(i.eq.Nopt_lgr+1) then
           f=0.d0
           do iphi=1,Nphi
              f = f + conjg(phi_(iphi))*phi_(iphi)
@@ -474,7 +477,7 @@ subroutine gz_proj_minimization_lgr_superc(slater_derivatives,n0_target,E_Hloc,G
      call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
      delta=0.d0
-     do is=1,2*Nopt_lgr
+     do is=1,2*Nopt
         delta = delta + delta_out(is)**2.d0
      end do
   end select

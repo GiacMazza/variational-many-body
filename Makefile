@@ -9,24 +9,29 @@ EXE=gz_generate_phi_traces
 #EXE=gz_1b_nR
 
 #EXE=gz_2b_bethe
-#EXE=gz_2b_cubic_hyb     #
-#EXE=gz_2b_cubic_hyb_nR   #
+EXE=gz_2b_cubic_hyb
+#EXE=gz_2b_cubic_hyb_nR
 #EXE=gz_2b_bethe_pair_hopping
+
 #EXE=gz_2b_bethe_nR
 #EXE=gz_2b_bethe_pair_hopping_nR
-#EXE=gz_bethe_janus
+#EXE=gz_bethe_janus   !+---> temporary out of order <---+!
 
 #EXE=gz_1b_attractiveU_self
+
 #EXE=gz_2b_bethe_sc
-#EXE=gz_2b_flat_sc
 #EXE=gz_2b_bethe_sc_pair_hopping
 #EXE=gz_2b_bethe_sc_nRQ
 #EXE=gz_2b_bethe_sc_pair_hopping_nRQ
 
+#EXE=gz_3b_bethe
 #EXE=gz_3b_bethe_sc
 #EXE=gz_3b_bethe_sc_sweep
 #EXE=gz_3b_bethe_sweep
 #EXE=gz_3b_bethe_sc_nRQ
+#EXE=gz_3b_bethe_sc_su2
+
+
 
 
 DIR=drivers

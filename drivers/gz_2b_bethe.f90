@@ -7,6 +7,7 @@ program GUTZ_mb
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
+  USE GZ_LOCAL_HAMILTONIAN
   USE GZ_ENERGY_MINIMIZATION
   USE GZ_OPTIMIZED_ENERGY
   !
@@ -48,6 +49,8 @@ program GUTZ_mb
   complex(8),dimension(1) :: tmpQ
 
   character(len=11) :: task !e_sweep_vdm,min_simplex,min_galahad,nRQfree_min
+  character(len=200) :: store_dir,read_dir
+  real(8),dimension(:),allocatable :: energy_levels
 
 
   !
@@ -55,8 +58,10 @@ program GUTZ_mb
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
-  call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)  
   call parse_input_variable(task,"TASK","inputGZ.conf",default="min_galahad")  
+  call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
+  call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
+
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -69,14 +74,26 @@ program GUTZ_mb
   !NOTE: ON HUNDS COUPLINGS:
   !NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
-  Jh = Jh*Uloc(1)
+  !Jh = Jh*Uloc(1)
+  
   Jsf = Jh
-  Jph = Jh
-  Ust = Uloc(1)-2.d0*Jh
+  Jph = 0.d0
+  
   !
   call initialize_local_fock_space
   !
-  call init_variational_matrices
+  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  !
+  allocate(energy_levels(Ns))
+  do iorb=1,Norb
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        energy_levels(istate) = Cfield*0.5d0
+        if(iorb.eq.2) energy_levels(istate) = -Cfield*0.5d0
+     end do
+  end do
+  call get_local_hamiltonian_trace(energy_levels)
+
   !
   call build_lattice_model
   !
@@ -263,15 +280,11 @@ CONTAINS
     write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
     close(out_unit)
     !
-    out_unit=free_unit()
-    open(out_unit,file='orbital_double_occupancy.data')
-    write(out_unit,'(20F18.10)') gz_docc(1:Norb)
-    close(out_unit)
     !
     out_unit=free_unit()
-    open(out_unit,file='orbital_density_density.data')
-    do iorb=1,Norb
-       write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    open(out_unit,file='local_density_density.data')
+    do is=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
     end do
     close(out_unit)
     !

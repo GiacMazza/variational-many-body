@@ -51,6 +51,7 @@ CONTAINS
        end if
     end if
     !
+    store_=.false.
     if(present(store_dir_)) then
        store_=.true.
        if(.not.gz_superc) then
@@ -285,9 +286,6 @@ CONTAINS
     call get_matrix_basis_irr_reps(irr_reps,equ_reps,phi_irr)
     call get_matrix_basis_original_fock(phi_irr,phi_fock,Virr_reps)
     !
-
-
-
     dim_phi=size(phi_fock,1)
     !
     !dim_phi = nFock
@@ -318,21 +316,21 @@ CONTAINS
     end do
     ! 
 
-    allocate(test_trace(Nphi,Nphi))
-    test_trace=get_traces_basis_phiOphi(Id)
+    ! allocate(test_trace(Nphi,Nphi))
+    ! test_trace=get_traces_basis_phiOphi(Id)
 
-    !+- safe check on the matrix orthogonality
-    do iphi=1,Nphi
-       do jphi=1,Nphi
-          if(abs(test_trace(iphi,jphi)).gt.1.d-8.and.iphi.ne.jphi) &
-               stop "Variational basis not Trace-orthogonal"
-       end do
-    end do
+    ! !+- safe check on the matrix orthogonality
+    ! do iphi=1,Nphi
+    !    do jphi=1,Nphi
+    !       if(abs(test_trace(iphi,jphi)).gt.1.d-8.and.iphi.ne.jphi) &
+    !            stop "Variational basis not Trace-orthogonal"
+    !    end do
+    ! end do
 
-    do iphi=1,Nphi
-       phi_basis(iphi,:,:)     = phi_basis(iphi,:,:)/sqrt(test_trace(iphi,iphi))
-       phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
-    end do
+    ! do iphi=1,Nphi
+    !    phi_basis(iphi,:,:)     = phi_basis(iphi,:,:)/sqrt(test_trace(iphi,iphi))
+    !    phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
+    ! end do
 
     !<TMP_CHECK
     ! tmp_check=0.d0
@@ -721,8 +719,15 @@ CONTAINS
     allocate(phi_traces_basis_isospin2(Nphi,Nphi));phi_traces_basis_isospin2=zero
     allocate(phi_traces_basis_isospinZ(Nphi,Nphi));phi_traces_basis_isospinZ=zero
     !
+    write(*,*) "READING PHI TRACES"
+    !
+    write(*,*)
+    write(*,*) 
     do is=1,Ns
        do js=1,Ns
+          !
+          write(*,*) "READING local_dens",is,js
+          !
           file_name=reg(read_dir)//"phi_traces_basis_local_dens_is"//reg(txtfy(is))//"_js"//reg(txtfy(js))//".gutz"             
           inquire(file=file_name,exist=read_file)
           if(read_file) then
@@ -747,6 +752,9 @@ CONTAINS
              write(*,*) 'file',file_name,'not stored'
              stop 
           end if
+
+          write(*,*)
+          write(*,*) "READING local_dens_dens",is,js
 
           file_name=reg(read_dir)//"phi_traces_basis_dens_dens_is"//reg(txtfy(is))//"_js"//reg(txtfy(js))//".gutz"             
           inquire(file=file_name,exist=read_file)
@@ -787,6 +795,8 @@ CONTAINS
           !
           !+- Orbital spin-flip -+!
           file_name=reg(read_dir)//"phi_traces_basis_spin_flip_iorb"//reg(txtfy(iorb))//"_jorb"//reg(txtfy(jorb))//".gutz"             
+          write(*,*)
+          write(*,*) "READING spin_flip",iorb,jorb          
           inquire(file=file_name,exist=read_file)
           if(read_file) then
              !
@@ -813,6 +823,8 @@ CONTAINS
           !
 
           !+- Orbital pair-hopping -+!
+          write(*,*)
+          write(*,*) "READING pair hopping",iorb,jorb          
           file_name=reg(read_dir)//"phi_traces_basis_pair_hopping_iorb"//reg(txtfy(iorb))//"_jorb"//reg(txtfy(jorb))//".gutz"             
           inquire(file=file_name,exist=read_file)
           if(read_file) then
@@ -873,6 +885,8 @@ CONTAINS
     phi_traces_basis_dens_hc=zero
     do is=1,Ns
        do js=1,Ns
+          write(*,*)
+          write(*,*) "READING density constraint",is,js          
           file_name=reg(read_dir)//"phi_traces_basis_dens_is"//reg(txtfy(is))//"_js"//reg(txtfy(js))//".gutz"             
           inquire(file=file_name,exist=read_file)
           if(read_file) then
@@ -911,6 +925,8 @@ CONTAINS
     !
     do is=1,Ns
        do js=1,Ns
+          write(*,*)
+          write(*,*) "READING density constraint anomalous",is,js          
           file_name=reg(read_dir)//"phi_traces_basis_dens_anomalous_is"//reg(txtfy(is))//"_js"//reg(txtfy(js))//".gutz"             
           inquire(file=file_name,exist=read_file)
           if(read_file) then
@@ -948,6 +964,9 @@ CONTAINS
     phi_traces_basis_Rhop=zero;phi_traces_basis_Rhop_hc=zero
     do is=1,Ns
        do js=1,Ns
+          write(*,*)
+          write(*,*) "READING Rhop",is,js          
+
           file_name=reg(read_dir)//"phi_traces_basis_Rhop_is"//reg(txtfy(is))//"_js"//reg(txtfy(js))//".gutz"             
           inquire(file=file_name,exist=read_file)
           if(read_file) then
@@ -985,6 +1004,11 @@ CONTAINS
        phi_traces_basis_Qhop=zero;phi_traces_basis_Qhop_hc=zero
        do is=1,Ns
           do js=1,Ns
+
+             write(*,*)
+             write(*,*) "READING Qhop",is,js          
+
+
              file_name=reg(read_dir)//"phi_traces_basis_Qhop_is"//reg(txtfy(is))//"_js"//reg(txtfy(js))//".gutz"             
              inquire(file=file_name,exist=read_file)
              if(read_file) then
@@ -1020,6 +1044,11 @@ CONTAINS
     ! !
     do is=1,Ns
        do js=1,Ns
+
+          write(*,*)
+          write(*,*) "READING SC_order_param",is,js          
+
+
           file_name=reg(read_dir)//"phi_traces_basis_sc_order_is"//reg(txtfy(is))//"_js"//reg(txtfy(js))//".gutz"             
           inquire(file=file_name,exist=read_file)
           if(read_file) then
@@ -1047,6 +1076,11 @@ CONTAINS
        end do
     end do
     ! 
+
+    write(*,*)
+    write(*,*) "READING ANGULAR MOMENTA"
+
+
     file_name=reg(read_dir)//"phi_traces_basis_spin2.gutz"    
     inquire(file=file_name,exist=read_file)
     if(read_file) then
@@ -1165,8 +1199,7 @@ CONTAINS
     allocate(phi_traces_basis_local_dens(Ns,Ns,Nphi,Nphi))
     !+- this new guy contains all phi_traces_basis_ndens_ndens
     allocate(phi_traces_basis_dens_dens(Ns,Ns,Nphi,Nphi))
-    
-    !allocate(phi_traces_basis_docc_orb(Norb,Nphi,Nphi))    
+    !
     allocate(phi_traces_basis_spin_flip(Norb,Norb,Nphi,Nphi))
     allocate(phi_traces_basis_pair_hopping(Norb,Norb,Nphi,Nphi))
     allocate(phi_traces_basis_sc_order(Ns,Ns,Nphi,Nphi))
@@ -1176,48 +1209,45 @@ CONTAINS
     allocate(phi_traces_basis_isospin2(Nphi,Nphi))
     allocate(phi_traces_basis_isospinZ(Nphi,Nphi))
 
+    write(*,*) 'BUILDING PHI TRACES: local density matrix'
     do is=1,Ns
        do js=1,Ns
+          write(*,*) 'IS',is,'JS',js
           phi_traces_basis_local_dens(is,js,:,:) = &
                get_traces_basis_phiOphi(op_local_dens(is,js,:,:))
        end do
     end do
-
     !
+    write(*,*) 'BUILDING PHI TRACES: local density-density'
+    write(*,*) 
     do is=1,Ns
        do js=1,Ns
+          write(*,*) 'IS',is,'JS',js
           phi_traces_basis_dens_dens(is,js,:,:) = &
                get_traces_basis_phiOphi(op_dens_dens(is,js,:,:))
        end do
     end do
-
-
     !
+    write(*,*) 'BUILDING PHI TRACES: local spin-flip and pair-hopping'
     do iorb=1,Norb
        do jorb=1,Norb
-          !+- Orbital density-density -+!
-          !THIS GUY DIAPPEARS
-          ! phi_traces_basis_dens_dens_orb(iorb,jorb,:,:) = &
-          !      get_traces_basis_phiOphi(op_dens_dens_orb(iorb,jorb,:,:))
-          !
           !+- Orbital spin-flip -+!
+          write(*,*) 'ORBITAL SPIN-FLIP','IORB',iorb,'JORB',jorb
           phi_traces_basis_spin_flip(iorb,jorb,:,:) = &
                get_traces_basis_phiOphi(op_spin_flip(iorb,jorb,:,:))
           !+- Orbital pair-hopping -+!
+          write(*,*) 'ORBITAL PAIR-HOPPING','IORB',iorb,'JORB',jorb
           phi_traces_basis_pair_hopping(iorb,jorb,:,:) = &
                get_traces_basis_phiOphi(op_pair_hopping(iorb,jorb,:,:))
        end do
-       !+- orbital double occupancy -+!
-
-       !+- THIS GUY DISAPPEARS!!
-       ! phi_traces_basis_docc_orb(iorb,:,:) = &
-       !      get_traces_basis_phiOphi(op_docc(iorb,:,:))
     end do
     !+- density constraints Tr(Phi+ Phi C_i) C_i=density matrix -+!
+    write(*,*) 'BUILDING PHI TRACES: density constraints'
     allocate(phi_traces_basis_dens(Ns,Ns,Nphi,Nphi),phi_traces_basis_dens_hc(Ns,Ns,Nphi,Nphi))
     do is=1,Ns
        do js=1,Ns
-          phi_traces_basis_dens(is,js,:,:) = &    !+- probably is more correct to call this global variable !+- phi_traces_basis_vdm
+          write(*,*) 'IS',is,'JS',js
+          phi_traces_basis_dens(is,js,:,:) = &    
                get_traces_basis_phiphiO(op_local_dens(is,js,:,:))
        end do
     end do
@@ -1231,8 +1261,10 @@ CONTAINS
     !+- anomalous part -+!
     allocate(phi_traces_basis_dens_anomalous(Ns,Ns,Nphi,Nphi))
     allocate(phi_traces_basis_dens_anomalous_hc(Ns,Ns,Nphi,Nphi))
+    write(*,*) 'BUILDING PHI TRACES: anomalous density constraints'
     do is=1,Ns
        do js=1,Ns
+          write(*,*) 'IS',is,'JS',js
           phi_traces_basis_dens_anomalous(is,js,:,:) = &    !+- probably is more correct to call this global variable !+- phi_traces_basis_vdm
                get_traces_basis_phiphiO(op_local_dens_anomalous(is,js,:,:))
        end do
@@ -1244,9 +1276,11 @@ CONTAINS
     end do
 
     !+- Hoppings -+!
+    write(*,*) 'BUILDING PHI TRACES: normal hopping renormalization'
     allocate(phi_traces_basis_Rhop(Ns,Ns,Nphi,Nphi),phi_traces_basis_Rhop_hc(Ns,Ns,Nphi,Nphi))
     do is=1,Ns
        do js=1,Ns
+          write(*,*) 'IS',is,'JS',js
           phi_traces_basis_Rhop(is,js,:,:) = get_traces_basis_phiAphiB(CA(is,:,:),CC(js,:,:)) 
        end do
     end do
@@ -1257,9 +1291,11 @@ CONTAINS
     end do
     !
     if(gz_superc) then
+       write(*,*) 'BUILDING PHI TRACES: anomalous hopping renormalization'
        allocate(phi_traces_basis_Qhop(Ns,Ns,Nphi,Nphi),phi_traces_basis_Qhop_hc(Ns,Ns,Nphi,Nphi))
        do is=1,Ns
           do js=1,Ns
+             write(*,*) 'IS',is,'JS',js
              phi_traces_basis_Qhop(is,js,:,:) = get_traces_basis_phiAphiB(CA(is,:,:),CA(js,:,:)) 
           end do
        end do
@@ -1270,16 +1306,23 @@ CONTAINS
        end do
     end if
     !
+    write(*,*) 'BUILDING PHI TRACES: local order parameter'
     do is=1,Ns
        do js=1,Ns
+          write(*,*) 'IS',is,'JS',js
           phi_traces_basis_sc_order(is,js,:,:) = get_traces_basis_phiOphi(op_sc_order(is,js,:,:)) 
        end do
     end do
     !
+    write(*,*) 'BUILDING PHI TRACES: local SPIN2'
     phi_traces_basis_spin2 = get_traces_basis_phiOphi_z(op_spin2) 
+    write(*,*) 'BUILDING PHI TRACES: local SPIN_z'
     phi_traces_basis_spinZ = get_traces_basis_phiOphi_z(op_spinZ) 
+    write(*,*) 'BUILDING PHI TRACES: local ISOSPIN2'
     phi_traces_basis_isospin2 = get_traces_basis_phiOphi_z(op_isospin2) 
+    write(*,*) 'BUILDING PHI TRACES: local ISOSPIN_z'
     phi_traces_basis_isospinZ = get_traces_basis_phiOphi_z(op_isospinZ) 
+    !
   end subroutine build_traces_matrix_basis
 
 

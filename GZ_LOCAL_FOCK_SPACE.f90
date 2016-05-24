@@ -50,10 +50,11 @@ CONTAINS
 
   !
   subroutine build_local_hamiltonian
-    integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn,ifock
+    integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn,ifock,is
     real(8),dimension(Ns,nFock,nFock) :: state_dens
     real(8),dimension(nFock,nFock) :: tmp
     real(8) :: mu_ph
+    real(8),dimension(Ns) :: mu_ph_
     !
     if(allocated(local_hamiltonian)) deallocate(local_hamiltonian)
     if(allocated(local_hamiltonian_free)) deallocate(local_hamiltonian_free)
@@ -166,9 +167,15 @@ CONTAINS
        end do
     end if
     !+- CHEMICAL POTENTIAL FOR PH CONDITION -+!
-    mu_ph = Uloc(1)*0.5d0 + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh)
+    !mu_ph = Uloc(1)*0.5d0 + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh)
+    do iorb=1,Norb
+       do ispin=1,2
+          is=index(ispin,iorb)
+          mu_ph_(is) = Uloc(iorb)*0.5d0 + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh)
+       end do
+    end do
     do istate=1,Ns       
-       local_hamiltonian = local_hamiltonian - mu_ph*state_dens(istate,:,:)
+       local_hamiltonian = local_hamiltonian - mu_ph_(is)*state_dens(istate,:,:)
     end do
     !
   end subroutine build_local_hamiltonian

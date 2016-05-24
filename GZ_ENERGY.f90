@@ -76,10 +76,10 @@ contains
        end do
        n0(is) = GZ_opt_VDM(is,is)
     end do
-    GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
+    GZ_opt_Rhop=hopping_renormalization_normal(phi_vec,n0)            
     !
     !
-    call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,GZ_opt_VDM,store=slater_store)
+    call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,n0=GZ_opt_VDM,slater_matrix_el=GZ_opt_slater,store=slater_store)
     !
     !    
     !+- GET OBSERVABLES -+!
@@ -92,19 +92,6 @@ contains
           gz_dens_matrix(istate,jstate) = trace_phi_basis(phi_vec,phi_traces_basis_local_dens(istate,jstate,:,:))
        end do
     end do
-    !
-    ! ! density-density same orbital -aka orbital doubly occupancy-!
-    ! if(.not.allocated(gz_docc)) allocate(gz_docc(Norb))
-    ! do iorb=1,Norb
-    !    gz_docc(iorb) = trace_phi_basis(phi_vec,phi_traces_basis_docc_orb(iorb,:,:))
-    ! end do
-    ! ! density-density different orbitals !
-    ! if(.not.allocated(gz_dens_dens_orb)) allocate(gz_dens_dens_orb(Norb,Norb))
-    ! do iorb=1,Norb
-    !    do jorb=1,Norb
-    !       gz_dens_dens_orb(iorb,jorb)=trace_phi_basis(phi_vec,phi_traces_basis_dens_dens_orb(iorb,jorb,:,:))
-    !    end do
-    ! end do
     !
     if(.not.allocated(gz_dens_dens)) allocate(gz_dens_dens(Ns,Ns))
     do is=1,Ns
@@ -145,11 +132,12 @@ contains
        n0(is) = GZ_opt_VDM_superc(1,is,is)
     end do
     !
-    GZ_opt_Rhop=hopping_renormalization_normal(GZ_vector,n0)            
-    GZ_opt_Qhop=hopping_renormalization_anomalous(GZ_vector,n0)            
+    GZ_opt_Rhop=hopping_renormalization_normal(phi_vec,n0)            
+    GZ_opt_Qhop=hopping_renormalization_anomalous(phi_vec,n0)            
     !
     !
-    call slater_minimization_fixed_lgr_superc(GZ_opt_Rhop,GZ_opt_Qhop,GZ_opt_slater_lgr_superc,E_Hstar,GZ_opt_VDM_superc,store=slater_store)
+    call slater_minimization_fixed_lgr_superc(GZ_opt_Rhop,GZ_opt_Qhop,GZ_opt_slater_lgr_superc,E_Hstar,&
+         n0=GZ_opt_VDM_superc,slater_matrix_el=GZ_opt_slater_superc,store=slater_store)
     !
     !    
     !+- GET OBSERVABLES -+!

@@ -21,7 +21,7 @@ CONTAINS
   subroutine get_local_hamiltonian_trace(atomic_energy_levels_)    
     real(8),dimension(Ns),optional :: atomic_energy_levels_
     real(8),dimension(Ns) :: atomic_energy_levels
-    integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn,ifock
+    integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn,ifock,is
     ! real(8),dimension(Ns,nFock,nFock) :: state_dens
     ! real(8),dimension(nFock,nFock) :: tmp
     real(8) :: mu_ph
@@ -131,10 +131,14 @@ CONTAINS
        end do
     end if
     !+- CHEMICAL POTENTIAL FOR PH CONDITION -+!
-    mu_ph = Uloc(1)*0.5d0 + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh) !+- check this def whene the degeneracy in U is removed
-    do istate=1,Ns       
-       phi_traces_basis_Hloc =  phi_traces_basis_Hloc - mu_ph*phi_traces_basis_local_dens(istate,istate,:,:)
-       !local_hamiltonian = local_hamiltonian - mu_ph*state_dens(istate,:,:)
+
+    mu_ph = sum(Uloc(1:Norb))*0.5d0/dble(Norb) + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh) !
+    do iorb=1,Norb
+       do ispin=1,2
+          istate=index(ispin,iorb)          
+          phi_traces_basis_Hloc =  phi_traces_basis_Hloc - mu_ph*phi_traces_basis_local_dens(istate,istate,:,:)
+       end do
+          !local_hamiltonian = local_hamiltonian - mu_ph*state_dens(istate,:,:)
     end do
     !
   end subroutine get_local_hamiltonian_trace

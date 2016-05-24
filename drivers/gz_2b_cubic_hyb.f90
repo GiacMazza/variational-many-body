@@ -57,8 +57,9 @@ program GUTZ_mb
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
-  call parse_input_variable(lattice,"LAT_DIMENSION","inputGZ.conf",default=3)  
   call parse_input_variable(task,"TASK","inputGZ.conf",default="min_galahad")  
+  call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
+  call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -78,10 +79,6 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-
-  !
-  read_dir='/mnt/home/giacomo.mazza/project_data/OFFICINA/test_gz_mb/TEST_STORE_PHI_TRACES/STORE_DIR/'
-  store_dir='./READ_PHI/'
   call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
   !
   allocate(energy_levels(Ns))
@@ -255,14 +252,14 @@ CONTAINS
   subroutine print_output(vdm_simplex,vdm_opt)
     real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
     real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),optional :: vdm_opt
-    integer :: out_unit,istate,iorb,iphi,ifock,jfock
+    integer :: out_unit,istate,iorb,iphi,ifock,jfock,is,js,ik
     integer,dimension(Ns) :: fock_state
     complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
 
     real(8),dimension(nFock,nFock) :: test_full_phi
 
-
+    !+- STORE GZ PROJECTORS -+!
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
     test_full_phi=0.d0
@@ -280,6 +277,19 @@ CONTAINS
        end do
     end do
     close(out_unit)    
+    
+    !+- STORE SLATER DETERMINANT -+!
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          do ik=1,Lk
+             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater(is,js,ik)),dimag(GZ_opt_slater(is,js,ik))
+          end do
+          close(out_unit)
+       end do
+    end do
+    
 
     !
     out_unit=free_unit()
@@ -317,33 +327,18 @@ CONTAINS
     write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
     close(out_unit)
     !
-    ! out_unit=free_unit()
-    ! open(out_unit,file='orbital_double_occupancy.data')
-    ! write(out_unit,'(20F18.10)') gz_docc(1:Norb)
-    ! close(out_unit)
-    ! !
-    ! out_unit=free_unit()
-    ! open(out_unit,file='orbital_density_density.data')
-    ! do iorb=1,Norb
-    !    write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
-    ! end do
-    ! close(out_unit)
-
     out_unit=free_unit()
     open(out_unit,file='local_density_density.data')
     do is=1,Ns
        write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
     end do
     close(out_unit)
-
-
     !
     out_unit=free_unit()
     open(out_unit,file='local_angular_momenta.data')
     write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
     close(out_unit)
-
-
+    !
     if(present(vdm_simplex)) then
        out_unit=free_unit()
        open(out_unit,file='vdm_simplex.restart')
@@ -438,7 +433,6 @@ CONTAINS
           vdm_NC_mat(is,is) = vdm_NC_indep(iorb)
        end do
     end do
-    Nopt_odiag = 0
     !
   end subroutine vdm_NC_vec2mat
   subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)

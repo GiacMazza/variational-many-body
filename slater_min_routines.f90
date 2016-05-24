@@ -379,12 +379,12 @@ subroutine slater_minimization_lgr_superc(Rhop,Qhop,n0_target,Estar,lgr_multip,n
   complex(8),dimension(2,Ns,Ns),intent(out)   :: lgr_multip   !output: Slater Deter lagrange multipliers
   complex(8),dimension(2,Ns,Ns),optional      :: n0_out             !output: Slater Deter ground state density matrix
   complex(8),dimension(2,Ns,Ns),optional      :: slater_derivatives !output: Slater Deter ground state renormalization derivatives
-  complex(8),dimension(2*Ns,2*Ns,Lk),optional :: slater_matrix_el   !output: Slater Deter ground state matrix elements
+  complex(8),dimension(2,Ns,Ns,Lk),optional :: slater_matrix_el   !output: Slater Deter ground state matrix elements
   !
   logical,optional                            :: iverbose     !input:  Verbosity level
   !
   complex(8),dimension(2,Ns,Ns)               :: slater_derivatives_
-  complex(8),dimension(2*Ns,2*Ns,Lk)          :: slater_matrix_el_
+  complex(8),dimension(2,Ns,Ns,Lk)          :: slater_matrix_el_
   complex(8),dimension(2,Ns,Ns)               :: n0_out_
   !
   real(8),dimension(:),allocatable            :: lgr
@@ -414,7 +414,7 @@ subroutine slater_minimization_lgr_superc(Rhop,Qhop,n0_target,Estar,lgr_multip,n
      call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
      delta=0.d0
-     do is=1,2*Nopt_lgr
+     do is=1,2*Nopt
         delta = delta + delta_out(is)**2.d0
      end do
   end select  
@@ -704,12 +704,13 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
   ! optional inputs
   complex(8),dimension(2,Ns,Ns),optional      :: n0
   complex(8),dimension(2,Ns,Ns),optional      :: slater_derivatives
-  complex(8),dimension(2*Ns,2*Ns,Lk),optional :: slater_matrix_el
+  complex(8),dimension(2,Ns,Ns,Lk),optional :: slater_matrix_el
   logical,optional                            :: store
   complex(8),dimension(2,Ns,Ns)               :: n0_
   complex(8),dimension(2*Ns,2*Ns)             :: n0_tmp
   complex(8),dimension(2,Ns,Ns)               :: slater_derivatives_
-  complex(8),dimension(2*Ns,2*Ns,Lk)          :: slater_matrix_el_
+  complex(8),dimension(2*Ns,2*Ns,Lk)          :: slater_superc_matrix_el_
+  complex(8),dimension(2,Ns,Ns,Lk)            :: slater_matrix_el_
   logical                                     :: store_
   !
   complex(8),dimension(Ns,Ns)                 :: Rhop_dag
@@ -737,7 +738,7 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
   slater_derivatives_=zero
   n0_ = 0.d0
   n0_tmp=zero
-  slater_matrix_el_ = zero
+  slater_superc_matrix_el_ = zero
   !
   do istate=1,Ns
      do jstate=1,Ns
@@ -807,34 +808,15 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
                    conjg(Hk(is,ks))*Hk(js,ks)*nqp*wtk(ik) + &
                    conjg(Hk(is,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)*wtk(ik)
               !
-              slater_matrix_el_(is,js,ik) = slater_matrix_el_(is,js,ik) + &
+              slater_superc_matrix_el_(is,js,ik) = slater_superc_matrix_el_(is,js,ik) + &
                    conjg(Hk(is,ks))*Hk(js,ks)*nqp + &
                    conjg(Hk(is,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)
            end do
            istore=istore+1
-           tmp_matrix_el(istore) = slater_matrix_el_(istate,jstate,ik)
+           tmp_matrix_el(istore) = slater_superc_matrix_el_(istate,jstate,ik)
         end do
      end do
      !
-
-     ! do is=1,Ns
-     !    do js=1,Ns
-     !       if(store_) then !+- compute the single-particle greens function for the QP spectrum      
-     !          do i=1,lw
-     !             do kstate=1,Ns
-     !                w=wr(i)
-     !                iw=cmplx(w,0.05d0)
-     !                tmp_gk = 1.d0/(iw-ek(kstate))
-     !                qp_gloc(istate,jstate,i) = qp_gloc(istate,jstate,i) + conjg(Hk(istate,kstate))*Hk(jstate,kstate)*tmp_gk*wtk(ik)
-     !                !+--mmm think better to this point... here
-     !                qp_gloc(istate,jstate,i) = qp_gloc(istate,jstate,i) + conjg(Hk(istate,kstate))*Hk(jstate,kstate)*tmp_gk*wtk(ik)
-     !             enddo
-     !          end do
-     !       end if
-     !    end do
-     ! end do
-
-
      if(store_) then
         do is=1,Ns
            do js=1,Ns
@@ -861,7 +843,7 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
         write(unit_store_slater_el,'(10(F18.10))') 
      end if
      !
-     tmp = slater_matrix_el_(:,:,ik)     
+     tmp = slater_superc_matrix_el_(:,:,ik)     
      do is=1,Ns
         do js=1,Ns
            do ks=1,Ns
@@ -879,6 +861,9 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
      end do
      !
   end do
+  !
+  slater_matrix_el_(1,1:Ns,1:Ns,:) = slater_superc_matrix_el_(1:Ns,1:Ns,:)
+  slater_matrix_el_(2,1:Ns,1:Ns,:) = slater_superc_matrix_el_(Ns+1:2*Ns,1:Ns,:)
   !
   n0_(1,:,:)=n0_tmp(1:Ns,1:Ns)
   n0_(2,:,:)=n0_tmp(1:Ns,1+Ns:2*Ns)

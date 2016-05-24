@@ -156,9 +156,6 @@ program GUTZ_mb
         Jsf = Jh
         Jph = 0.d0
         !
-        ! call build_local_hamiltonian     
-        ! phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        ! phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
         call get_local_hamiltonian_trace
         !
         write(dir_suffix,'(F4.2)') abs(Jiter)
@@ -176,9 +173,6 @@ program GUTZ_mb
         Jiter = Jiter + sweep_step
      end do
   case('sweepU')
-
-     
-
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
      Uiter=sweep_start
      do i=1,Nsweep
@@ -189,9 +183,6 @@ program GUTZ_mb
         Jph = 0.d0
         Ust = Uiter
         !
-        ! call build_local_hamiltonian     
-        ! phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        ! phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
         call get_local_hamiltonian_trace
         !
         write(dir_suffix,'(F4.2)') Uiter

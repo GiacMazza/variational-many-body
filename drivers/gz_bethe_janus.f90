@@ -76,18 +76,6 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-  Nopt_diag=1
-  Nopt_odiag=0  
-  allocate(opt_map(Ns,Ns))  
-  opt_map = 0
-  do ispin=1,2
-     do iorb=1,Norb
-        is=index(ispin,iorb)
-        opt_map(is,is) = 1
-     end do
-  end do
-  allocate(lgr_init_slater(Nopt_diag+Nopt_odiag)); lgr_init_slater=0.d0
-  allocate(lgr_init_gzproj(Nopt_diag+Nopt_odiag)); lgr_init_gzproj=0.d0
   !
   call init_variational_matrices
   !  
@@ -102,13 +90,15 @@ program GUTZ_mb
   Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   !
+  Nopt = NRhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt 
+  Nopt = 2*Nopt
+  Nopt_reduced = 1 + 1 
+  !
   allocate(Rhop_init_matrix(Ns,Ns)); call init_Rhop_seed(Rhop_init_matrix)
   allocate(slater_lgr_init(Ns,Ns),gzproj_lgr_init(Ns,Ns))  
   slater_lgr_init =  zero
   gzproj_lgr_init=zero
-
-
-
+  !
   !+- minimize with respect to XMU the energy at fixed variational density -+!
   allocate(init_mu(1))
   optimization_flag=.true.

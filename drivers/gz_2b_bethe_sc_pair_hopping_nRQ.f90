@@ -7,6 +7,7 @@ program GUTZ_mb
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
+  USE GZ_LOCAL_HAMILTONIAN
   USE GZ_OPTIMIZED_ENERGY
   USE GZ_ENERGY_MINIMIZATION
   USE GZ_EFFECTIVE_HOPPINGS
@@ -51,6 +52,10 @@ program GUTZ_mb
   real(8) :: sweep_start,sweep_stop,sweep_step
   integer ::  Nsweep,iseed
   real(8),dimension(:),allocatable :: x_reseed
+
+  character(len=200) :: store_dir,read_dir
+  real(8),dimension(:),allocatable :: energy_levels
+
   !
   !+- PARSE INPUT DRIVER -+!
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
@@ -60,6 +65,8 @@ program GUTZ_mb
   call parse_input_variable(sweep_start,"SWEEP_START","inputGZ.conf",default=-0.4d0)  
   call parse_input_variable(sweep_stop,"SWEEP_STOP","inputGZ.conf",default=0.d0)  
   call parse_input_variable(sweep_step,"SWEEP_STEP","inputGZ.conf",default=0.05d0)  
+  call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
+  call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -79,7 +86,8 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-  call init_variational_matrices
+  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  allocate(energy_levels(Ns)); energy_levels=0.d0  
   !  
   call build_lattice_model
   allocate(wr(lw))
@@ -155,9 +163,7 @@ program GUTZ_mb
         Jsf = 0.d0
         Jph = Jh
         !
-        call build_local_hamiltonian     
-        phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
+        call get_local_hamiltonian_trace
         !
         write(dir_suffix,'(F4.2)') abs(Jiter)
         dir_iter="J"//trim(dir_suffix)
@@ -174,11 +180,7 @@ program GUTZ_mb
         Jiter = Jiter + sweep_step
      end do
   case('sweepU')
-
-
-
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
-
      Uiter=sweep_start
      do i=1,Nsweep
         do iorb=1,Norb
@@ -186,9 +188,7 @@ program GUTZ_mb
         end do
         Ust = Uiter
         !
-        call build_local_hamiltonian     
-        phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
+        call get_local_hamiltonian_trace
         !
         write(dir_suffix,'(F4.2)') Uiter
         dir_iter="U"//trim(dir_suffix)
@@ -198,32 +198,6 @@ program GUTZ_mb
         call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
         call get_gz_ground_state_superc(GZ_vector)  
         !
-        ! write(*,*) "R_init"
-        ! do is=1,Ns
-        !    write(*,*) R_init(is,:)
-        ! end do
-        ! R_init=R_init+0.1d0
-        ! Q_init=Q_init+0.1d0
-        !
-        !+- add small noise to the solution ?
-        ! call dump2vec_superc(x_reseed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        ! !
-        ! do iseed=1,2*Nopt
-        !    x_reseed(iseed) = x_reseed(iseed) + 0.01
-        ! end do
-        ! call dump2mats_superc(x_reseed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        
-        
-        
-        ! call init_Rhop_seed(R_init)
-        ! call init_Qhop_seed(Q_init)
-        
-        ! slater_lgr_init(1,:,:)=0.5d0
-        ! slater_lgr_init(2,:,:)=0.0d0
-        ! gzproj_lgr_init(1,:,:)=0.5d0
-        ! gzproj_lgr_init(2,:,:)=0.0d0  
-
-
         call print_output_superc
         call system('cp * '//dir_iter)
         call system('rm *.out *.data fort* ')
@@ -381,15 +355,9 @@ CONTAINS
     write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
     close(out_unit)
     !
-    !out_unit=free_unit()
-    open(out_unit,file='orbital_double_occupancy.data')
-    write(out_unit,'(20F18.10)') gz_docc(1:Norb)
-    close(out_unit)
-    !
-    !out_unit=free_unit()
-    open(out_unit,file='orbital_density_density.data')
-    do iorb=1,Norb
-       write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    open(out_unit,file='local_density_density.data')
+    do is=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
     end do
     close(out_unit)
     !
@@ -514,14 +482,9 @@ CONTAINS
     close(out_unit)
     !
     out_unit=free_unit()
-    open(out_unit,file='orbital_double_occupancy.data')
-    write(out_unit,'(20F18.10)') gz_docc(1:Norb)
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='orbital_density_density.data')
-    do iorb=1,Norb
-       write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    open(out_unit,file='local_density_density.data')
+    do is=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
     end do
     close(out_unit)
     !

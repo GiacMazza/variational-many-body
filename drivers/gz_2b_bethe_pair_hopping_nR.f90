@@ -7,6 +7,7 @@ program GUTZ_mb
   USE GZ_AUX_FUNX
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
+  USE GZ_LOCAL_HAMILTONIAN
   USE GZ_OPTIMIZED_ENERGY
   USE GZ_ENERGY_MINIMIZATION
   USE GZ_EFFECTIVE_HOPPINGS
@@ -45,6 +46,9 @@ program GUTZ_mb
   real(8) :: sweep_start,sweep_stop,sweep_step
   integer ::  Nsweep,iseed
   !
+  character(len=200) :: store_dir,read_dir
+  real(8),dimension(:),allocatable :: energy_levels
+  !
   !+- PARSE INPUT DRIVER -+!
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
@@ -53,7 +57,8 @@ program GUTZ_mb
   call parse_input_variable(sweep_start,"SWEEP_START","inputGZ.conf",default=-0.4d0)  
   call parse_input_variable(sweep_stop,"SWEEP_STOP","inputGZ.conf",default=0.d0)  
   call parse_input_variable(sweep_step,"SWEEP_STEP","inputGZ.conf",default=0.05d0)  
-
+  call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
+  call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -79,13 +84,23 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
+  !  
+  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  allocate(energy_levels(Ns))
+  do iorb=1,Norb
+     do ispin=1,2
+        istate=index(ispin,iorb)
+        energy_levels(istate) = Cfield*0.5d0
+        if(iorb.eq.2) energy_levels(istate) = -Cfield*0.5d0
+     end do
+  end do
   !
-  call init_variational_matrices
+  call build_lattice_model
+
   !  
   allocate(variational_density_natural_simplex(Ns+1,Ns))
   allocate(variational_density_natural(Ns))
 
-  call build_lattice_model
   !
 
 
@@ -150,46 +165,7 @@ program GUTZ_mb
   do is=1,Ns
      variational_density_matrix(is,is) = vdm_init(is)
   end do
-
-  !  
-  ! Uiter = -0.1
-  ! Jh_ratio=Jh
-  ! do i=1,50
-  !    !
-  !    Uiter = Uiter + 0.1
-  !    do iorb=1,Norb
-  !       Uloc(iorb) = Uiter
-  !    end do
-  !    Jh = Jh_ratio*Uiter
-  !    Jsf = Jh
-  !    Jph = Jh
-  !    Ust = Uiter-2.d0*Jh
-  !    !
-  !    call build_local_hamiltonian     
-  !    phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-  !    phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-  !    !
-  !    write(dir_suffix,'(F4.2)') Uiter
-  !    dir_iter="U"//trim(dir_suffix)
-  !    call system('mkdir -v '//dir_iter)     
-  !    !
-  !    call gz_optimization_vdm_Rhop_reduced(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
-  !    call get_gz_ground_state(GZ_vector)
-  !    Rhop_init_matrix = GZ_opt_Rhop
-  !    variational_density_matrix = GZ_opt_VDM     
-  !    call print_output
-  !    call system('cp * '//dir_iter)
-  !    call system('rm *.out *.data fort* ')
-  ! end do
-  ! !
-
-
-
-
-
-
-
-
+  !
   select case(sweep)
   case('sweepJ')
      !+- sweep JHund -+!
@@ -201,9 +177,7 @@ program GUTZ_mb
         Jsf = 0.d0
         Jph = Jh
         !
-        call build_local_hamiltonian     
-        phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
+        call get_local_hamiltonian_trace(energy_levels)
         !
         write(dir_suffix,'(F4.2)') Jiter
         dir_iter="J"//trim(dir_suffix)
@@ -211,8 +185,6 @@ program GUTZ_mb
         !
         call gz_optimization_vdm_Rhop_reduced(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
         call get_gz_ground_state(GZ_vector)
-        ! Rhop_init_matrix = GZ_opt_Rhop
-        ! variational_density_matrix = GZ_opt_VDM     
         call print_output
         call system('cp * '//dir_iter)
         call system('rm *.out *.data fort* ')
@@ -227,9 +199,7 @@ program GUTZ_mb
         end do
         Ust = Uiter
         !
-        call build_local_hamiltonian     
-        phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
+        call get_local_hamiltonian_trace(energy_levels)
         !
         write(dir_suffix,'(F4.2)') Uiter
         dir_iter="U"//trim(dir_suffix)
@@ -237,8 +207,6 @@ program GUTZ_mb
         !
         call gz_optimization_vdm_Rhop_reduced(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
         call get_gz_ground_state(GZ_vector)
-        ! Rhop_init_matrix = GZ_opt_Rhop
-        ! variational_density_matrix = GZ_opt_VDM     
         slater_lgr_init=0.d0
         call print_output
         call system('cp * '//dir_iter)
@@ -396,14 +364,9 @@ CONTAINS
     close(out_unit)
     !
     out_unit=free_unit()
-    open(out_unit,file='orbital_double_occupancy.data')
-    write(out_unit,'(20F18.10)') gz_docc(1:Norb)
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='orbital_density_density.data')
-    do iorb=1,Norb
-       write(out_unit,'(20F18.10)') gz_dens_dens_orb(iorb,:)
+    open(out_unit,file='local_density_density.data')
+    do is=1,Ns
+       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
     end do
     close(out_unit)
     !
@@ -411,8 +374,7 @@ CONTAINS
     open(out_unit,file='local_angular_momenta.data')
     write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
     close(out_unit)
-
-
+    !
     if(present(vdm_simplex)) then
        out_unit=free_unit()
        open(out_unit,file='vdm_simplex.restart')

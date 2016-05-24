@@ -204,7 +204,7 @@ CONTAINS
     !
     allocate(xmin_(Nopt_reduced))
     call stride_zeros_orig2red(xmin,xmin_)
-    call fsolve(R_VDM_free_zeros__,xmin_,tol=1.d-20,info=iter)
+    call fsolve(R_VDM_free_zeros__,xmin_,tol=1.d-10,info=iter)
     call stride_zeros_red2orig(xmin_,xmin)
     !
     !call fsolve(R_VDM_free_zeros_,xmin,tol=1.d-10,info=iter)
@@ -328,7 +328,7 @@ CONTAINS
        open(unit=xmin_unit,file='RQn0_root_finding_xmin.out')
     end if
     !
-    call fsolve(R_Q_VDM_free_zeros_superc,xmin,tol=1.d-20,info=iter)
+    call fsolve(R_Q_VDM_free_zeros_superc,xmin,tol=1.d-10,info=iter)
     !call fmin_cg(xmin,R_Q_VDM_free_opt_superc,iter,out_err,ftol=10d-15,istop=2)
     ! write(*,*) 'ITER',iter
     !    
@@ -448,7 +448,7 @@ CONTAINS
     !    
     allocate(xmin_(Nopt_reduced))
     call stride_zeros_orig2red(xmin,xmin_)
-    call fsolve(R_Q_VDM_free_zeros_superc_,xmin_,tol=1.d-20,info=iter)
+    call fsolve(R_Q_VDM_free_zeros_superc_,xmin_,tol=1.d-10,info=iter)
     call stride_zeros_red2orig(xmin_,xmin)
     !
     !+- once optimization is achieved store the ground state results -+!

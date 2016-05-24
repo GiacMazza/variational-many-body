@@ -145,6 +145,9 @@ program GUTZ_mb
      !
   end if
   allocate(x_reseed(2*Nopt))
+
+
+
   select case(sweep)
   case('sweepJ')
      !+- sweep JHund -+!
@@ -157,10 +160,15 @@ program GUTZ_mb
         Jph = Jh
         Ust = Uloc(1)-2.d0*Jh
         !
-        ! call build_local_hamiltonian     
-        ! phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        ! phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
         call get_local_hamiltonian_trace
+        unit=free_unit()
+        open(unit,file='local_interactions.used')
+        write(unit,*) 'Uloc',Uloc
+        write(unit,*) 'Ust',Ust
+        write(unit,*) 'Jh',Jh
+        write(unit,*) 'Jsf',Jsf
+        write(unit,*) 'Jph',Jph
+        close(unit)
         !
         write(dir_suffix,'(F4.2)') abs(Jiter)
         dir_iter="J"//trim(dir_suffix)
@@ -177,11 +185,7 @@ program GUTZ_mb
         Jiter = Jiter + sweep_step
      end do
   case('sweepU')
-
-
-
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
-
      Uiter=sweep_start
      do i=1,Nsweep
         do iorb=1,Norb
@@ -192,10 +196,15 @@ program GUTZ_mb
         Jph = Jh
         Ust = Uloc(1)-2.d0*Jh
         !
-        ! call build_local_hamiltonian     
-        ! phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-        ! phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
         call get_local_hamiltonian_trace
+        unit=free_unit()
+        open(unit,file='local_interactions.used')
+        write(unit,*) 'Uloc',Uloc
+        write(unit,*) 'Ust',Ust
+        write(unit,*) 'Jh',Jh
+        write(unit,*) 'Jsf',Jsf
+        write(unit,*) 'Jph',Jph
+        close(unit)
         !
         write(dir_suffix,'(F4.2)') Uiter
         dir_iter="U"//trim(dir_suffix)
@@ -211,9 +220,6 @@ program GUTZ_mb
      end do
 
   end select
-
-  !+- sweep U -+!
-
 
   !
 CONTAINS
@@ -560,7 +566,7 @@ CONTAINS
     x_orig(3) = x_reduced(2)
     x_orig(5) = x_reduced(3)
   end subroutine stride2orig
-  
+
 
 
 

@@ -11,6 +11,7 @@ MODULE GZ_AUX_FUNX
   public :: initialize_variational_density  
   public :: init_Rhop_seed,init_Qhop_seed
   public :: get_free_single_paritcle_gf
+
   !+- at some point these two subroutines should be merged in SCIFOR -+!
   public :: simultaneous_diag
   public :: fixed_point_sub
@@ -238,6 +239,17 @@ CONTAINS
     end do
     !
   end subroutine init_Qhop_seed
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -21,6 +21,9 @@ MODULE GZ_VARS_GLOBAL
   !+- GUTZWILLER WAVEFUNCTION -+!
   !+---------------------------+!
 
+  !+- Numbers of dynamical equations -+!
+  integer :: nDynamics
+
   !+- PARAMETERS TO BE OPTIMIZED -+!
   integer :: NRhop_opt,NQhop_opt,Nvdm_NC_opt,Nvdm_NCoff_opt,Nvdm_AC_opt,Nopt_reduced
   logical :: optimization_flag
@@ -30,27 +33,27 @@ MODULE GZ_VARS_GLOBAL
   complex(8),dimension(:,:,:),allocatable :: phi_basis,phi_basis_dag
   !# Gutzwiller Traces Matrices #!
   ! hopping renormalization
-  complex(8),allocatable                :: phi_traces_basis_Rhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
-  complex(8),allocatable                :: phi_traces_basis_Rhop_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
-  complex(8),allocatable                :: phi_traces_basis_Qhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
-  complex(8),allocatable                :: phi_traces_basis_Qhop_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_Rhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_Rhop_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_Qhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_Qhop_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
   ! density constraints
-  complex(8),allocatable                :: phi_traces_basis_dens(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
-  complex(8),allocatable                :: phi_traces_basis_dens_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
-  complex(8),allocatable                :: phi_traces_basis_dens_anomalous(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
-  complex(8),allocatable                :: phi_traces_basis_dens_anomalous_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_dens(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_dens_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_dens_anomalous(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_dens_anomalous_hc(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
   ! local operators
-  complex(8),allocatable                :: phi_traces_basis_Hloc(:,:)     ! Single matrix of dimension (nPhi X nPhi) 
-  complex(8),allocatable                :: phi_traces_basis_free_Hloc(:,:)     ! Single matrix of dimension (nPhi X nPhi) 
-  complex(8),allocatable                :: phi_traces_basis_local_dens(:,:,:,:)  !Ns x Ns matrices (c+a cb)
-  complex(8),allocatable                            :: phi_traces_basis_dens_dens(:,:,:,:)
-  complex(8),allocatable                            :: phi_traces_basis_spin_flip(:,:,:,:)
-  complex(8),allocatable                            :: phi_traces_basis_pair_hopping(:,:,:,:)
-  complex(8),allocatable                            :: phi_traces_basis_sc_order(:,:,:,:)
-  complex(8),allocatable                            :: phi_traces_basis_spin2(:,:)
-  complex(8),allocatable                            :: phi_traces_basis_spinZ(:,:)
-  complex(8),allocatable                            :: phi_traces_basis_isospin2(:,:)
-  complex(8),allocatable                            :: phi_traces_basis_isospinZ(:,:)
+  complex(8),allocatable :: phi_traces_basis_Hloc(:,:)     ! Single matrix of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_free_Hloc(:,:)     ! Single matrix of dimension (nPhi X nPhi) 
+  complex(8),allocatable :: phi_traces_basis_local_dens(:,:,:,:)  !Ns x Ns matrices (c+a cb)
+  complex(8),allocatable :: phi_traces_basis_dens_dens(:,:,:,:)
+  complex(8),allocatable :: phi_traces_basis_spin_flip(:,:,:,:)
+  complex(8),allocatable :: phi_traces_basis_pair_hopping(:,:,:,:)
+  complex(8),allocatable :: phi_traces_basis_sc_order(:,:,:,:)
+  complex(8),allocatable :: phi_traces_basis_spin2(:,:)
+  complex(8),allocatable :: phi_traces_basis_spinZ(:,:)
+  complex(8),allocatable :: phi_traces_basis_isospin2(:,:)
+  complex(8),allocatable :: phi_traces_basis_isospinZ(:,:)
 
   !<init_lgr
   !real(8),dimension(:),allocatable :: lgr_init_slater,lgr_init_gzproj
@@ -100,13 +103,34 @@ MODULE GZ_VARS_GLOBAL
   integer :: opt_energy_unit,opt_rhop_unit,opt_qhop_unit
   integer :: GZmin_unit,GZmin_unit_,opt_GZ_unit
 
+  !+------------+!
+  !+- DYNAMICS -+!
+  !+------------+!
+  !
+  !# time grids
+  integer                                :: Nt_aux
+  real(8),dimension(:),allocatable       :: t_grid
+  real(8),dimension(:),allocatable       :: t_grid_aux
+  !# time dependent hamiltonian parameters 
+  real(8),dimension(:,:),allocatable     :: Uloc_t
+  real(8),dimension(:),allocatable       :: Ust_t
+  real(8),dimension(:),allocatable       :: Jh_t
+  real(8),dimension(:),allocatable       :: Jsf_t,Jph_t
+  real(8),dimension(:,:,:,:),allocatable :: Hk_tb_t 
+  real(8),dimension(:,:),allocatable     :: eLevels_t 
+  
+  
+
+
+
   !+-------------------------+!
   !+- MODEL DETAILS DETAILS -+!
   !+-------------------------+!
   real(8)                          :: Wband
   integer :: Lk
   real(8),dimension(:),allocatable :: wtk
-  real(8),dimension(:),allocatable :: atomic_energy_levels 
+  real(8),dimension(:),allocatable :: atomic_energy_levels
+  real(8),dimension(:),allocatable :: eLevels
   real(8)                          :: Cfield !+- to be defined in the driver
   real(8),dimension(:,:,:),allocatable :: Hk_tb ! tight binding input matrix
   real(8),dimension(:),allocatable :: wr

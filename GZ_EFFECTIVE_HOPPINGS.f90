@@ -2,8 +2,10 @@ MODULE GZ_EFFECTIVE_HOPPINGS
   USE GZ_VARS_GLOBAL
   USE GZ_MATRIX_BASIS
   implicit none
+  private
 
   public :: hopping_renormalization_normal
+  public :: hopping_renormalization_anomalous
 
 CONTAINS
 

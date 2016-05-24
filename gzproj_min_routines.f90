@@ -33,7 +33,7 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
      call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
      delta=0.d0
-     do is=1,2*Nopt
+     do is=1,Nopt
         delta = delta + delta_out(is)**2.d0
      end do
   end select

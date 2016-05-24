@@ -16,22 +16,24 @@ MODULE GZ_VARS_INPUT
   logical              :: slater_store
   
   !# Minimization flags  #!
-  integer          :: lancelot_verbose
-  logical          :: amoeba_verbose
-  logical          :: GZmin_verbose
-  character(len=4) :: min_method
-  character(len=6) :: lgr_method
-  integer          :: wf_symmetry
-  logical :: gz_superc
-  !integer :: okkkkk
-  real(8)   :: amoeba_min_tol
-  real(8) :: err_self
-  real(8) :: Rseed 
-  real(8) :: Rmix
-  integer :: Niter_self
+  integer              :: lancelot_verbose
+  logical              :: amoeba_verbose
+  logical              :: GZmin_verbose
+  character(len=4)     :: min_method
+  character(len=6)     :: lgr_method
+  integer              :: wf_symmetry
+  logical              :: gz_superc
+  real(8)              :: amoeba_min_tol
+  real(8)              :: err_self
+  real(8)              :: Rseed 
+  real(8)              :: Rmix
+  integer              :: Niter_self
+
+  !# DYNAMICS #!
+  integer              :: Nt
+  real(8)              :: tstart
+  real(8)              :: tstep
   
-
-
 
 contains
 
@@ -61,10 +63,11 @@ contains
     call parse_input_variable(wini,"WINI",INPUTunit,default=-10.d0)
     call parse_input_variable(wfin,"WFIN",INPUTunit,default=10.d0)
     call parse_input_variable(slater_store,"SLATER_STORE",INPUTunit,default=.false.)
-    !call parse_input_variable(new_input,"NEW",INPUTunit,default=1.d-12)
-
-
-
+    !
+    call parse_input_variable(Nt,"NT",INPUTunit,default=100)
+    call parse_input_variable(tstart,"TSTART",INPUTunit,default=0.d0)
+    call parse_input_variable(tstep,"TSTEP",INPUTunit,default=1.d-2)
+    !
   end subroutine read_input
 
 

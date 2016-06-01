@@ -3,14 +3,26 @@ MODULE GZ_DYNAMICS
   USE GZ_MATRIX_BASIS
   USE GZ_EFFECTIVE_HOPPINGS
   USE GZ_neqAUX_FUNX
+  USE GZ_LOCAL_HAMILTONIAN
   implicit none
   private
+  !
+  public :: gz_equations_of_motion
   !
   public :: setup_neq_hamiltonian
   public :: setup_neq_dynamics
   public :: gz_neq_measure
+  !
+  public :: get_neq_local_dens
+  public :: get_neq_local_dens_dens
+  public :: get_neq_energies  
+  public :: get_neq_dens_constr_slater
+  public :: get_neq_dens_constr_gzproj
+  public :: get_neq_unitary_constr
+  public :: get_neq_Rhop
+  public :: get_neq_local_angular_momenta
   !  
-  real(8),dimension(:,:),allocatable    :: gz_neq_local_density_matrix !
+  complex(8),dimension(:,:),allocatable :: gz_neq_local_density_matrix !
   real(8),dimension(:,:),allocatable    :: gz_neq_local_dens_dens
   real(8),dimension(4)                  :: gz_neq_local_angular_momenta
   real(8),dimension(3)                  :: gz_neq_energies
@@ -20,6 +32,8 @@ MODULE GZ_DYNAMICS
   complex(8),dimension(:,:),allocatable :: gz_neq_Rhop         
   !
 CONTAINS
+  !
+  include 'gz_eom.f90'
   !
   subroutine setup_neq_dynamics
     !
@@ -38,7 +52,7 @@ CONTAINS
 
   subroutine get_neq_local_dens(is,js,x)
     integer :: is,js
-    real(8) :: x
+    complex(8) :: x
     if(is.gt.Ns.or.js.gt.Ns) stop 'get_neq_local_dens wrong indeces'
     if(is.lt.1.or.js.lt.1) stop 'get_neq_local_dens wrong indeces'
     x = gz_neq_local_density_matrix(is,js)    
@@ -132,10 +146,10 @@ CONTAINS
     complex(8),dimension(Nphi)      :: gzproj
     real(8)                         :: Estar,Eloc,Egz
     real(8),dimension(Ns)           :: vdm_diag
-    
-    integer                         :: is,js,ik,it,iphi
 
-    it=0!qlcs
+    integer                         :: is,js,ik,it,iphi,iis,jjs
+
+    it=t2it(time,tstep)
     !
     call dynamicalVector_2_wfMatrix(psi_t,slater,gzproj)  
     !
@@ -147,17 +161,13 @@ CONTAINS
           gz_neq_local_dens_dens(is,js) = &
                trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
           !
-          gz_neq_dens_constr_slater(is,js)=0.d0
-          do ik=1,Lk
-             gz_neq_dens_constr_slater(is,js) = gz_neq_dens_constr_slater(is,js) + &
-                  slater(is,js,ik)*wtk(ik)
-             Estar = Estar + Hk_tb_t(is,js,ik,it)*slater(is,js,ik)*wtk(ik)
-          end do
           !
           gz_neq_dens_constr_gzproj(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens(is,js,:,:))
        end do
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
+    !
+    Eloc = trace_phi_basis(gzproj,phi_traces_basis_Hloc)
     !
     gz_neq_local_angular_momenta(1) = trace_phi_basis(gzproj,phi_traces_basis_spin2(:,:))
     gz_neq_local_angular_momenta(2) = trace_phi_basis(gzproj,phi_traces_basis_spinZ(:,:))
@@ -170,18 +180,28 @@ CONTAINS
     do iphi=1,Nphi
        gz_neq_unitary_constr = gz_neq_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
     end do
-    !+-> LOCAL DENSITY MATRIX
-    
-    !+-> LOCAL DENSITY-DENSITY
 
-    !+-> HOPPING RENORMALIZATION
-
-    !+-> LOCAL ANGULAR MOMENTA
-
-    !+-> ENERGY
-
-    !+-> DENSITY-CONSTRAINTS
-
+    !+- SLATER
+    Estar=0.d0
+    gz_neq_dens_constr_slater=0.d0
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             gz_neq_dens_constr_slater(is,js) = gz_neq_dens_constr_slater(is,js) + slater(is,js,ik)*wtk(ik)
+             !
+             do iis=1,Ns
+                do jjs=1,Ns
+                   Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Rhop(jjs,js)*slater(is,js,ik)*wtk(ik)
+                end do
+             end do
+             !
+          end do
+       end do
+    end do
+    !
+    gz_neq_energies(1) = Estar+Eloc
+    gz_neq_energies(2) = Estar
+    gz_neq_energies(3) = Eloc
     !
   end subroutine gz_neq_measure
 

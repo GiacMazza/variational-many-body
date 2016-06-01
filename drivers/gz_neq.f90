@@ -3,6 +3,7 @@ program GUTZ_mb
   !
   USE DMFT_MISC
   USE SF_PARSE_INPUT
+  USE RK_IDE
   !
   USE GZ_AUX_FUNX
   USE GZ_neqAUX_FUNX
@@ -17,7 +18,7 @@ program GUTZ_mb
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t
-  integer :: Nx,out_unit,is,js,ik,it,itt
+  integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin
   integer :: nprint
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir
@@ -29,6 +30,30 @@ program GUTZ_mb
   real(8),dimension(:),allocatable      :: Jht
   real(8) :: r
   !
+  integer :: unit_neq_local_dens
+  integer :: unit_neq_local_dens_dens
+  integer :: unit_neq_ene
+  integer :: unit_neq_dens_constrSL
+  integer :: unit_neq_dens_constrGZ
+  integer :: unit_neq_constrU
+  integer :: unit_neq_Rhop
+  integer :: unit_neq_AngMom
+  !
+  !+- observables -+!
+  complex(8),dimension(:),allocatable   :: Rhop
+  complex(8),dimension(:,:),allocatable   :: Rhop_matrix
+  complex(8),dimension(:,:),allocatable :: local_density_matrix
+  real(8),dimension(:,:),allocatable    :: local_dens_dens
+  complex(8),dimension(:,:),allocatable :: dens_constrSL
+  complex(8),dimension(:,:),allocatable :: dens_constrGZ
+  real(8)                               :: unitary_constr
+  real(8),dimension(4)                  :: local_angular_momenta
+  real(8),dimension(3)                  :: energies
+  !
+  real(8),dimension(:),allocatable      :: dump_vect
+  
+  !
+  call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=21)
   call parse_input_variable(read_dir,"READ_GZ_BASIS_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
@@ -45,10 +70,14 @@ program GUTZ_mb
   call initialize_local_fock_space
   call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
   !
-  call get_local_hamiltonian_trace !+-> not really useful here..
-  !
   call build_lattice_model
-  allocate(eLevels(Ns));eLevels=0.d0
+  allocate(eLevels(Ns))
+  do iorb=1,Norb
+     do ispin=1,2
+        is=index(ispin,iorb)
+        eLevels(is) = -1.d0*Cfield*0.5*(-1.d0)**dble(iorb)
+     end do
+  end do
   !
   !+- INITIALIZE TIME GRIDS -+!
   Nt_aux=2*Nt+1
@@ -73,13 +102,16 @@ program GUTZ_mb
      else
         r=1.d0
      end if
-     r= 1.d0+0.05d0*dsin(pi*t_grid_aux(itt)/0.05d0)
+     r= 1.d0+0.0d0*dsin(pi*t_grid_aux(itt)/0.05d0)
      Ut(:,itt) = Uloc(:)*r
      write(54,*) t_grid_aux(itt),r
   end do
   !
   call setup_neq_hamiltonian!(Uloc_t_=Ut)
   !
+  do itt=1,Nt_aux
+     write(55,*) t_grid_aux(itt),Uloc_t(:,itt)
+  end do
   !+- IMPOSE RELATIONS BETWEEN LOCAL INTERACTION PARAMETERS -+!
   !       NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
@@ -89,22 +121,88 @@ program GUTZ_mb
   Jph_t = Jh_t
   Ust_t = Uloc_t(1,:)-2.d0*Jh
   !
-  stop
+  it=1
+  Uloc=Uloc_t(:,it)
+  Ust =Ust_t(it)
+  Jh=Jh_t(it)
+  Jsf=Jsf_t(it)
+  Jph=Jph_t(it)
+  eLevels = eLevels_t(:,it)
+  call get_local_hamiltonian_trace(eLevels)      
+  !
   call setup_neq_dynamics
-  stop
-
-  !4) ALLOCATE OBSERVABLES (not for all the time grids...only at each 'storing time')
+  !    
+  unit_neq_Rhop = free_unit()
+  open(unit_neq_Rhop,file='neq_Rhop_diag.data')
+  !
+  unit_neq_local_dens = free_unit()
+  open(unit_neq_local_dens,file='neq_local_density_matrix.data')
+  !
+  unit_neq_local_dens_dens = free_unit()
+  open(unit_neq_local_dens_dens,file='neq_local_dens_dens.data')
+  !
+  unit_neq_ene = free_unit()
+  open(unit_neq_ene,file='neq_energy.data')
+  !
+  unit_neq_dens_constrSL = free_unit()
+  open(unit_neq_dens_constrSL,file='neq_dens_constrSL.data')
+  !
+  unit_neq_dens_constrGZ = free_unit()
+  open(unit_neq_dens_constrGZ,file='neq_dens_constrGZ.data')
+  !
+  unit_neq_constrU = free_unit()
+  open(unit_neq_constrU,file='neq_constrU.data')
+  !
+  unit_neq_AngMom = free_unit()
+  open(unit_neq_AngMom,file='neq_AngMom.data')
+  !
+  
+  allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
+  allocate(local_density_matrix(Ns,Ns))
+  allocate(local_dens_dens(Ns,Ns))
+  allocate(dens_constrSL(Ns,Ns))
+  allocate(dens_constrGZ(Ns,Ns))  
+  allocate(dump_vect(Ns*Ns))
   
 
-
-  !5) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
+  !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
   do it=1,Nt
+     write(*,*) it,Nt
      !
      t=t_grid(it)
+     !
      if(mod(it-1,nprint).eq.0) then        
+        
+        
+        !
         call gz_neq_measure(psi_t,t)
-        !call gz_neq_print(it)
+        !
+        do is=1,Ns
+           call get_neq_Rhop(is,is,Rhop(is))
+           do js=1,Ns
+              call get_neq_Rhop(is,js,Rhop_matrix(is,js))              
+              call get_neq_local_dens(is,js,local_density_matrix(is,js))              
+              call get_neq_local_dens_dens(is,js,local_dens_dens(is,js))              
+              call get_neq_dens_constr_slater(is,js,dens_constrSL(is,js))
+              call get_neq_dens_constr_gzproj(is,js,dens_constrGZ(is,js))
+           end do
+        end do
+        call get_neq_energies(energies)
+        call get_neq_local_angular_momenta(local_angular_momenta)
+        call get_neq_unitary_constr(unitary_constr)
+        !
+        call write_matrix_diag(Rhop_matrix,unit_neq_Rhop,t)
+        call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
+        call write_hermitean_matrix(dens_constrSL,unit_neq_dens_constrSL,t)
+        call write_hermitean_matrix(dens_constrGZ,unit_neq_dens_constrGZ,t)
+        call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
+        call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
+        write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
+        write(unit_neq_ene,'(10F18.10)') t,energies
+        write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
+        !
      end if
+     psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
      !
   end do
 

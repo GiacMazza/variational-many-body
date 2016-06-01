@@ -11,6 +11,11 @@ MODULE GZ_AUX_FUNX
   public :: initialize_variational_density  
   public :: init_Rhop_seed,init_Qhop_seed
   public :: get_free_single_paritcle_gf
+  !
+  public :: write_hermitean_matrix
+  public :: write_symmetric_matrix
+  public :: write_complex_matrix
+  public :: write_matrix_diag
 
   !+- at some point these two subroutines should be merged in SCIFOR -+!
   public :: simultaneous_diag
@@ -252,6 +257,131 @@ CONTAINS
 
 
 
+  subroutine write_symmetric_matrix(mat,unit,t)
+    real(8),dimension(:,:)        :: mat
+    integer                          :: unit
+    real(8),optional                 :: t
+    real(8),dimension(:),allocatable :: dump_vect
+    integer                          :: N,M,i,j,ii
+    if(size(mat,1).ne.size(mat,2)) stop 'error write symmetric matrix size_mat'
+    N=size(mat,1);M=N + N*(N-1)/2
+    allocate(dump_vect(M))
+    !
+    ii=0
+    do i=1,N
+       ii=ii+1
+       dump_vect(ii) = mat(i,i)
+    end do
+    do i=1,N
+       do j=i+1,N
+          ii=ii+1
+          dump_vect(ii) = mat(i,j)
+       end do
+    end do
+    if(ii.ne.M) stop 'error write symmetric matrix size_ii'
+    if(present(t)) then
+       write(unit,'(40F18.10)') t,dump_vect(:)
+    else
+       write(unit,'(40F18.10)') dump_vect(:)
+    end if
+    !
+  end subroutine write_symmetric_matrix
+  !
+  subroutine write_hermitean_matrix(mat,unit,t)
+    complex(8),dimension(:,:)        :: mat
+    integer                          :: unit
+    real(8),optional                 :: t
+    real(8),dimension(:),allocatable :: dump_vect
+    integer                          :: N,M,i,j,ii
+    if(size(mat,1).ne.size(mat,2)) stop 'error write hermitean matrix size_mat'
+    N=size(mat,1);M=N*N
+    allocate(dump_vect(M))
+    !
+    ii=0
+    do i=1,N
+       ii=ii+1
+       dump_vect(ii) = dreal(mat(i,i))
+    end do
+    do i=1,N
+       do j=i+1,N
+          ii=ii+1
+          dump_vect(ii) = dreal(mat(i,j))
+       end do
+    end do
+    do i=1,N
+       do j=i+1,N
+          ii=ii+1
+          dump_vect(ii) = dimag(mat(i,j))
+       end do
+    end do
+    if(ii.ne.M) stop 'error write hermitean matrix size_ii'
+    if(present(t)) then
+       write(unit,'(40F18.10)') t,dump_vect(:)
+    else
+       write(unit,'(40F18.10)') dump_vect(:)
+    end if
+    !
+  end subroutine write_hermitean_matrix
+  !
+  subroutine write_complex_matrix(mat,unit,t)
+    complex(8),dimension(:,:)        :: mat
+    integer                          :: unit
+    real(8),optional                 :: t
+    real(8),dimension(:),allocatable :: dump_vect
+    integer                          :: N,M,i,j,ii
+    if(size(mat,1).ne.size(mat,2)) stop 'error write complex matrix size_mat'
+    N=size(mat,1);M=2*N*N
+    allocate(dump_vect(M))
+    !
+    ii=0
+    do i=1,N
+       do j=1,N
+          ii=ii+1
+          dump_vect(ii) = dreal(mat(i,j))
+       end do
+    end do
+    do i=1,N
+       do j=1,N
+          ii=ii+1
+          dump_vect(ii) = dimag(mat(i,j))
+       end do
+    end do
+    if(ii.ne.M) stop 'error write complex matrix size_ii'
+    if(present(t)) then
+       write(unit,'(40F18.10)') t,dump_vect(:)
+    else
+       write(unit,'(40F18.10)') dump_vect(:)
+    end if
+    !
+  end subroutine write_complex_matrix
+  !
+  subroutine write_matrix_diag(mat,unit,t)
+    complex(8),dimension(:,:)        :: mat
+    integer                          :: unit
+    real(8),optional                 :: t
+    real(8),dimension(:),allocatable :: dump_vect
+    integer                          :: N,M,i,j,ii
+    if(size(mat,1).ne.size(mat,2)) stop 'error write matrix diag size_mat'
+    N=size(mat,1);M=2*N
+    allocate(dump_vect(M))
+    !
+    ii=0
+    do i=1,N
+       ii=ii+1
+       dump_vect(ii) = dreal(mat(i,i))
+    end do
+    do i=1,N
+       ii=ii+1
+       dump_vect(ii) = dimag(mat(i,i))
+    end do
+    if(ii.ne.M) stop 'error write diag matrix size_ii'
+    if(present(t)) then
+       write(unit,'(40F18.10)') t,dump_vect(:)
+    else
+       write(unit,'(40F18.10)') dump_vect(:)
+    end if
+    !
+  end subroutine write_matrix_diag
 
 
 

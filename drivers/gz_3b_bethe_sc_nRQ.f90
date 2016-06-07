@@ -416,7 +416,7 @@ CONTAINS
 
   subroutine print_output_superc(vdm_simplex)
     real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
-    integer :: out_unit,istate,iorb,iphi,ifock,jfock
+    integer :: out_unit,istate,iorb,iphi,ifock,jfock,is,js,ik
     integer,dimension(Ns) :: fock_state
     complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
@@ -431,18 +431,38 @@ CONTAINS
     do iphi=1,Nphi
        !
        test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
-       write(out_unit,*) GZ_vector(iphi)
+       write(out_unit,'(2F18.10)') GZ_vector(iphi)
     end do
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
+    close(out_unit)    
+    open(out_unit,file='optimized_phi_matrix.data')    
     do ifock=1,nFock
        do jfock=1,nFock
           write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
        end do
     end do
-    close(out_unit)    
-
+    close(out_unit)
+    !
+    !+- STORE SLATER DETERMINANT -+!
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          do ik=1,Lk
+             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(1,is,js,ik)),dimag(GZ_opt_slater_superc(1,is,js,ik))
+          end do
+          close(out_unit)
+       end do
+    end do
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          do ik=1,Lk
+             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(2,is,js,ik)),dimag(GZ_opt_slater_superc(2,is,js,ik))
+          end do
+          close(out_unit)
+       end do
+    end do
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_internal_energy.data')
@@ -846,7 +866,6 @@ CONTAINS
     do is=1,Ns       
        vdm_NC_mat(is,is) = vdm_NC_indep(1)
     end do
-    Nopt_odiag = 0
     !
   end subroutine vdm_NC_vec2mat
   subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)

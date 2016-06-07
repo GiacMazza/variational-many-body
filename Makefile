@@ -32,7 +32,7 @@ EXE=gz_generate_phi_traces
 #EXE=gz_3b_bethe_sc_su2
 
 
-EXE=gz_neq
+EXE=gz_neq_sc
 
 
 

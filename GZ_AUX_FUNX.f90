@@ -12,9 +12,11 @@ MODULE GZ_AUX_FUNX
   public :: init_Rhop_seed,init_Qhop_seed
   public :: get_free_single_paritcle_gf
   !
+  public :: write_complex_matrix_grid
   public :: write_hermitean_matrix
   public :: write_symmetric_matrix
   public :: write_complex_matrix
+  public :: write_complex_UpTri_matrix
   public :: write_matrix_diag
 
   !+- at some point these two subroutines should be merged in SCIFOR -+!
@@ -348,12 +350,94 @@ CONTAINS
     end do
     if(ii.ne.M) stop 'error write complex matrix size_ii'
     if(present(t)) then
-       write(unit,'(40F18.10)') t,dump_vect(:)
+       write(unit,'(60F18.10)') t,dump_vect(:)
     else
-       write(unit,'(40F18.10)') dump_vect(:)
+       write(unit,'(60F18.10)') dump_vect(:)
     end if
     !
   end subroutine write_complex_matrix
+  !
+  subroutine write_complex_UpTri_matrix(mat,unit,t)
+    complex(8),dimension(:,:)        :: mat
+    integer                          :: unit
+    real(8),optional                 :: t
+    real(8),dimension(:),allocatable :: dump_vect
+    integer                          :: N,M,i,j,ii
+    if(size(mat,1).ne.size(mat,2)) stop 'error write complex matrix size_mat'
+    N=size(mat,1);M=N*(N-1)
+    allocate(dump_vect(M))
+    !
+    ii=0
+    do i=1,N
+       do j=i+1,N
+          ii=ii+1
+          dump_vect(ii) = dreal(mat(i,j))
+       end do
+    end do
+    do i=1,N
+       do j=i+1,N
+          ii=ii+1
+          dump_vect(ii) = dimag(mat(i,j))
+       end do
+    end do
+    if(ii.ne.M) stop 'error write complex UpTri matrix size_ii'
+    if(present(t)) then
+       write(unit,'(60F18.10)') t,dump_vect(:)
+    else
+       write(unit,'(60F18.10)') dump_vect(:)
+    end if
+    !
+  end subroutine write_complex_UpTri_matrix
+  !
+  subroutine write_complex_matrix_grid(mat,unit,grid,t)
+    complex(8),dimension(:,:)        :: mat
+    integer                          :: unit
+    integer,dimension(:,:)           :: grid
+    real(8),optional                 :: t
+    real(8),dimension(:),allocatable :: dump_vect
+    integer                          :: N,M,i,j,ii
+    if(size(mat,1).ne.size(mat,2)) stop 'error write complex matrix size_mat'
+    if(size(grid,1).ne.size(grid,2)) stop 'error write complex matrix size_grid'
+    if(size(grid,1).ne.size(mat,1)) stop 'error write complex matrix size_grid /= size_mat'
+    N=size(mat,1);
+    !
+    M=0
+    do i=1,N
+       do j=1,N
+          M = M + grid(i,j)
+       end do
+    end do
+    M=2*M
+    !
+    if(M.gt.0) then
+       allocate(dump_vect(M))
+       !
+       ii=0
+       do i=1,N
+          do j=1,N
+             if(grid(i,j).gt.0) then
+                ii=ii+1
+                dump_vect(ii) = dreal(mat(i,j))
+             end if
+          end do
+       end do
+       do i=1,N
+          do j=1,N
+             if(grid(i,j).gt.0) then
+                ii=ii+1
+                dump_vect(ii) = dimag(mat(i,j))
+             end if
+          end do
+       end do
+       if(ii.ne.M) stop 'error write complex matrix_grid size_ii'
+       if(present(t)) then
+          write(unit,'(60F18.10)') t,dump_vect(:)
+       else
+          write(unit,'(60F18.10)') dump_vect(:)
+       end if
+    end if
+    !
+  end subroutine write_complex_matrix_grid
   !
   subroutine write_matrix_diag(mat,unit,t)
     complex(8),dimension(:,:)        :: mat

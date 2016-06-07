@@ -863,7 +863,8 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
   end do
   !
   slater_matrix_el_(1,1:Ns,1:Ns,:) = slater_superc_matrix_el_(1:Ns,1:Ns,:)
-  slater_matrix_el_(2,1:Ns,1:Ns,:) = slater_superc_matrix_el_(Ns+1:2*Ns,1:Ns,:)
+  slater_matrix_el_(2,1:Ns,1:Ns,:) = slater_superc_matrix_el_(1:Ns,Ns+1:2*Ns,:)  !+- this is the right <d^+_{ka} d^+_{kb}>
+  !slater_matrix_el_(2,1:Ns,1:Ns,:) = slater_superc_matrix_el_(Ns+1:2*Ns,1:Ns,:) !+-> pay attention!!! I'm storing <d_{ka} d_{kb}>
   !
   n0_(1,:,:)=n0_tmp(1:Ns,1:Ns)
   n0_(2,:,:)=n0_tmp(1:Ns,1+Ns:2*Ns)

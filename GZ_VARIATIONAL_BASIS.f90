@@ -41,6 +41,8 @@ CONTAINS
     character(len=200),optional :: store_dir_
     character(len=200) :: read_dir
     character(len=200) :: store_dir
+    real(8) :: tmpR,tmpQ,tmpSC
+    integer :: is,js,iphi,jphi,unitR,unitQ,unitSC,ir,iq,isc
     !
     if(present(read_dir_)) then
        iread_=.true.
@@ -69,16 +71,47 @@ CONTAINS
        call read_traces_matrix_basis(read_dir)    
     end if
     !
-    ! call system('mkdir -v TMP_TEST_DIR')
-    ! call system('mv *.gutz TMP_TEST_DIR')
-    !
-    ! if(.not.gz_superc) then
-    !    store_dir='/homepmc/giacomo.mazza/etc_local/GZ_basis/NORB'//reg(txtfy(Norb))//'SYMM'//reg(txtfy(symm))//'_normal/'
-    ! else
-    !    store_dir='/homepmc/giacomo.mazza/etc_local/GZ_basis/NORB'//reg(txtfy(Norb))//'SYMM'//reg(txtfy(symm))//'_superc/'
-    ! end if
     if(store_) call store_traces_matrix_basis(store_dir)
     !
+    allocate(print_grid_Rhop(Ns,Ns)); print_grid_Rhop=0;ir=0
+    allocate(print_grid_Qhop(Ns,Ns)); print_grid_Qhop=0;iq=0
+    allocate(print_grid_sc(Ns,Ns));   print_grid_sc=0;isc=0
+    !
+    unitR=free_unit()
+    open(unitR,file='grid_Rhop.info')
+    unitQ=free_unit()
+    open(unitQ,file='grid_Qhop.info')
+    unitSC=free_unit()
+    open(unitSC,file='grid_SC.info')
+    do is=1,Ns
+       do js=1,Ns
+          tmpR=0.d0
+          tmpQ=0.d0
+          tmpSC=0.d0
+          do iphi=1,Nphi
+             do jphi=1,Nphi
+                tmpR = tmpR + phi_traces_basis_Rhop(is,js,iphi,jphi)*conjg(phi_traces_basis_Rhop(is,js,iphi,jphi))
+                if(GZ_superc) tmpQ = tmpQ + phi_traces_basis_Qhop(is,js,iphi,jphi)*conjg(phi_traces_basis_Qhop(is,js,iphi,jphi))
+                if(GZ_superc) tmpSC = tmpSC + phi_traces_basis_sc_order(is,js,iphi,jphi)*conjg(phi_traces_basis_sc_order(is,js,iphi,jphi))
+             end do
+          end do
+          if(tmpR.gt.1.d-10) then
+             ir=ir+1
+             print_grid_Rhop(is,js) = 1
+             write(unitR,*) ir,is,js
+          end if
+          if(tmpQ.gt.1.d-10) then
+             iq = iq + 1
+             print_grid_Qhop(is,js) = 1
+             write(unitQ,*) iq,is,js
+          end if
+          if(tmpSC.gt.1.d-10) then
+             isc = isc +1
+             print_grid_sc(is,js)  = 1
+             write(unitSC,*) isc,is,js
+          end if
+       end do
+    end do
   end subroutine init_variational_matrices
 
 

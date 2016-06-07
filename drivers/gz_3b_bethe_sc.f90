@@ -83,7 +83,7 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
   allocate(energy_levels(Ns));energy_levels=0.d0
   !
   unit=free_unit()
@@ -230,127 +230,11 @@ CONTAINS
        end do
     end do
   end subroutine build_lattice_model
-
-
-
-
-
-  subroutine print_output(vdm_simplex)
-    real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
-    integer :: out_unit,istate,iorb,iphi,ifock,jfock
-    integer,dimension(Ns) :: fock_state
-    real(8),dimension(Ns) :: tmp
-    real(8) :: deltani,delta_tmp,vdm_tmp
-
-    complex(8),dimension(nFock,nFock) :: test_full_phi
-
-    out_unit=free_unit()
-    open(out_unit,file='optimized_projectors.data')
-
-    !+- CHANGE THE NAME OF GZ_opt_projector_diag -+!
-    test_full_phi=0.d0
-    do iphi=1,Nphi
-       !
-       test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
-       write(out_unit,*) GZ_vector(iphi)
-    end do
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    do ifock=1,nFock
-       do jfock=1,nFock
-          write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
-       end do
-    end do
-    close(out_unit)    
-
-    !
-    out_unit=free_unit()
-    open(out_unit,file='optimized_internal_energy.data')
-    write(out_unit,'(5F18.10)') GZ_opt_energy,GZ_opt_kinetic,GZ_opt_Eloc
-    close(out_unit)
-    !
-    !out_unit=free_unit()
-    open(out_unit,file='optimized_variational_density_matrix.data')
-    !write(out_unit,'(20F18.10)') variational_density_natural(1:Ns)
-    do istate=1,Ns
-       tmp(istate)=GZ_opt_VDM(istate,istate)
-       write(out_unit,'(20F18.10)') GZ_opt_VDM(istate,:)
-    end do
-    write(out_unit,*) ! on the last line store the diagonal elements
-    write(out_unit,'(20F18.10)') tmp(1:Ns)
-    close(out_unit)
-    !
-    !out_unit=free_unit()
-    open(out_unit,file='optimized_Rhop_matrix.data')
-    do istate=1,Ns
-       tmp(istate)=GZ_opt_Rhop(istate,istate)
-       write(out_unit,'(20F18.10)') GZ_opt_Rhop(istate,1:Ns)
-    end do
-    write(out_unit,*) ! on the last line store the diagonal elements
-    write(out_unit,'(20F18.10)') tmp(1:Ns)
-    close(out_unit)
-    !
-    !out_unit=free_unit()
-    open(out_unit,file='optimized_density.data')
-    do istate=1,Ns
-       write(out_unit,'(20F18.10)') gz_dens_matrix(istate,1:Ns)
-    end do
-    write(out_unit,*) ! on the last line store the diagonal elements
-    write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
-    close(out_unit)
-    !
-    open(out_unit,file='local_density_density.data')
-    do is=1,Ns
-       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
-    end do
-    close(out_unit)
-    !
-    !out_unit=free_unit()
-    open(out_unit,file='local_angular_momenta.data')
-    write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
-    close(out_unit)
-    !
-
-
-    if(present(vdm_simplex)) then
-       out_unit=free_unit()
-       open(out_unit,file='vdm_simplex.restart')
-       do jstate=1,Ns+1
-          if(jstate.le.Ns) then
-             do istate=1,Ns
-                write(out_unit,'(20F18.10)') vdm_simplex(jstate,istate)
-             end do
-             if(jstate.le.Ns) write(out_unit,*)  'x'
-          else
-             do istate=1,Ns
-                deltani=vdm_simplex(jstate,istate)-0.5
-                if(deltani.gt.0.d0) then
-                   delta_tmp=0.9999-vdm_simplex(jstate,istate)
-                   vdm_tmp=vdm_simplex(jstate,istate)+delta_tmp*0.1
-                   write(out_unit,'(20F18.10)') vdm_tmp
-                else
-                   delta_tmp=vdm_simplex(jstate,istate)-0.0001
-                   vdm_tmp=vdm_simplex(jstate,istate)-delta_tmp*0.1
-                   write(out_unit,'(20F18.10)') vdm_tmp
-                end if
-             end do
-          end if
-       end do
-       close(out_unit)
-    end if
-    !
-  end subroutine print_output
-
-
-
-
-
-
+  !
   subroutine print_output_superc(vdm_simplex,vdm_opt)
     real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
     real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),optional :: vdm_opt
-    integer :: out_unit,istate,iorb,iphi,ifock,jfock
+    integer :: out_unit,istate,iorb,iphi,ifock,jfock,is,js,ik
     integer,dimension(Ns) :: fock_state
     complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
@@ -360,23 +244,43 @@ CONTAINS
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
-
-    !+- CHANGE THE NAME OF GZ_opt_projector_diag -+!
     test_full_phi=0.d0
     do iphi=1,Nphi
        !
        test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
-       write(out_unit,*) GZ_vector(iphi)
+       write(out_unit,'(2F18.10)') GZ_vector(iphi)
     end do
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
+    close(out_unit)
+    open(out_unit,file='optimized_phi_matrix.data')
     do ifock=1,nFock
        do jfock=1,nFock
           write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
        end do
     end do
     close(out_unit)    
+    !
+    !+- STORE SLATER DETERMINANT -+!
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          do ik=1,Lk
+             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(1,is,js,ik)),dimag(GZ_opt_slater_superc(1,is,js,ik))
+          end do
+          close(out_unit)
+       end do
+    end do
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          do ik=1,Lk
+             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(2,is,js,ik)),dimag(GZ_opt_slater_superc(2,is,js,ik))
+          end do
+          close(out_unit)
+       end do
+    end do
+    
 
     !
     out_unit=free_unit()
@@ -770,7 +674,6 @@ CONTAINS
     do is=1,Ns       
        vdm_NC_mat(is,is) = vdm_NC_indep(1)
     end do
-    Nopt_odiag = 0
     !
   end subroutine vdm_NC_vec2mat
   subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)

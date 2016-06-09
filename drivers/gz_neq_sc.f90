@@ -246,7 +246,7 @@ program GUTZ_mb
         write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
         !
      end if
-     !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
+     psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
      !
   end do
 

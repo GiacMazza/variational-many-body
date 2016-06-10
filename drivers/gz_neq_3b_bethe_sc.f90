@@ -28,8 +28,9 @@ program GUTZ_mb
   complex(8),dimension(:),allocatable     :: psi_t
   real(8),dimension(:,:),allocatable      :: Ut 
   real(8),dimension(:),allocatable      :: Jht
-  real(8) :: r
+  real(8) :: r,s,tmpU
   !
+  integer :: unit_neq_hloc
   integer :: unit_neq_local_dens
   integer :: unit_neq_local_dens_dens
   integer :: unit_neq_ene
@@ -57,6 +58,9 @@ program GUTZ_mb
   !
   real(8),dimension(:),allocatable      :: dump_vect
   
+  real(8) :: Uneq,Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU,dUneq
+  real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
+  
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
@@ -64,7 +68,26 @@ program GUTZ_mb
   call parse_input_variable(read_dir,"READ_GZ_BASIS_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
-  call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)
+  call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
+  
+  !  call parse_input_variable(neqU,"neqU","inputGZ.conf",default=0)    ! {0 -> quench; 1 -> ramp; 2 -> modulation}
+
+
+  call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(tStart_neqU,"TSTART_NEQU","inputGZ.conf",default=0.d0)
+  call parse_input_variable(tRamp_neqU,"TRAMP_NEQU","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
+  call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=0.d0) 
+  !
+  call parse_input_variable(Jhneq,"Jhneq","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(Jhneq0,"Jhneq0","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(tStart_neqJ,"TSTART_NEQJ","inputGZ.conf",default=0.d0)
+  call parse_input_variable(tRamp_neqJ,"TRAMP_NEQJ","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(tSin_neqJ,"TSIN_NEQJ","inputGZ.conf",default=0.5d0)
+  call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
+
+  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -73,18 +96,15 @@ program GUTZ_mb
      wf_symmetry=0
   end if
 
+  !
   call initialize_local_fock_space
-  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
-  !
-  call build_lattice_model
+  call build_lattice_model; get_Hk_t => getHk
   allocate(eLevels(Ns)); eLevels=0.d0
-  ! do iorb=1,Norb
-  !    do ispin=1,2
-  !       is=index(ispin,iorb)
-  !       eLevels(is) = -1.d0*Cfield*0.5*(-1.d0)**dble(iorb)
-  !    end do
-  ! end do
   !
+
+
+
+
   !+- INITIALIZE TIME GRIDS -+!
   Nt_aux=2*Nt+1
   allocate(t_grid(Nt),t_grid_aux(Nt_aux))
@@ -92,6 +112,78 @@ program GUTZ_mb
   t_grid = linspace(tstart,tstep*real(Nt-1,8),Nt)
   t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
   !
+
+  allocate(Ut(3,Nt_aux))  
+  do itt=1,Nt_aux
+     t = t_grid_aux(itt) 
+     !
+     if(t.lt.tStart_neqU) then
+        r=0.d0
+     else
+        if(t.lt.tStart_neqU+tRamp_neqU) then
+           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
+        else
+           r = 1.d0 
+        end if
+     end if
+     !
+     if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
+        s = 1.d0
+     else
+        s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
+     end if
+     !
+     tmpU = Uneq0 + r*(Uneq*s-Uneq0)
+     !
+     Ut(:,itt) = Uneq0 + r*(Uneq*s-Uneq0)
+  end do
+
+  allocate(Jht(Nt_aux))  
+  do itt=1,Nt_aux
+     t = t_grid_aux(itt) 
+     !
+     if(t.lt.tStart_neqJ) then
+        r=0.d0
+     else
+        if(t.lt.tStart_neqJ+tRamp_neqJ) then
+           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqJ)/tRamp_neqJ) + 0.5d0*(cos(pi*(t-tStart_neqJ)/tRamp_neqJ))**3)*0.5d0
+        else
+           r = 1.d0 
+        end if
+     end if
+     !
+     if(t.lt.tStart_neqU+tRamp_neqJ+tSin_neqJ) then
+        s = 1.d0
+     else
+        s = 1.d0 + dJneq*dsin(2.d0*pi*t/tSin_neqJ)
+     end if
+     !
+     Jht(itt) = Jhneq0 + r*(Jhneq*s-Jhneq0)
+  end do
+  !
+  call setup_neq_hamiltonian(Uloc_t_=Ut,Jh_t_=Jht)
+  !+- IMPOSE RELATIONS BETWEEN LOCAL INTERACTION PARAMETERS -+!
+  !       NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
+  !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
+  !
+  Jh_t  = Jh_t
+  Jsf_t = Jh_t
+  Jph_t = Jh_t
+  Ust_t = Uloc_t(1,:)-2.d0*Jh_t
+  !
+  unit_neq_hloc = free_unit()
+  open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
+  !
+  do itt=1,Nt_aux
+     write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
+  end do
+  close(unit_neq_hloc)
+
+
+  
+  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
+
+
   
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
   nDynamics = 2*Ns*Ns*Lk + Nphi
@@ -101,32 +193,8 @@ program GUTZ_mb
   call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init)
   call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
   !   
-  allocate(Ut(3,Nt_aux))  
-  do itt=1,Nt_aux
-     if(t_grid_aux(itt).le.0.5d0) then
-        r = (1.d0 - 1.5d0*cos(pi*t_grid_aux(itt)/0.5d0) + 0.5d0*(cos(pi*t_grid_aux(itt)/0.5d0))**3)*0.5d0
-     else
-        r=1.d0
-     end if
-     r= 1.d0+0.0d0*dsin(pi*t_grid_aux(itt)/0.05d0)
-     Ut(:,itt) = Uloc(:)*r
-     write(54,*) t_grid_aux(itt),r
-     Ut = 0.95d0
-  end do
-  !
-  call setup_neq_hamiltonian(Uloc_t_=Ut)
-  !
-  do itt=1,Nt_aux
-     write(55,*) t_grid_aux(itt),Uloc_t(:,itt)
-  end do
-  !+- IMPOSE RELATIONS BETWEEN LOCAL INTERACTION PARAMETERS -+!
-  !       NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
-  !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
-  !
-  Jh_t = Jh_t
-  Jsf_t = Jh_t
-  Jph_t = Jh_t
-  Ust_t = Uloc_t(1,:)-2.d0*Jh
+
+
   !
   it=1
   Uloc=Uloc_t(:,it)
@@ -338,7 +406,14 @@ CONTAINS
   end subroutine build_lattice_model
 
 
-
+  subroutine getHk(Hk,ik,time)
+    complex(8),dimension(:,:) :: Hk
+    integer                   :: ik
+    real(8)                   :: time
+    if(size(Hk,1).ne.size(Hk,2)) stop "wrong dimenions in getHk"
+    if(size(Hk,1).ne.Ns) stop "wrong dimenions in getHk"
+    Hk = Hk_tb(:,:,ik)
+  end subroutine getHk
 
 
 

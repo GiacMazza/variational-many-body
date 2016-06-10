@@ -175,5 +175,14 @@ MODULE GZ_VARS_GLOBAL
   end interface
   procedure (zeros_stride),pointer :: stride_zeros_red2orig => null ()
   procedure (zeros_stride),pointer :: stride_zeros_orig2red => null ()
+  
+  abstract interface
+     subroutine get_Hk(Hkmat,ik,time)
+       complex(8),dimension(:,:) :: Hkmat
+       integer                   :: it
+       real(8)                   :: time
+     end subroutine get_Hk
+  end interface
+  procedure (get_Hk),pointer  :: get_Hk_t => null ()
 
 END MODULE GZ_VARS_GLOBAL

@@ -50,8 +50,6 @@ CONTAINS
        is_dn = index(2,iorb)
        phi_traces_basis_Hloc =  phi_traces_basis_Hloc + &
             Uloc(iorb)*phi_traces_basis_dens_dens(is_up,is_dn,:,:)       
-       ! local_hamiltonian = local_hamiltonian + &
-       !      Uloc(iorb)*matmul(state_dens(is_up,:,:),state_dens(is_dn,:,:))
     end do
 
     if(Norb.gt.1) then

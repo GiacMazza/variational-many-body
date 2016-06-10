@@ -328,15 +328,10 @@ CONTAINS
                    Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Qhop(jjs,js)*slater(2,is,js,ik)*wtk(ik)
                    Estar = Estar + conjg(gz_neq_Qhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Rhop(jjs,js)*conjg(slater(2,js,is,ik))*wtk(ik)
                    Estar = Estar - conjg(gz_neq_Qhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Qhop(jjs,js)*slater(1,js,is,ik)*wtk(ik)                   
-                   !
-                   !+- test one
-                   ! Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Rhop(jjs,js)*slater(1,is,js,ik)*wtk(ik)
-                   ! Estar = Estar + conjg(gz_neq_Qhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Rhop(jjs,js)*slater(2,is,js,ik)*wtk(ik)
-                   ! Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Qhop(jjs,js)*conjg(slater(2,js,is,ik))*wtk(ik)
-                   ! Estar = Estar - conjg(gz_neq_Qhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Qhop(jjs,js)*slater(1,js,is,ik)*wtk(ik)                   
                    if(is.eq.js) then
                       Estar = Estar + conjg(gz_neq_Qhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Qhop(jjs,js)*wtk(ik)
                    end if
+                   !
                 end do
              end do
              !

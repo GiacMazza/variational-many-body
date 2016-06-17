@@ -24,7 +24,7 @@ CONTAINS
     read_dir=trim(read_dir)
     do is=1,Ns
        do js=1,Ns
-
+          
           file_name=reg(read_dir)//'optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
           inquire(file=file_name,exist=check_file)
           if(check_file) then
@@ -87,6 +87,8 @@ CONTAINS
     character(len=200) :: file_name
     logical :: check_file
     !
+    
+
     read_dir=trim(read_dir)
     do is=1,Ns
        do js=1,Ns
@@ -117,6 +119,8 @@ CONTAINS
        end do
     end do
     !
+    write(*,*) 'WTF'
+    
     do is=1,Ns
        do js=1,Ns
           file_name=reg(read_dir)//'optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'

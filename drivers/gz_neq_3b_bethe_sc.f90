@@ -98,7 +98,7 @@ program GUTZ_mb
 
   !
   call initialize_local_fock_space
-  call build_lattice_model
+  call build_lattice_model; get_Hk_t => getHk
   allocate(eLevels(Ns)); eLevels=0.d0
   !
 
@@ -194,8 +194,6 @@ program GUTZ_mb
   call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
   !   
 
-
-  
 
   !
   it=1
@@ -408,7 +406,14 @@ CONTAINS
   end subroutine build_lattice_model
 
 
-
+  subroutine getHk(Hk,ik,time)
+    complex(8),dimension(:,:) :: Hk
+    integer                   :: ik
+    real(8)                   :: time
+    if(size(Hk,1).ne.size(Hk,2)) stop "wrong dimenions in getHk"
+    if(size(Hk,1).ne.Ns) stop "wrong dimenions in getHk"
+    Hk = Hk_tb(:,:,ik)
+  end subroutine getHk
 
 
 

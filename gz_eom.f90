@@ -7,10 +7,11 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
   complex(8),dimension(Nsys)                  :: f    ! result 
   !
   complex(8),dimension(Ns,Ns,Lk)              :: slater,slater_dot
+  complex(8),dimension(Ns,Ns)                 :: Hk,tRR
   complex(8),dimension(Nphi)                  :: gzproj,gzproj_dot
   complex(8),dimension(Nphi,Nphi)             :: Hproj
   integer                                     :: is,js,ik,it,ks,kks,iis,jjs,iphi,jphi
-  complex(8),dimension(Ns,Ns)                 :: tmpHk,Rhop,slater_derivatives
+  complex(8),dimension(Ns,Ns)                 :: tmpHk,Rhop,slater_derivatives,Rhop_hc
   complex(8),dimension(Ns,Ns)                 :: vdm_natural
   real(8),dimension(Ns)                       :: vdm_diag
   !
@@ -26,6 +27,12 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      vdm_diag(is) = dreal(vdm_natural(is,is))
   end do
   Rhop = hopping_renormalization_normal(gzproj,vdm_diag)
+  do is=1,Ns
+     do js=1,Ns
+        Rhop_hc(is,js) = conjg(Rhop(js,is))
+     end do
+  end do
+
   !
   slater_dot=zero
   gzproj_dot=zero
@@ -34,24 +41,28 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
   !
   slater_derivatives=zero
   do ik=1,Lk
+     call get_Hk_t(Hk,ik,time)
      !
-     do is=1,Ns
-        do js=1,Ns
-           tmpHk(is,js)=zero           
-           do iis=1,Ns
-              do jjs=1,Ns                 
-                 tmpHk(is,js) = tmpHk(is,js) + conjg(Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*Rhop(jjs,js)
-              end do
-           end do
-        end do
-     end do
+     tRR = matmul(Hk,Rhop)
+     tRR = matmul(Rhop_hc,tRR)
+     !
+     ! do is=1,Ns
+     !    do js=1,Ns
+     !       tmpHk(is,js)=zero           
+     !       do iis=1,Ns
+     !          do jjs=1,Ns                 
+     !             tmpHk(is,js) = tmpHk(is,js) + conjg(Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*Rhop(jjs,js)
+     !          end do
+     !       end do
+     !    end do
+     ! end do
      !
      do is=1,Ns
         do js=1,Ns
            slater_dot(is,js,ik) = zero
            do ks=1,Ns
-              slater_dot(is,js,ik) = slater_dot(is,js,ik) + tmpHk(js,ks)*slater(is,ks,ik)
-              slater_dot(is,js,ik) = slater_dot(is,js,ik) - tmpHk(ks,is)*slater(ks,js,ik)
+              slater_dot(is,js,ik) = slater_dot(is,js,ik) + tRR(js,ks)*slater(is,ks,ik)
+              slater_dot(is,js,ik) = slater_dot(is,js,ik) - tRR(ks,is)*slater(ks,js,ik)
            end do
         end do
      end do
@@ -60,7 +71,7 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
         do js=1,Ns
            do ks=1,Ns
               do kks=1,Ns
-                 slater_derivatives(is,js) = slater_derivatives(is,js) + conjg(Rhop(kks,ks))*Hk_tb_t(kks,is,ik,it)*slater(ks,js,ik)*wtk(ik)
+                 slater_derivatives(is,js) = slater_derivatives(is,js) + conjg(Rhop(kks,ks))*Hk(kks,is)*slater(ks,js,ik)*wtk(ik)
               end do
            end do
         end do
@@ -110,6 +121,7 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   complex(8),dimension(Nphi,Nphi)  :: Hproj
   integer                          :: is,js,ik,it,ks,kks,iis,jjs,iphi,jphi
   complex(8),dimension(Ns,Ns)      :: tmpHk
+  complex(8),dimension(Ns,Ns)      :: Hk
   complex(8),dimension(2*Ns,2*Ns)  :: tmp
   complex(8),dimension(2,Ns,Ns)    :: slater_derivatives
   complex(8),dimension(Ns,Ns)      :: Rhop,Qhop,Rhop_hc,Qhop_hc
@@ -156,6 +168,19 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   slater_derivatives = zero
   slater_dot = zero
   do ik=1,Lk
+     call get_Hk_t(Hk,ik,time)
+     !
+     tRR = matmul(Hk,Rhop)
+     tRR = matmul(Rhop_hc,tRR)
+     !
+     tRQ = matmul(Hk,Qhop)
+     tRQ = matmul(Rhop_hc,tRQ)
+     !
+     tQR = matmul(Hk,Rhop)
+     tQR = matmul(Qhop_hc,tQR)
+     !
+     tQQ = matmul(Hk,Qhop)
+     tQQ = matmul(Qhop_hc,tQQ)
      !
      tRR = matmul(Hk_tb_t(:,:,ik,it),Rhop)
      tRR = matmul(Rhop_hc,tRR)
@@ -174,7 +199,6 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
            slater_dot(1,is,js,ik) = zero
            slater_dot(2,is,js,ik) = zero
            do ks=1,Ns
-
               !tRR_{js,ks}SL1(is,ks) - tRR_{ks,is}SL1(ks,js) 
               slater_dot(1,is,js,ik) = slater_dot(1,is,js,ik) + tRR(js,ks)*slater(1,is,ks,ik)
               slater_dot(1,is,js,ik) = slater_dot(1,is,js,ik) - tRR(ks,is)*slater(1,ks,js,ik) !**
@@ -222,16 +246,16 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
               do kks=1,Ns
                  !
                  slater_derivatives(1,is,js) = slater_derivatives(1,is,js) + &
-                      conjg(Rhop(kks,ks))*Hk_tb_t(kks,is,ik,it)*tmp(ks,js)*wtk(ik)    
+                      conjg(Rhop(kks,ks))*Hk(kks,is)*tmp(ks,js)*wtk(ik)    
                  !
                  slater_derivatives(1,is,js) = slater_derivatives(1,is,js) + &
-                      conjg(Qhop(kks,ks))*Hk_tb_t(kks,is,ik,it)*tmp(ks+Ns,js)*wtk(ik)
+                      conjg(Qhop(kks,ks))*Hk(kks,is)*tmp(ks+Ns,js)*wtk(ik)
                  !
                  slater_derivatives(2,is,js) = slater_derivatives(2,is,js) + &
-                      conjg(Rhop(kks,ks))*Hk_tb_t(kks,is,ik,it)*tmp(ks,js+Ns)*wtk(ik) 
+                      conjg(Rhop(kks,ks))*Hk(kks,is)*tmp(ks,js+Ns)*wtk(ik) 
                  !
                  slater_derivatives(2,is,js) = slater_derivatives(2,is,js) + &
-                      conjg(Qhop(kks,ks))*Hk_tb_t(kks,is,ik,it)*tmp(ks+Ns,js+Ns)*wtk(ik)
+                      conjg(Qhop(kks,ks))*Hk(kks,is)*tmp(ks+Ns,js+Ns)*wtk(ik)
                  !
               end do
            end do

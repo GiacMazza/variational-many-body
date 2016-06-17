@@ -18,7 +18,7 @@ program GUTZ_mb
   character(len=200) :: store_dir,read_dir
   !
   !+- hamiltonian details -+!
-  call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='/home/mazza/etc_local/GZ_basis/')
+  call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='/homepmc/giacomo.mazza/etc_local/GZ_basis/')
   call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   !
   call read_input("inputGZ.conf")

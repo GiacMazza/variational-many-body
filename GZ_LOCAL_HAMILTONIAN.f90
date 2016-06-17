@@ -130,7 +130,7 @@ CONTAINS
     end if
     !+- CHEMICAL POTENTIAL FOR PH CONDITION -+!
 
-    mu_ph = sum(Uloc(1:Norb))*0.5d0/dble(Norb) + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh) !
+    mu_ph = Uloc(1)*0.5d0/dble(Norb) + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh) !
     do iorb=1,Norb
        do ispin=1,2
           istate=index(ispin,iorb)          

@@ -44,6 +44,7 @@ CONTAINS
     real(8) :: tmpR,tmpQ,tmpSC
     integer :: is,js,iphi,jphi,unitR,unitQ,unitSC,ir,iq,isc
     !
+    iread_=.false.
     if(present(read_dir_)) then
        iread_=.true.
        if(.not.gz_superc) then
@@ -63,11 +64,11 @@ CONTAINS
        end if
     end if
     !
-    Nphi = get_dimension_phi_basis(symm)    
-    !
     if(.not.iread_) then
-       call build_traces_matrix_basis    
+       Nphi = get_dimension_phi_basis(symm,.true.)    
+       call build_traces_matrix_basis
     else
+       Nphi = get_dimension_phi_basis(symm,.false.)    
        call read_traces_matrix_basis(read_dir)    
     end if
     !
@@ -260,8 +261,10 @@ CONTAINS
   !
   !< VERY VERY TEMPORARY ROUTINES
   !
-  function get_dimension_phi_basis(symm_index) result(dim_phi)
+  function get_dimension_phi_basis(symm_index,trace_flag) result(dim_phi)
     integer                                         :: symm_index
+    logical,optional                                :: trace_flag
+    logical                                         :: trace_flag_
     integer                                         :: dim_phi
     integer,dimension(:,:),allocatable              :: irr_reps
     integer,dimension(:,:),allocatable              :: equ_reps
@@ -280,10 +283,13 @@ CONTAINS
     type(local_multiplets),dimension(:),allocatable :: mult_list    
     !
     real(8)                                         :: tmp_check
-
+    !
+    trace_flag_=.false.
+    if(present(trace_flag)) trace_flag_=trace_flag
+    !
     Id=0.d0; 
     forall(ifock=1:nFock) Id(ifock,ifock)=1.d0
-    
+
     select case(symm_index)
     case(0)
        call basis_O1xSU2_irr_reps(irr_reps,equ_reps,Virr_reps)
@@ -325,21 +331,12 @@ CONTAINS
     Nphi=dim_phi   
     write(*,*) "NPHI",Nphi
     !
+    !
     allocate(phi_basis(dim_phi,nFock,nFock))
     allocate(phi_basis_dag(dim_phi,nFock,nFock))
-
+    !
     phi_basis = phi_fock
-
-
-    !< TMP_TEST_DIAGONAL_BASIS
-    ! phi_basis=0.d0
-    ! iphi=0
-    ! do ifock=1,nFock
-    !    iphi=iphi+1
-    !    phi_basis(iphi,iphi,iphi) = 1.d0
-    ! end do
-    ! END TMP_TEST>
-
+    !
     do iphi=1,Nphi
        do ifock=1,nFock
           do jfock=1,nFock
@@ -347,64 +344,24 @@ CONTAINS
           end do
        end do
     end do
-    ! 
-
-    ! allocate(test_trace(Nphi,Nphi))
-    ! test_trace=get_traces_basis_phiOphi(Id)
-
-    ! !+- safe check on the matrix orthogonality
-    ! do iphi=1,Nphi
-    !    do jphi=1,Nphi
-    !       if(abs(test_trace(iphi,jphi)).gt.1.d-8.and.iphi.ne.jphi) &
-    !            stop "Variational basis not Trace-orthogonal"
-    !    end do
-    ! end do
-
-    ! do iphi=1,Nphi
-    !    phi_basis(iphi,:,:)     = phi_basis(iphi,:,:)/sqrt(test_trace(iphi,iphi))
-    !    phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
-    ! end do
-
-    !<TMP_CHECK
-    ! tmp_check=0.d0
-    ! do iphi=1,Nphi
-    !    do ifock=1,nFock
-    !       do jfock=1,nFock
-    !          tmp_check = tmp_check + dimag(phi_basis(iphi,ifock,jfock))**2.d0
-    !       end do
-    !    end do
-    ! end do
-    ! write(*,*) 'TMP_CHECK',tmp_check
-    ! stop
-    !TMP_CHECK>
-
-    !stop "Variational basis  TRACE-ORTHOGONAL"
-
     !
-    ! do iphi=1,Nphi
-    !    write(30,*) iphi!,indep2full_fock(iphi,:)
-    !    do ifock=1,Nfock
-    !       write(30,'(20F6.3)') phi_basis(iphi,ifock,:)
-    !    end do
-    ! end do
-    ! !SAFE_CHECK>
-    ! test_trace=get_traces_basis_phiOphi(Id)
-    ! do iphi=1,Nphi
-    !    write(*,'(20F6.3)') test_trace(iphi,:)
-    ! end do
-    !
-    !write(*,*) "NPHI",Nphi
-
-
-
-
-    !stop
-
-    !dim_phi = nFock_indep
-    !dim_phi=nFock
-    !< check full phi_matrix
-    !dim_phi = nFock*nfock
-    !>
+    if(trace_flag_) then
+       ! 
+       allocate(test_trace(Nphi,Nphi))
+       test_trace=get_traces_basis_phiOphi(Id)       
+       !+- safe check on the matrix orthogonality
+       do iphi=1,Nphi
+          do jphi=1,Nphi
+             if(abs(test_trace(iphi,jphi)).gt.1.d-8.and.iphi.ne.jphi) &
+                  stop "Variational basis not Trace-orthogonal"
+          end do
+       end do
+       !
+       do iphi=1,Nphi
+          phi_basis(iphi,:,:)     = phi_basis(iphi,:,:)/sqrt(test_trace(iphi,iphi))
+          phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
+       end do
+    end if
 
   end function get_dimension_phi_basis
 

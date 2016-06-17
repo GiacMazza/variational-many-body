@@ -167,6 +167,7 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   !
   slater_derivatives = zero
   slater_dot = zero
+
   do ik=1,Lk
      call get_Hk_t(Hk,ik,time)
      !
@@ -180,18 +181,6 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
      tQR = matmul(Qhop_hc,tQR)
      !
      tQQ = matmul(Hk,Qhop)
-     tQQ = matmul(Qhop_hc,tQQ)
-     !
-     tRR = matmul(Hk_tb_t(:,:,ik,it),Rhop)
-     tRR = matmul(Rhop_hc,tRR)
-     !
-     tRQ = matmul(Hk_tb_t(:,:,ik,it),Qhop)
-     tRQ = matmul(Rhop_hc,tRQ)
-     !
-     tQR = matmul(Hk_tb_t(:,:,ik,it),Rhop)
-     tQR = matmul(Qhop_hc,tQR)
-     !
-     tQQ = matmul(Hk_tb_t(:,:,ik,it),Qhop)
      tQQ = matmul(Qhop_hc,tQQ)
      !
      do is=1,Ns

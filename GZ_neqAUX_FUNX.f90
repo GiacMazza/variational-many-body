@@ -119,8 +119,6 @@ CONTAINS
        end do
     end do
     !
-    write(*,*) 'WTF'
-    
     do is=1,Ns
        do js=1,Ns
           file_name=reg(read_dir)//'optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'

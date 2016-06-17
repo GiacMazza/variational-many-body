@@ -88,7 +88,6 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   !
-  !call init_variational_matrices
   call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
   allocate(energy_levels(Ns)); energy_levels=0.d0
   !  

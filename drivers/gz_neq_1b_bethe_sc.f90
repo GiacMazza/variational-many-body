@@ -43,6 +43,8 @@ program GUTZ_mb
   integer :: unit_neq_Qhop
   integer :: unit_neq_AngMom
   integer :: unit_neq_sc_order
+  integer :: unit_neq_nqp
+
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -55,6 +57,8 @@ program GUTZ_mb
   real(8),dimension(4)                  :: local_angular_momenta
   real(8),dimension(3)                  :: energies
   complex(8),dimension(:,:),allocatable             :: sc_order
+  real(8),dimension(:,:),allocatable :: nqp 
+
   !
   real(8),dimension(:),allocatable      :: dump_vect
   
@@ -220,6 +224,10 @@ program GUTZ_mb
   !
   unit_neq_sc_order = free_unit()
   open(unit_neq_sc_order,file='neq_sc_order.data')
+ !
+  unit_neq_nqp = free_unit()
+  open(unit_neq_nqp,file='neq_nqp.data')
+
 
   allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
   allocate(Qhop_matrix(Ns,Ns))
@@ -228,6 +236,7 @@ program GUTZ_mb
   allocate(dens_constrSL(2,Ns,Ns))
   allocate(dens_constrGZ(2,Ns,Ns))  
   allocate(sc_order(Ns,Ns))
+  allocate(nqp(Ns,Lk))
   allocate(dump_vect(Ns*Ns))
 
 
@@ -272,7 +281,11 @@ program GUTZ_mb
               call get_neq_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))
               call get_neq_local_sc(is,js,sc_order(is,js))
            end do
+           do ik=1,Lk
+              call get_neq_nqp(is,ik,nqp(is,ik))
+           end do
         end do
+        !
         call get_neq_energies(energies)
         call get_neq_local_angular_momenta(local_angular_momenta)
         call get_neq_unitary_constr(unitary_constr)
@@ -291,6 +304,11 @@ program GUTZ_mb
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies
         write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
+        !
+        do ik=1,Lk
+           write(unit_neq_nqp,'(10F18.10)') t,nqp(:,ik)
+        end do
+        write(unit_neq_nqp,*)
         !
      end if
      psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
@@ -321,15 +339,21 @@ CONTAINS
     !
     Lk=Nx
     allocate(epsik(Lk),wtk(Lk),hybik(Lk))    
-    wini=-Wband/2.d0
-    wfin= Wband/2.d0
+    ! wini=-Wband/2.d0
+    ! wfin= Wband/2.d0
+    wini=-5.d0
+    wfin= 5.d0
     epsik=linspace(wini,wfin,Lk,mesh=de)
     !
     test_k=0.d0
     do ix=1,Lk
-       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       if(epsik(ix).gt.-Wband/2.d0.and.epsik(ix).lt.Wband/2) then
+          wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       else
+          wtk(ix) = 0.d0
+       end if
        !wtk(ix) = 1.d0/Wband*de
-       if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+       !if(ix==1.or.ix==Lk) wtk(ix)=0.d0
        test_k=test_k+wtk(ix)
        write(77,*) epsik(ix),wtk(ix)
     end do

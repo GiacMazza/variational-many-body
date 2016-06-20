@@ -210,17 +210,23 @@ CONTAINS
 
     Lk=Nx
     allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-
-    wini=-Wband/2.d0
-    wfin= Wband/2.d0
+    ! wini=-Wband/2.d0
+    ! wfin= Wband/2.d0
+    wini = -5.d0
+    wfin =5.d0
     epsik=linspace(wini,wfin,Lk,mesh=de)
     !
     test_k=0.d0
     test_n1=0.d0;test_n2=0.d0
     do ix=1,Lk
-       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       !wtk(ix) = 1.d0/Wband*de
-       if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+       ! wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       ! !wtk(ix) = 1.d0/Wband*de
+       ! if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+       if(epsik(ix).gt.-Wband/2.d0.and.epsik(ix).lt.Wband/2) then
+          wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+       else
+          wtk(ix) = 0.d0
+       end if
        test_n1=test_n1+wtk(ix)*fermi(epsik(ix)+Cfield*0.5d0,beta)
        test_n2=test_n2+wtk(ix)*fermi(epsik(ix)-Cfield*0.5d0,beta)
        write(77,*) epsik(ix),wtk(ix)

@@ -1,4 +1,7 @@
 MODULE GZ_DYNAMICS  
+  ! scifor
+  USE SF_LINALG
+  ! GZ rooutines
   USE GZ_VARS_GLOBAL
   USE GZ_MATRIX_BASIS
   USE GZ_EFFECTIVE_HOPPINGS
@@ -30,6 +33,7 @@ MODULE GZ_DYNAMICS
   public :: get_neq_Qhop
   public :: get_neq_local_angular_momenta
   public :: get_neq_local_sc
+  public :: get_neq_nqp
   !  
   complex(8),dimension(:,:),allocatable :: gz_neq_local_density_matrix !
   real(8),dimension(:,:),allocatable    :: gz_neq_local_dens_dens
@@ -42,7 +46,8 @@ MODULE GZ_DYNAMICS
   real(8)                               :: gz_neq_unitary_constr
   complex(8),dimension(:,:),allocatable :: gz_neq_Rhop         
   complex(8),dimension(:,:),allocatable :: gz_neq_Qhop         
-  complex(8),dimension(:,:),allocatable :: gz_neq_local_sc_order         
+  complex(8),dimension(:,:),allocatable :: gz_neq_local_sc_order 
+  real(8),dimension(:,:),allocatable    :: gz_neq_nqp        
   !
 CONTAINS
   !
@@ -74,6 +79,7 @@ CONTAINS
     allocate(gz_neq_Rhop(Ns,Ns)); gz_neq_Rhop = 0.d0
     allocate(gz_neq_Qhop(Ns,Ns)); gz_neq_Qhop = 0.d0
     allocate(gz_neq_local_sc_order(Ns,Ns)); gz_neq_local_sc_order = 0.d0
+    allocate(gz_neq_nqp(Ns,Lk)); gz_neq_nqp = 0.d0
   end subroutine setup_neq_dynamics_superc
 
 
@@ -157,6 +163,12 @@ CONTAINS
     complex(8) :: x
     x=gz_neq_Qhop(is,js)
   end subroutine get_neq_Qhop
+  !
+  subroutine get_neq_nqp(is,ik,x)
+    integer :: is,ik
+    real(8) :: x
+    x = gz_neq_nqp(is,ik)
+  end subroutine get_neq_nqp
   !
   subroutine setup_neq_hamiltonian(Uloc_t_,Ust_t_,Jh_t_,Jph_t_,Jsf_t_,eLevels_t_)
     real(8),dimension(3,Nt_aux),optional           :: Uloc_t_
@@ -303,16 +315,29 @@ CONTAINS
     complex(8),dimension(nDynamics) :: psi_t
     real(8)                         :: time
     complex(8),dimension(2,Ns,Ns,Lk)  :: slater
-    complex(8),dimension(Ns,Ns)     :: Hk
+    complex(8),dimension(3,Ns,Ns,Lk)  :: slater_
+    complex(8),dimension(Ns,Ns)     :: Hk,Hk_tmp
+    complex(8),dimension(Ns,Ns)     :: Rhop,Qhop,Rhop_dag,Qhop_dag
+    complex(8),dimension(2*Ns,2*Ns)     :: Hks
+    real(8),dimension(2*Ns)         :: eks
     complex(8),dimension(Nphi)      :: gzproj
     real(8)                         :: Estar,Eloc,Egz
     real(8),dimension(Ns)           :: vdm_diag
+    real(8)                         :: nqp
 
     integer                         :: is,js,ik,it,iphi,iis,jjs
 
     it=t2it(time,tstep)
     !
     call dynamicalVector_2_wfMatrix_superc(psi_t,slater,gzproj)  
+    slater_(1:2,:,:,:) = slater
+    slater_(3,:,:,:) = zero
+    do is=1,Ns
+       slater_(3,is,is,:) = one 
+       do js=1,Ns
+          slater_(3,is,js,:) = slater_(3,is,js,:) - slater(1,js,is,:)
+       end do
+    end do
     !
     Estar=0.d0
     do is=1,Ns
@@ -341,6 +366,17 @@ CONTAINS
     gz_neq_Rhop = hopping_renormalization_normal(gzproj,vdm_diag)
     gz_neq_Qhop = hopping_renormalization_anomalous(gzproj,vdm_diag)
     !
+    Rhop=gz_neq_Rhop
+    Qhop=gz_neq_Qhop
+    !
+    do is=1,Ns
+       do js=1,Ns
+          Rhop_dag(is,js) = conjg(Rhop(js,is))
+          Qhop_dag(is,js) = conjg(Qhop(js,is))
+       end do
+    end do
+
+    !
     gz_neq_unitary_constr = 0.d0
     do iphi=1,Nphi
        gz_neq_unitary_constr = gz_neq_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
@@ -352,8 +388,49 @@ CONTAINS
     gz_neq_dens_constrA_slater=0.d0
     do ik=1,Lk
        call get_Hk_t(Hk,ik,time)
+       !+- define Hk_renormalized -+!
+       Hk_tmp=matmul(Hk,Rhop)
+       Hk_tmp=matmul(Rhop_dag,Hk_tmp)
+       Hks(1:Ns,1:Ns) = Hk_tmp 
+       !
+       Hk_tmp=matmul(Hk,Qhop)
+       Hk_tmp=matmul(Rhop_dag,Hk_tmp)
+       Hks(1:Ns,Ns+1:2*Ns) = Hk_tmp 
+       !
+       Hk_tmp=matmul(Hk,Rhop)
+       Hk_tmp=matmul(Qhop_dag,Hk_tmp)
+       Hks(Ns+1:2*Ns,1:Ns) = Hk_tmp
+       !
+       Hk_tmp=matmul(Hk,Qhop)
+       Hk_tmp=matmul(Qhop_dag,Hk_tmp)
+       Hks(Ns+1:2*Ns,Ns+1:2*Ns) = Hk_tmp
+       !
+       !+- get eigenstates
+       call matrix_diagonalize(Hks,eks)
+       !
+       !+- project onto the natural basis
+       do is=1,Ns
+          gz_neq_nqp(is,ik) = 0.d0
+          do iis=1,Ns
+             do jjs=1,Ns
+                gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
+                     Hks(iis,is)*conjg(Hks(jjs,is))*slater_(1,iis,jjs,ik)
+                gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
+                     Hks(iis,is)*conjg(Hks(jjs+Ns,is))*slater_(2,iis,jjs,ik)
+                gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
+                     Hks(iis+Ns,is)*conjg(Hks(jjs,is))*conjg(slater_(2,jjs,iis,ik))
+                gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
+                     Hks(iis+Ns,is)*conjg(Hks(jjs+Ns,is))*slater_(3,iis,jjs,ik)
+                
+             enddo
+          enddo
+       enddo
+
+
+
        do is=1,Ns
           do js=1,Ns
+             !
              gz_neq_dens_constr_slater(is,js) = gz_neq_dens_constr_slater(is,js) + slater(1,is,js,ik)*wtk(ik)
              gz_neq_dens_constrA_slater(is,js) = gz_neq_dens_constrA_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
              !

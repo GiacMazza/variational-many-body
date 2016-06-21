@@ -12,6 +12,7 @@ MODULE GZ_DYNAMICS
   !
   public :: gz_equations_of_motion
   public :: gz_equations_of_motion_superc
+  public :: bcs_equations_of_motion
   !
   public :: setup_neq_hamiltonian
   !
@@ -52,6 +53,7 @@ MODULE GZ_DYNAMICS
 CONTAINS
   !
   include 'gz_eom.f90'
+  include 'bcs_eom.f90'
   !
   subroutine setup_neq_dynamics
     allocate(gz_neq_local_density_matrix(Ns,Ns)); gz_neq_local_density_matrix = 0.d0
@@ -409,22 +411,22 @@ CONTAINS
        call matrix_diagonalize(Hks,eks)
        !
        !+- project onto the natural basis
-       do is=1,Ns
-          gz_neq_nqp(is,ik) = 0.d0
-          do iis=1,Ns
-             do jjs=1,Ns
-                gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
-                     Hks(iis,is)*conjg(Hks(jjs,is))*slater_(1,iis,jjs,ik)
-                gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
-                     Hks(iis,is)*conjg(Hks(jjs+Ns,is))*slater_(2,iis,jjs,ik)
-                gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
-                     Hks(iis+Ns,is)*conjg(Hks(jjs,is))*conjg(slater_(2,jjs,iis,ik))
-                gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
-                     Hks(iis+Ns,is)*conjg(Hks(jjs+Ns,is))*slater_(3,iis,jjs,ik)
+       ! do is=1,Ns
+       !    gz_neq_nqp(is,ik) = 0.d0
+       !    do iis=1,Ns
+       !       do jjs=1,Ns
+       !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
+       !               Hks(iis,is)*conjg(Hks(jjs,is))*slater_(1,iis,jjs,ik)
+       !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
+       !               Hks(iis,is)*conjg(Hks(jjs+Ns,is))*slater_(2,iis,jjs,ik)
+       !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
+       !               Hks(iis+Ns,is)*conjg(Hks(jjs,is))*conjg(slater_(2,jjs,iis,ik))
+       !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
+       !               Hks(iis+Ns,is)*conjg(Hks(jjs+Ns,is))*slater_(3,iis,jjs,ik)
                 
-             enddo
-          enddo
-       enddo
+       !       enddo
+       !    enddo
+       ! enddo
 
 
 

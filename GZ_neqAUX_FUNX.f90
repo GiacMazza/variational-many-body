@@ -8,6 +8,7 @@ MODULE GZ_neqAUX_FUNX
   public :: read_optimized_variational_wf,read_optimized_variational_wf_superc
   public :: wfMatrix_2_dynamicalVector,dynamicalVector_2_wfMatrix
   public :: wfMatrix_superc_2_dynamicalVector,dynamicalVector_2_wfMatrix_superc
+  public :: BCSwf_2_dynamicalVector,dynamicalVector_2_BCSwf
   public :: t2it
   !
 CONTAINS
@@ -24,7 +25,7 @@ CONTAINS
     read_dir=trim(read_dir)
     do is=1,Ns
        do js=1,Ns
-          
+
           file_name=reg(read_dir)//'optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
           inquire(file=file_name,exist=check_file)
           if(check_file) then
@@ -87,7 +88,7 @@ CONTAINS
     character(len=200) :: file_name
     logical :: check_file
     !
-    
+
 
     read_dir=trim(read_dir)
     do is=1,Ns
@@ -275,6 +276,40 @@ CONTAINS
     end do
     if(idyn.ne.nDynamics) stop 'dimension problems dynamicalVector_2_wfMatrix_superc'
   end subroutine dynamicalVector_2_wfMatrix_superc
+
+
+
+
+
+  subroutine BCSwf_2_dynamicalVector(bcs_wf,dynVect)
+    complex(8),dimension(3,Lk) :: bcs_wf
+    complex(8),dimension(3*LK):: dynVect
+    integer :: i,j,is,js,iphi,idyn,ik    
+    idyn=0
+    do ik=1,Lk
+       idyn=idyn+1
+       dynVect(idyn) = bcs_wf(1,ik)
+       dynVect(idyn+Lk) = bcs_wf(2,ik)
+       dynVect(idyn+2*Lk) = bcs_wf(3,ik)
+    end do
+    if(idyn.ne.Lk) stop 'dimension problems BCSwf_2_dynamicalVector'
+  end subroutine BCSwf_2_dynamicalVector
+  !
+  subroutine dynamicalVector_2_BCSwf(dynVect,bcs_wf)
+    complex(8),dimension(3,Lk) :: bcs_wf
+    complex(8),dimension(3*Lk):: dynVect
+    integer :: i,j,is,js,iphi,idyn,ik  
+    idyn=0
+    do ik=1,Lk
+       idyn=idyn+1
+       bcs_wf(1,ik) = dynVect(idyn)
+       bcs_wf(2,ik) = dynVect(idyn+Lk)
+       bcs_wf(3,ik) = dynVect(idyn+2*Lk)
+    end do
+    if(idyn.ne.Lk) stop 'dimension problems dynamicalVector_2_BCSwf'
+  end subroutine dynamicalVector_2_BCSwf
+
+
 
 
   function t2it(time,delta_t) result(it)

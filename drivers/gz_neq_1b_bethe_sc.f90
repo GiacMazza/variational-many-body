@@ -21,14 +21,16 @@ program GUTZ_mb
   integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin
   integer :: nprint
   !
-  character(len=200) :: store_dir,read_dir,read_optWF_dir
+  character(len=200) :: store_dir,read_dir,read_optWF_dir,read_finSC_dir
   complex(8),dimension(:,:,:,:),allocatable :: slater_init
   complex(8),dimension(:),allocatable     :: gz_proj_init
   !
-  complex(8),dimension(:),allocatable     :: psi_t
+  complex(8),dimension(:,:),allocatable :: bcs_wf
+  !
+  complex(8),dimension(:),allocatable     :: psi_t,psi_bcs_t
   real(8),dimension(:,:),allocatable      :: Ut 
   real(8),dimension(:),allocatable      :: Jht
-  real(8) :: r,s,tmpU
+  real(8) :: r,s,tmpU,Ubcs,Ubcs0,Ubcsf
   !
   integer :: unit_neq_hloc
   integer :: unit_neq_local_dens
@@ -44,7 +46,7 @@ program GUTZ_mb
   integer :: unit_neq_AngMom
   integer :: unit_neq_sc_order
   integer :: unit_neq_nqp
-
+  integer :: unit_neq_bcs
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -58,19 +60,21 @@ program GUTZ_mb
   real(8),dimension(3)                  :: energies
   complex(8),dimension(:,:),allocatable             :: sc_order
   real(8),dimension(:,:),allocatable :: nqp 
-
   !
   real(8),dimension(:),allocatable      :: dump_vect
-  
+  real(8) :: fin_sc_dir
   real(8) :: Uneq,Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU,dUneq
   real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
-  
+  complex(8) :: bcs_sc_order,bcs_delta
+  real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS
+
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
   call parse_input_variable(read_dir,"READ_GZ_BASIS_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
+  call parse_input_variable(read_finSC_dir,"FINSC_DIR","inputGZ.conf",default='./')
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
   !
@@ -81,14 +85,6 @@ program GUTZ_mb
   call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=0.d0) 
   !
-  ! call parse_input_variable(Jhneq,"Jhneq","inputGZ.conf",default=0.d0) 
-  ! call parse_input_variable(Jhneq0,"Jhneq0","inputGZ.conf",default=0.d0) 
-  ! call parse_input_variable(tStart_neqJ,"TSTART_NEQJ","inputGZ.conf",default=0.d0)
-  ! call parse_input_variable(tRamp_neqJ,"TRAMP_NEQJ","inputGZ.conf",default=0.d0)  
-  ! call parse_input_variable(tSin_neqJ,"TSIN_NEQJ","inputGZ.conf",default=0.5d0)
-  ! call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
-
-  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -134,29 +130,6 @@ program GUTZ_mb
      !
      Ut(:,itt) = Uneq0 + r*(Uneq*s-Uneq0)
   end do
-
-  ! allocate(Jht(Nt_aux))  
-  ! do itt=1,Nt_aux
-  !    t = t_grid_aux(itt) 
-  !    !
-  !    if(t.lt.tStart_neqJ) then
-  !       r=0.d0
-  !    else
-  !       if(t.lt.tStart_neqJ+tRamp_neqJ) then
-  !          r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqJ)/tRamp_neqJ) + 0.5d0*(cos(pi*(t-tStart_neqJ)/tRamp_neqJ))**3)*0.5d0
-  !       else
-  !          r = 1.d0 
-  !       end if
-  !    end if
-  !    !
-  !    if(t.lt.tStart_neqU+tRamp_neqJ+tSin_neqJ) then
-  !       s = 1.d0
-  !    else
-  !       s = 1.d0 + dJneq*dsin(2.d0*pi*t/tSin_neqJ)
-  !    end if
-  !    !
-  !    Jht(itt) = 0.d0!Jhneq0 + r*(Jhneq*s-Jhneq0)
-  ! end do
   !
   call setup_neq_hamiltonian(Uloc_t_=Ut)
   !
@@ -177,7 +150,56 @@ program GUTZ_mb
   !
   call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init)
   call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
-  !   
+
+
+
+  !+- BCS init
+  !
+  unit_neq_hloc = free_unit()
+  open(unit_neq_hloc,file="equ_refSC.out")
+  call read_SC_order(read_optWF_dir,phiBCS)
+  call getUbcs(phiBCS,Ubcs0)
+  write(unit_neq_hloc,*) phiBCS,Ubcs0
+  
+  call read_SC_order(read_finSC_dir,phiBCS)
+  call getUbcs(phiBCS,Ubcsf)
+  write(unit_neq_hloc,*) phiBCS,Ubcsf
+  close(unit_neq_hloc)
+  !
+  allocate(Ubcs_t(Nt_aux))
+  unit_neq_hloc = free_unit()
+  open(unit_neq_hloc,file="neq_Ubcs.out")
+  do itt=1,Nt_aux
+     t = t_grid_aux(itt) 
+     !
+     if(t.lt.tStart_neqU) then
+        r=0.d0
+     else
+        if(t.lt.tStart_neqU+tRamp_neqU) then
+           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
+        else
+           r = 1.d0 
+        end if
+     end if
+     !
+     if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
+        s = 1.d0
+     else
+        s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
+     end if
+     !
+     tmpU = Ubcs0 + r*(Ubcsf*s-Ubcs0)
+     !
+     Ubcs_t(itt) = tmpU
+     write(unit_neq_hloc,'(2F18.10)') t,Ubcs_t(itt)
+  end do
+  !
+  !
+  allocate(bcs_wf(3,Lk))
+  allocate(psi_bcs_t(3*Lk))
+  call init_BCS_wf(bcs_wf,Ubcs0)
+  call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
+  !
   it=1
   Uloc=Uloc_t(:,it)
   Ust =Ust_t(it)
@@ -224,11 +246,10 @@ program GUTZ_mb
   !
   unit_neq_sc_order = free_unit()
   open(unit_neq_sc_order,file='neq_sc_order.data')
- !
-  unit_neq_nqp = free_unit()
-  open(unit_neq_nqp,file='neq_nqp.data')
-
-
+  !
+  unit_neq_bcs = free_unit()
+  open(unit_neq_bcs,file='neq_bcs.data')
+  !
   allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
   allocate(Qhop_matrix(Ns,Ns))
   allocate(local_density_matrix(Ns,Ns))
@@ -238,25 +259,6 @@ program GUTZ_mb
   allocate(sc_order(Ns,Ns))
   allocate(nqp(Ns,Lk))
   allocate(dump_vect(Ns*Ns))
-
-
-
-
-  !+- TEST-SLATER READING -+!
-  ! do is=1,Ns
-  !    do js=1,Ns
-  !       out_unit=free_unit()
-  !       open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
-  !       do ik=1,Lk
-  !          write(out_unit,'(2F18.10)') dreal(slater_init(1,is,js,ik)),dimag(slater_init(1,is,js,ik))
-  !       end do
-  !       close(out_unit)
-  !    end do
-  ! end do
-
-
-
-  
 
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
   do it=1,Nt
@@ -281,9 +283,9 @@ program GUTZ_mb
               call get_neq_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))
               call get_neq_local_sc(is,js,sc_order(is,js))
            end do
-           do ik=1,Lk
-              call get_neq_nqp(is,ik,nqp(is,ik))
-           end do
+           ! do ik=1,Lk
+           !    call get_neq_nqp(is,ik,nqp(is,ik))
+           ! end do
         end do
         !
         call get_neq_energies(energies)
@@ -304,13 +306,29 @@ program GUTZ_mb
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies
         write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
-        !
+        !        
+        !+- measure BCS -+!
+        call dynamicalVector_2_BCSwf(psi_bcs_t,bcs_wf)
+        bcs_sc_order = zero !<d+d+>
+        bcs_Kenergy = zero
+        bcs_delta=zero
         do ik=1,Lk
-           write(unit_neq_nqp,'(10F18.10)') t,nqp(:,ik)
+
+           !bcs_Kenergy = bcs_Kenergy + epsik(ik)*bcs_wf(3,ik)*wtk(ik)
+
+           bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
+           bcs_delta = bcs_delta + 0.5d0*(bcs_wf(1,ik)-xi*bcs_wf(2,ik))*wtk(ik)
+
         end do
-        write(unit_neq_nqp,*)
+
+        !stop
+        itt=t2it(t,tstep*0.5d0)
+        bcs_Uenergy = 2.d0*Uloc_t(1,itt)*bcs_delta*conjg(bcs_delta)        
+        write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_delta!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
         !
      end if
+     !
+     psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
      psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
      !
   end do
@@ -320,7 +338,7 @@ program GUTZ_mb
 
 
 
-  
+
 
 
 
@@ -339,10 +357,10 @@ CONTAINS
     !
     Lk=Nx
     allocate(epsik(Lk),wtk(Lk),hybik(Lk))    
-    ! wini=-Wband/2.d0
-    ! wfin= Wband/2.d0
-    wini=-5.d0
-    wfin= 5.d0
+    wini=-Wband/2.d0
+    wfin= Wband/2.d0
+    ! wini=-5.d0
+    ! wfin= 5.d0
     epsik=linspace(wini,wfin,Lk,mesh=de)
     !
     test_k=0.d0
@@ -648,97 +666,113 @@ CONTAINS
   end subroutine vdm_NCoff_mat2vec
 
 
+  subroutine init_bcs_wf(bcs_wf,U)
+    complex(8),dimension(:,:) :: bcs_wf
+    real(8) :: U,bcs_sc_order
+    real(8) :: Ek
+    real(8) :: sintk,costk
+    if(size(bcs_wf,1).ne.3) stop "error init bcs \sigma"
+    if(size(bcs_wf,2).ne.Lk) stop "error init bcs Lk"
+    !
+    Ubcs=U
+    bcs_sc_order=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    write(*,*) Ubcs,bcs_sc_order,bcs_sc_order*0.5d0
+    do ik=1,Lk
+       !
+       Ek = sqrt(epsik(ik)**2.d0 + (bcs_sc_order*Ubcs)**2.d0)
+       sintk=bcs_sc_order*Ubcs/Ek
+       costk=epsik(ik)/Ek
+       !
+       bcs_wf(1,ik) = -sintk*tanh(beta*Ek*0.5d0)
+       bcs_wf(2,ik) =  zero
+       bcs_wf(3,ik) = -costk*tanh(beta*Ek*0.5d0)
+       !
+    end do
+    !
+  end subroutine init_bcs_wf
+
+  function bcs_self_cons(phi) result(x)
+    real(8),intent(in) :: phi
+    real(8) :: x
+    real(8) :: Ek
+    integer :: ik
+    !
+    x=0.d0
+    do ik=1,Lk
+       Ek = sqrt(epsik(ik)**2.d0 + (phi*Ubcs)**2.d0)
+       x = x + wtk(ik)/Ek*tanh(beta*Ek*0.5d0)
+    end do
+    x=x*abs(Ubcs)*0.5d0
+    x=x-1.d0
+    !
+  end function bcs_self_cons
+
+  function bcs_order_param(xU) result(phi)
+    real(8),intent(in) :: xU
+    real(8) :: phi
+    !
+    Ubcs=xU
+    phi=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    !
+  end function bcs_order_param
+
+  subroutine getUbcs(phi,xu)
+    real(8) :: phi,xu,tmp
+    phiBCS=phi
+    ! tmp=delta_bcs_order_param(-10.d0)
+    ! write(*,*) phiBCS,tmp
+    ! tmp=delta_bcs_order_param(-0.2d0)
+    ! write(*,*) phiBCS,tmp
+    xu = fzero_brentq(delta_bcs_order_param,-10.d0,-0.2d0)
+    !write(*,*) xu
+  end subroutine getUbcs
+
+
+  function delta_bcs_order_param(xU) result(phi)
+    real(8),intent(in) :: xU
+    real(8) :: phi
+    !
+    Ubcs=xU
+    phi=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    phi=phi-phiBCS
+    !
+  end function delta_bcs_order_param
 
 
 
 
 
-
-
-
-
-  ! subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
-  !   complex(8),dimension(:)   :: Rhop_indep
-  !   complex(8),dimension(:,:) :: Rhop_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
-  !   if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
-  !   Rhop_mat = zero
-  !   do is=1,Ns
-  !      Rhop_mat(is,is) = Rhop_indep(1)
-  !   end do
-  !   !
-  ! end subroutine Rhop_vec2mat
-  ! subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
-  !   complex(8),dimension(:,:) :: Rhop_mat
-  !   complex(8),dimension(:)   :: Rhop_indep
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   complex(8) :: test_stride
-  !   real(8) :: test
-  !   if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
-  !   if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
-  !   !
-  !   Rhop_indep(1)=Rhop_mat(1,1)
-  !   !
-  ! end subroutine Rhop_mat2vec
-
-
-
-  ! subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_mat = zero
-  !   do is=1,Ns       
-  !      vdm_NC_mat(is,is) = vdm_NC_indep(1)
-  !   end do
-  !   Nopt_odiag = 0
-  !   !
-  ! end subroutine vdm_NC_vec2mat
-  ! subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_indep(1) = vdm_NC_mat(1,1)
-  !   !
-  ! end subroutine vdm_NC_mat2vec
-
-
-
-  ! subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_mat = zero
-  !   !
-  ! end subroutine vdm_NCoff_vec2mat
-  ! subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_indep = zero
-  !   !
-  ! end subroutine vdm_NCoff_mat2vec
-
-
+  subroutine read_SC_order(read_dir,sc_order)
+    character(len=200)             :: read_dir
+    real(8)                        :: tmp,sc_order
+    integer :: is,js,read_unit,flen,ios,i
+    character(len=200) :: file_name
+    logical :: check_file
+    !
+    file_name=reg(read_dir)//'local_sc_order.data'
+    inquire(file=file_name,exist=check_file)
+    if(check_file) then
+       read_unit=free_unit()
+       open(read_unit,file=file_name,status='old')
+       flen=0
+       do
+          read (read_unit,*,iostat=ios) tmp
+          if (ios/=0) exit     
+          flen=flen+1
+       end do
+       close(read_unit)                    
+       if(flen.ne.Ns) stop "READING SC ORDER PARAM: number of lines /= Ns"
+       open(read_unit,file=file_name,status='old')
+       do i=1,flen
+          read(read_unit,'(2F18.10)') tmp
+          if(i.eq.flen) sc_order = sqrt(tmp*tmp)
+       end do
+       close(read_unit)
+    else
+       write(*,*) 'FILE',file_name,'does not exist!!!'
+    end if
+    !
+  end subroutine read_SC_order
 
 
 end program GUTZ_mb

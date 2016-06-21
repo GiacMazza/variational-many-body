@@ -120,6 +120,9 @@ MODULE GZ_VARS_GLOBAL
   real(8),dimension(:,:),allocatable     :: eLevels_t 
   
   !
+  real(8),dimension(:),allocatable :: Ubcs_t
+  
+  !
   integer,dimension(:,:),allocatable     :: print_grid_Rhop
   integer,dimension(:,:),allocatable     :: print_grid_Qhop
   integer,dimension(:,:),allocatable     :: print_grid_SC

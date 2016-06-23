@@ -538,7 +538,7 @@ CONTAINS
     !update chemical potential
     var=var+dble(nindex)*ndelta
     !
-    write(*,*) 'var',var,nindex,ndelta
+    !write(*,*) 'var',var,nindex,ndelta
     !
     !xmu=xmu+dble(nindex)*ndelta
     !

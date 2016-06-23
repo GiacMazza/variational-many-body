@@ -246,6 +246,7 @@ CONTAINS
     complex(8),dimension(nDynamics) :: psi_t
     real(8)                         :: time
     complex(8),dimension(Ns,Ns,Lk)  :: slater
+    complex(8),dimension(Ns,Ns)     :: Hk,Hk_tmp
     complex(8),dimension(Nphi)      :: gzproj
     real(8)                         :: Estar,Eloc,Egz
     real(8),dimension(Ns)           :: vdm_diag
@@ -264,10 +265,8 @@ CONTAINS
           gz_neq_local_dens_dens(is,js) = &
                trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
           !
-          !
           gz_neq_dens_constr_gzproj(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens(is,js,:,:))
           !
-          !          gz_neq_local_sc_order(is,js) = trace_phi_basis(gzproj,phi_traces_basis_sc_order(is,js,:,:))
        end do
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
@@ -280,24 +279,25 @@ CONTAINS
     gz_neq_local_angular_momenta(4) = trace_phi_basis(gzproj,phi_traces_basis_isoSpinZ(:,:))
     !
     gz_neq_Rhop = hopping_renormalization_normal(gzproj,vdm_diag)
-    !    gz_neq_Qhop = hopping_renormalization_anomalous(gzproj,vdm_diag)
     !
     gz_neq_unitary_constr = 0.d0
     do iphi=1,Nphi
        gz_neq_unitary_constr = gz_neq_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
     end do
 
-    !+- SLATER
+    !+- SLATER -+!
     Estar=0.d0
     gz_neq_dens_constr_slater=0.d0
     do ik=1,Lk
+       call get_Hk_t(Hk,ik,time)       
        do is=1,Ns
           do js=1,Ns
              gz_neq_dens_constr_slater(is,js) = gz_neq_dens_constr_slater(is,js) + slater(is,js,ik)*wtk(ik)
              !
              do iis=1,Ns
                 do jjs=1,Ns
-                   Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Rhop(jjs,js)*slater(is,js,ik)*wtk(ik)
+                   !Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Rhop(jjs,js)*slater(is,js,ik)*wtk(ik)
+                   Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk(iis,jjs)*gz_neq_Rhop(jjs,js)*slater(is,js,ik)*wtk(ik)
                 end do
              end do
              !
@@ -308,7 +308,7 @@ CONTAINS
     gz_neq_energies(1) = Estar+Eloc
     gz_neq_energies(2) = Estar
     gz_neq_energies(3) = Eloc
-    !
+    !  
   end subroutine gz_neq_measure
 
 

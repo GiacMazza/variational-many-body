@@ -344,7 +344,7 @@ CONTAINS
           end do
        end do
     end do
-    !
+    !    
     if(trace_flag_) then
        ! 
        allocate(test_trace(Nphi,Nphi))
@@ -361,6 +361,7 @@ CONTAINS
           phi_basis(iphi,:,:)     = phi_basis(iphi,:,:)/sqrt(test_trace(iphi,iphi))
           phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(test_trace(iphi,iphi))
        end do
+       !
     end if
 
   end function get_dimension_phi_basis

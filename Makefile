@@ -20,7 +20,7 @@ EXE=gz_generate_phi_traces
 #EXE=gz_1b_attractiveU
 
 #EXE=gz_1b_bethe_sc_nRQ
-EXE=gz_neq_1b_bethe_sc
+#EXE=gz_neq_1b_bethe_sc
 
 
 #EXE=gz_2b_bethe_sc
@@ -29,6 +29,9 @@ EXE=gz_neq_1b_bethe_sc
 #EXE=gz_2b_bethe_sc_pair_hopping_nRQ
 
 #EXE=gz_3b_bethe
+#EXE=gz_3b_bethe_nR
+EXE=gz_neq_3b_bethe
+
 #EXE=gz_3b_bethe_sc
 #EXE=gz_3b_bethe_sc_sweep
 #EXE=gz_3b_bethe_sweep
@@ -55,24 +58,28 @@ VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o
 
 
-GALLIBDIR  = $(HOME)/opt_local/galahad/objects/pc64.lnx.gfo/double
-#GALLIBDIR  = /opt/galahad/objects/pc64.lnx.gfo/double
+#FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
+LIBDIR=$(HOME)/opt_local
+#LIBDIR=/opt/
+
+
+# GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
+# GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
+GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
+GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
 
 GALLIBS1   = -lgalahad -lgalahad_hsl 
 GALLIBS2   = -lgalahad_metis 
 
 MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 
-#FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
-LIBDIR=$(HOME)/opt_local
-#LIBDIR=/opt
 
 INCARGS =-I$(LIBDIR)/SciFortran/gnu/include -L$(LIBDIR)/SciFortran/gnu/lib 
 INCARGS+=-I$(LIBDIR)/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib 
-INCARGS+=-I$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double -L$(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
+INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
-ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I$(LIBDIR)/galahad/modules/pc64.lnx.gfo/double -ldmftt -lscifor  -lfftpack -lminpack  -llapack -lblas -larpack -lparpack    
+ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I$(GALLIBMOD) -ldmftt -lscifor  -lfftpack -lminpack  -llapack -lblas -larpack #-lparpack    
 
 all:compile
 

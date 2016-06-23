@@ -83,7 +83,7 @@ program GUTZ_mb
   allocate(variational_density_natural_simplex(Ns+1,Ns))
   allocate(variational_density_natural(Ns))
 
-  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
   allocate(energy_levels(Ns))
   do iorb=1,Norb
      do ispin=1,2
@@ -114,9 +114,9 @@ program GUTZ_mb
   
   !
   !  
-  Uiter = -0.1
+  Uiter = -0.0
   Jh_ratio=Jh
-  do i=1,30
+  do i=1,10
      !
      Uiter = Uiter + 0.1
      do iorb=1,Norb
@@ -384,7 +384,6 @@ CONTAINS
           vdm_NC_mat(is,is) = vdm_NC_indep(iorb)
        end do
     end do
-    Nopt_odiag = 0
     !
   end subroutine vdm_NC_vec2mat
   subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)

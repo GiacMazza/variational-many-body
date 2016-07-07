@@ -661,8 +661,7 @@ CONTAINS
     do is=1,Ns       
        vdm_NC_mat(is,is) = vdm_NC_indep(1)
     end do
-    Nopt_odiag = 0
-    !
+        !
   end subroutine vdm_NC_vec2mat
   subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
     complex(8),dimension(:)   :: vdm_NC_indep

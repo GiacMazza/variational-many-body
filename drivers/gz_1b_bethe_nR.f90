@@ -32,20 +32,20 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: epsik,hybik
   integer :: Nx,is,js,imap,jmap,Nopt
   !
-  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter
+  real(8) :: tmp_emin,Uiter,tmp_ene,orb_pol,tmp_real,Jh_ratio,Jiter,search_mu
   real(8),dimension(:),allocatable :: dump_seed
   integer :: expected_flen,flen,unit
   logical :: seed_file
 
 
-  character(len=10) :: dir_suffix
-  character(len=11) :: dir_iter
+  character(len=5) :: dir_suffix
+  character(len=6) :: dir_iter
   !
-  complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
+  complex(8),dimension(:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
   complex(8),dimension(:,:),allocatable   :: R_init,Q_init
 
-  complex(8),dimension(:,:,:),allocatable :: slater_lgr_init_,gzproj_lgr_init_
-  complex(8),dimension(:,:),allocatable   :: R_init_,Q_init_
+  !complex(8),dimension(:,:,:),allocatable :: slater_lgr_init_,gzproj_lgr_init_
+  !complex(8),dimension(:,:),allocatable   :: R_init_,Q_init_
 
   complex(8),dimension(1) :: tmpQ
   character(len=6) :: sweep !sweepU,sweepJ
@@ -54,10 +54,9 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: x_reseed
   real(8) :: nread,Ntest,ndelta,nerr
   real(8) :: ndelta_
-  logical :: converged_mu
-  real(8) :: xmu1,xmu2,n1,n2,search_mu
+  real(8) :: xmu1,xmu2,n1,n2
   integer :: xmu_unit
-
+  logical :: converged_mu
   !
 
   !
@@ -83,41 +82,41 @@ program GUTZ_mb
   call save_input_file("inputGZ.conf")
 
   Norb=1
-  wf_symmetry=4
+  wf_symmetry=0
   Cfield=0.d0
   !
   call initialize_local_fock_space
   !
-  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
-  !  call init_variational_matrices(wf_symmetry)  
+  !call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
+  call init_variational_matrices(wf_symmetry)  
   allocate(energy_levels(Ns)); energy_levels=0.d0
   !  
   call build_lattice_model
   !
   NRhop_opt=1;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
-  NQhop_opt=1;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
+  !NQhop_opt=1;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
   Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
-  Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
-  Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+  !Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
+  !Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
   !
-  Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+  Nopt = NRhop_opt + Nvdm_NC_opt
   Nopt = 2*Nopt
-  Nopt_reduced = 1 + 1 + 1 + 1 + 1
+  Nopt_reduced = 1 + 1 
   !
   stride_zeros_orig2red => stride2reduced
   stride_zeros_red2orig => stride2orig
   !
-  allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
-  allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
+  allocate(R_init(Ns,Ns))
+  allocate(slater_lgr_init(Ns,Ns),gzproj_lgr_init(Ns,Ns))
   slater_lgr_init=0.d0
   gzproj_lgr_init=0.d0
   !
   expected_flen=Nopt
-  inquire(file="RQn0_root_seed.conf",exist=seed_file)
+  inquire(file="Rn0_root_seed.conf",exist=seed_file)
   if(seed_file) then
-     flen=file_length("RQn0_root_seed.conf")
+     flen=file_length("Rn0_root_seed.conf")
      unit=free_unit()
-     open(unit,file="RQn0_root_seed.conf")
+     open(unit,file="Rn0_root_seed.conf")
      write(*,*) 'reading root seed from file RQn0_root_seed.conf'
      if(flen.eq.expected_flen) then
         allocate(dump_seed(flen))
@@ -126,9 +125,9 @@ program GUTZ_mb
            read(unit,*) dump_seed(i)
         end do
         !+------------------+!        
-        call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)        
+        call dump2mats(dump_seed,R_init,slater_lgr_init,gzproj_lgr_init)        
      else
-        write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
+        write(*,*) 'Rn0_root_seed.conf in the wrong form',flen,expected_flen
         write(*,*) 'please check your initialization file for the root finding'
         stop
      end if
@@ -136,12 +135,9 @@ program GUTZ_mb
   else
      !
      call init_Rhop_seed(R_init)
-     call init_Qhop_seed(Q_init)
      !
-     slater_lgr_init(1,:,:)=0.3d0
-     slater_lgr_init(2,:,:)=0.d0
-     gzproj_lgr_init(1,:,:)=0.3d0
-     gzproj_lgr_init(2,:,:)=0.d0  
+     slater_lgr_init=0.d0
+     gzproj_lgr_init=0.d0  
      !
   end if
   allocate(x_reseed(2*Nopt))
@@ -155,22 +151,37 @@ program GUTZ_mb
      do iorb=1,Norb
         Uloc(iorb) = Uiter
      end do
-     write(dir_suffix,'(F6.2)') Uiter
+     write(dir_suffix,'(F5.2)') Uiter
      dir_suffix=adjustl(dir_suffix)
      dir_iter="U"//trim(dir_suffix)
-     
      call system('mkdir -v '//dir_iter)     
      !
      if(nread/=0.d0) then
         
+
         xmu_unit=free_unit()
         open(xmu_unit,file='bracket_XMU.out') 
         call bracket_density(xmu1,xmu2,0.01d0,300)     
         write(xmu_unit,*)  xmu1,xmu2
         close(xmu_unit)
 
+        write(*,*) 
+        write(*,*) R_init
+        write(*,*) 
+        n1=gz_optimized_density_VS_xmu(xmu1)
+        !
+        write(*,*) 
+        write(*,*) R_init
+        write(*,*) 
+        n2=gz_optimized_density_VS_xmu(xmu2)
+
+        write(*,*) 'TEST BRACKET'
+        write(*,*) xmu1,n1
+        write(*,*) xmu2,n2
+
         xmu_unit=free_unit()
         open(xmu_unit,file='search_XMU.out') 
+        !search_mu=fzero_brentq(gz_optimized_density_VS_xmu,xmu1,xmu2)       
         search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
         close(xmu_unit)     
 
@@ -186,12 +197,11 @@ program GUTZ_mb
         write(unit,*) 'Jph',Jph
         write(unit,*) 'xmu',xmu
         close(unit)           
-        call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        call get_gz_ground_state_superc(GZ_vector)  
+        call gz_optimization_vdm_Rhop_reduced(R_init,slater_lgr_init,gzproj_lgr_init)
+        call get_gz_ground_state(GZ_vector)  
         
         ! xmu1=xmu
         ! xmu2=xmu+0.01
-
 
 
         ! converged_mu=.false.
@@ -209,13 +219,16 @@ program GUTZ_mb
         !    write(unit,*) 'Jph',Jph
         !    write(unit,*) 'xmu',xmu
         !    close(unit)           
-        !    call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        !    call get_gz_ground_state_superc(GZ_vector)  
+        !    call gz_optimization_vdm_Rhop_reduced(R_init,slater_lgr_init,gzproj_lgr_init)
+        !    call get_gz_ground_state(GZ_vector)  
         !    Ntest=sum(gz_dens(1:Ns))
         !    converged_mu=.true.
         !    call search_chemical_potential(xmu,Ntest,converged_mu,nread,ndelta,nerr)
+        ! R_init = GZ_opt_Rhop
+        ! slater_lgr_init = Gz_opt_slater_lgr
         ! end do
         ! ndelta=ndelta_
+        
      else
         call get_local_hamiltonian_trace
         unit=free_unit()
@@ -227,11 +240,11 @@ program GUTZ_mb
         write(unit,*) 'Jph',Jph
         write(unit,*) 'xmu',xmu
         close(unit)           
-        call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        call get_gz_ground_state_superc(GZ_vector)  
+        call gz_optimization_vdm_Rhop_reduced(R_init,slater_lgr_init,gzproj_lgr_init)
+        call get_gz_ground_state(GZ_vector)  
      end if
      !
-     call print_output_superc
+     call print_output
      !
      call system('cp * '//dir_iter)
      call system('rm *.out *.data fort* ')
@@ -249,10 +262,10 @@ CONTAINS
 
     Lk=Nx
     allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    wini=-Wband/2.d0
-    wfin= Wband/2.d0
-    ! wini = -5.d0
-    ! wfin =5.d0
+    ! wini=-Wband/2.d0
+    ! wfin= Wband/2.d0
+    wini = -5.d0
+    wfin =5.d0
     epsik=linspace(wini,wfin,Lk,mesh=de)
     !
     test_k=0.d0
@@ -442,7 +455,6 @@ CONTAINS
     integer,dimension(Ns) :: fock_state
     complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
-    complex(8),dimension(2,Ns,Ns) :: slater_vdm
 
     real(8),dimension(nFock,nFock) :: test_full_phi
 
@@ -468,24 +480,20 @@ CONTAINS
     !+- STORE SLATER DETERMINANT -+!
     do is=1,Ns
        do js=1,Ns
-          slater_vdm(1,is,js) = 0.d0
           out_unit=free_unit()
           open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
           do ik=1,Lk
              write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(1,is,js,ik)),dimag(GZ_opt_slater_superc(1,is,js,ik))
-             slater_vdm(1,is,js) = slater_vdm(1,is,js) + GZ_opt_slater_superc(1,is,js,ik)*wtk(ik)
           end do
           close(out_unit)
        end do
     end do
     do is=1,Ns
        do js=1,Ns
-          slater_vdm(2,is,js) = 0.d0
           out_unit=free_unit()
           open(out_unit,file='optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
           do ik=1,Lk
              write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(2,is,js,ik)),dimag(GZ_opt_slater_superc(2,is,js,ik))
-             slater_vdm(2,is,js) = slater_vdm(2,is,js) + GZ_opt_slater_superc(2,is,js,ik)*wtk(ik)
           end do
           close(out_unit)
        end do
@@ -511,20 +519,6 @@ CONTAINS
     write(out_unit,*) ! on the last line store the diagonal elements
     write(out_unit,'(20F18.10)') tmp(1:Ns)
     close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='optimized_variational_density_matrixSL.data')
-    write(out_unit,*) 'NORMAL VDM SLATER'
-    do istate=1,Ns
-       write(out_unit,'(20F18.10)') dreal(slater_vdm(1,istate,:)),dimag(slater_vdm(1,istate,:))
-    end do
-    write(out_unit,*)
-    write(out_unit,*) 'ANOMALOUS VDM SLATER'
-    do istate=1,Ns
-       write(out_unit,'(20F18.10)') dreal(slater_vdm(2,istate,:)),dimag(slater_vdm(2,istate,:))
-    end do
-    close(out_unit)
-
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_Rhop_matrix.data')
@@ -613,9 +607,6 @@ CONTAINS
     !+- pecionata -+!
     x_reduced(1) = x_orig(1)
     x_reduced(2) = x_orig(3)
-    x_reduced(3) = x_orig(5)
-    x_reduced(4) = x_orig(7)
-    x_reduced(5) = x_orig(9)
   end subroutine stride2reduced
 
   subroutine stride2orig(x_reduced,x_orig)
@@ -627,9 +618,6 @@ CONTAINS
     x_orig=0.d0
     x_orig(1) = x_reduced(1)
     x_orig(3) = x_reduced(2)
-    x_orig(5) = x_reduced(3)
-    x_orig(7) = x_reduced(4)
-    x_orig(9) = x_reduced(5)
   end subroutine stride2orig
 
 
@@ -999,6 +987,7 @@ CONTAINS
 
 
 
+
   subroutine bracket_density(xmu1,xmu2,xmu_step,xmu_loop)
     real(8),intent(inout) :: xmu1,xmu2
     real(8)               :: xmu_step
@@ -1075,8 +1064,8 @@ CONTAINS
 
     call get_local_hamiltonian_trace
     unit=free_unit()
-    call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-    call get_gz_ground_state_superc(GZ_vector)  
+    call gz_optimization_vdm_Rhop_reduced(R_init,slater_lgr_init,gzproj_lgr_init)
+    call get_gz_ground_state(GZ_vector)  
     delta_local_density=sum(gz_dens(1:Ns))
     delta_local_density = delta_local_density - Nread
     
@@ -1115,8 +1104,6 @@ CONTAINS
     write(xmu_unit,*) xmu,delta_local_density,sum(gz_dens(1:Ns)),Nread
 
   end function gz_optimized_density_VS_xmu
-
-
 
 
 

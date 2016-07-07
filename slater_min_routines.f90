@@ -481,6 +481,7 @@ contains
     real(8)                             :: nqp
     integer                             :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,imap,jmap,i,i0
     integer                             :: is,js,ks
+
     !
     allocate(lm_cmplx(Nvdm_NC_opt))
     do i=1,Nvdm_NC_opt
@@ -547,15 +548,15 @@ contains
                 local_density_matrix(1,is,js) = local_density_matrix(1,is,js) + &
                      conjg(Hk(is,ks))*Hk(js,ks)*nqp*wtk(ik) + conjg(Hk(is,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)*wtk(ik)
                 !
-                local_density_matrix(2,istate,jstate) = local_density_matrix(2,istate,jstate) + &
+                local_density_matrix(2,is,js) = local_density_matrix(2,is,js) + &
                      conjg(Hk(is+Ns,ks))*Hk(js,ks)*nqp*wtk(ik) + conjg(Hk(is+Ns,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)*wtk(ik)
              end do
              !
           end do
        end do
-
+       !
     end do
-    !
+    ! return variation of local density matrix with respect to the target values
     delta_local_density_matrix = local_density_matrix
     do istate=1,Ns
        delta_local_density_matrix(1,istate,istate) = delta_local_density_matrix(1,istate,istate) - n0_target(istate)      

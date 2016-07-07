@@ -67,6 +67,7 @@ program GUTZ_mb
   real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
   complex(8) :: bcs_sc_order,bcs_delta
   real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS
+  logical :: bcs_neq
 
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
@@ -77,6 +78,7 @@ program GUTZ_mb
   call parse_input_variable(read_finSC_dir,"FINSC_DIR","inputGZ.conf",default='./')
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
+  call parse_input_variable(bcs_neq,"BCS_NEQ","inputGZ.conf",default=.false.)  
   !
   call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
@@ -153,18 +155,20 @@ program GUTZ_mb
 
 
 
-  !+- BCS init
-  !
-  unit_neq_hloc = free_unit()
-  open(unit_neq_hloc,file="equ_refSC.out")
-  call read_SC_order(read_optWF_dir,phiBCS)
-  call getUbcs(phiBCS,Ubcs0)
-  write(unit_neq_hloc,*) phiBCS,Ubcs0
-  
-  call read_SC_order(read_finSC_dir,phiBCS)
-  call getUbcs(phiBCS,Ubcsf)
-  write(unit_neq_hloc,*) phiBCS,Ubcsf
-  close(unit_neq_hloc)
+  if(bcs_neq) then
+     !+- BCS init
+     !
+     unit_neq_hloc = free_unit()
+     open(unit_neq_hloc,file="equ_refSC.out")
+     call read_SC_order(read_optWF_dir,phiBCS)
+     call getUbcs(phiBCS,Ubcs0)
+     write(unit_neq_hloc,*) phiBCS,Ubcs0
+     
+     call read_SC_order(read_finSC_dir,phiBCS)
+     call getUbcs(phiBCS,Ubcsf)
+     write(unit_neq_hloc,*) phiBCS,Ubcsf
+     close(unit_neq_hloc)
+  end if
   !
   allocate(Ubcs_t(Nt_aux))
   unit_neq_hloc = free_unit()
@@ -191,14 +195,18 @@ program GUTZ_mb
      tmpU = Ubcs0 + r*(Ubcsf*s-Ubcs0)
      !
      Ubcs_t(itt) = tmpU
-     write(unit_neq_hloc,'(2F18.10)') t,Ubcs_t(itt)
+     if(mod(itt-1,nprint).eq.0) then        
+        write(unit_neq_hloc,'(2F18.10)') t,Ubcs_t(itt)
+     end if
   end do
   !
   !
-  allocate(bcs_wf(3,Lk))
-  allocate(psi_bcs_t(3*Lk))
-  call init_BCS_wf(bcs_wf,Ubcs0)
-  call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
+!  if(bcs_neq) then
+     allocate(bcs_wf(3,Lk))
+     allocate(psi_bcs_t(3*Lk))
+     ! call init_BCS_wf(bcs_wf,Ubcs0)
+     ! call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
+!  end if
   !
   it=1
   Uloc=Uloc_t(:,it)
@@ -308,27 +316,23 @@ program GUTZ_mb
         write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
         !        
         !+- measure BCS -+!
-        call dynamicalVector_2_BCSwf(psi_bcs_t,bcs_wf)
-        bcs_sc_order = zero !<d+d+>
-        bcs_Kenergy = zero
-        bcs_delta=zero
-        do ik=1,Lk
-
-           !bcs_Kenergy = bcs_Kenergy + epsik(ik)*bcs_wf(3,ik)*wtk(ik)
-
-           bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
-           bcs_delta = bcs_delta + 0.5d0*(bcs_wf(1,ik)-xi*bcs_wf(2,ik))*wtk(ik)
-
-        end do
-
-        !stop
-        itt=t2it(t,tstep*0.5d0)
-        bcs_Uenergy = 2.d0*Uloc_t(1,itt)*bcs_delta*conjg(bcs_delta)        
-        write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_delta!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
+        if(bcs_neq) then
+           call dynamicalVector_2_BCSwf(psi_bcs_t,bcs_wf)
+           bcs_sc_order = zero !<d+d+>
+           bcs_Kenergy = zero
+           bcs_delta=zero
+           do ik=1,Lk
+              bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
+              bcs_delta = bcs_delta + 0.5d0*(bcs_wf(1,ik)-xi*bcs_wf(2,ik))*wtk(ik)
+           end do
+           itt=t2it(t,tstep*0.5d0)
+           bcs_Uenergy = 2.d0*Uloc_t(1,itt)*bcs_delta*conjg(bcs_delta)        
+           write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_delta!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
+           !
+        end if
         !
+        psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
      end if
-     !
-     psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
      psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
      !
   end do

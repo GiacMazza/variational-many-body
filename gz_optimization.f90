@@ -24,6 +24,7 @@ function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
   !
   complex(8),dimension(Ns,Ns)         :: Rhop_out
   complex(8),dimension(Ns,Ns)       :: slater_out,GZproj_out
+  logical                           :: test_n
   !
   NRhop = 2*NRhop_opt
   !
@@ -36,55 +37,71 @@ function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
   call dump2mats(x,Rhop,slater_lgr_multip,proj_lgr_multip)
   !  
   call slater_minimization_fixed_lgr(Rhop,slater_lgr_multip,E_Hstar,n0_slater,slater_derivatives)  
-  !  
-  do is=1,Ns
-     do js=1,Ns
-        Rhop_lgr_multip(is,js) = -1.d0*slater_derivatives(is,js)/sqrt(n0_slater(js,js)*(1.d0-n0_slater(js,js)))
-     end do
-  end do
   !
-  do is=1,Ns
-     tmp = 0.d0
-     do js=1,Ns
-        tmp = tmp + dreal(Rhop_lgr_multip(is,js)*Rhop(is,js))
-     end do
-     proj_lgr_multip(is,is) = -0.5d0*slater_lgr_multip(is,is) + &  
-          0.5d0*(1.d0-2.d0*n0_slater(is,is))/sqrt(n0_slater(is,is)*(1.d0-n0_slater(is,is)))*tmp 
-  end do
+  test_n=.true.
   !  
   do is=1,Ns
      n0_diag(is) = n0_slater(is,is)
+     if(n0_diag(is).gt.1.d0-1.d-8.or.n0_diag(is).lt.1.d-8) test_n=.false.
   end do
   !
-  call gz_proj_minimization_fixed_lgr_hop(n0_diag,proj_lgr_multip,Rhop_lgr_multip,E_Hloc,GZvect)    
-  !
-  n0_GZproj = 0.d0
-  do is=1,Ns
-     do js=1,Ns
-        n0_GZproj(is,js)   = trace_phi_basis(GZvect,phi_traces_basis_dens(is,js,:,:))
-        Rhop_GZProj(is,js) = trace_phi_basis(GZvect,phi_traces_basis_Rhop(is,js,:,:))
+
+  if(test_n) then
+
+     do is=1,Ns
+        do js=1,Ns
+           Rhop_lgr_multip(is,js) = -1.d0*slater_derivatives(is,js)/sqrt(n0_slater(js,js)*(1.d0-n0_slater(js,js)))
+        end do
      end do
-  end do
-  !  
-  do is=1,Ns
-     do js=1,Ns
-        Rhop_out(is,js) = Rhop_GZproj(is,js)-Rhop(is,js)*sqrt(n0_diag(js)*(1.d0-n0_diag(js)))
-        if(is.eq.js) then
-           slater_out(is,js) = n0_slater(is,js) - n0_GZproj(is,js)
-        else
-           slater_out(is,js) = n0_slater(is,js)
-        end if
-        GZproj_out(is,js) = n0_GZproj(is,js)
+     !
+     do is=1,Ns
+        tmp = 0.d0
+        do js=1,Ns
+           tmp = tmp + dreal(Rhop_lgr_multip(is,js)*Rhop(is,js))
+        end do
+        proj_lgr_multip(is,is) = -0.5d0*slater_lgr_multip(is,is) + &  
+             0.5d0*(1.d0-2.d0*n0_slater(is,is))/sqrt(n0_slater(is,is)*(1.d0-n0_slater(is,is)))*tmp 
      end do
-  end do
-  !
-  call dump2vec(tmp_x,Rhop_out,slater_out,GZproj_out)
-  !
-  Fout=tmp_x
-  delta_out=0.d0
-  do is=1,Nopt
-     delta_out = delta_out + Fout(is)*Fout(is)
-  end do
+     !
+     ! write(*,*) 'prima',n0_diag
+     ! write(*,*) slater_lgr_multip
+     ! write(*,*) slater_lgr_multip
+     call gz_proj_minimization_fixed_lgr_hop(n0_diag,proj_lgr_multip,Rhop_lgr_multip,E_Hloc,GZvect)   
+     !write(*,*) 'dopo' 
+     !
+     n0_GZproj = 0.d0
+     do is=1,Ns
+        do js=1,Ns
+           n0_GZproj(is,js)   = trace_phi_basis(GZvect,phi_traces_basis_dens(is,js,:,:))
+           Rhop_GZProj(is,js) = trace_phi_basis(GZvect,phi_traces_basis_Rhop(is,js,:,:))
+        end do
+     end do
+     !  
+     do is=1,Ns
+        do js=1,Ns
+           Rhop_out(is,js) = Rhop_GZproj(is,js)-Rhop(is,js)*sqrt(n0_diag(js)*(1.d0-n0_diag(js)))
+           if(is.eq.js) then
+              slater_out(is,js) = n0_slater(is,js) - n0_GZproj(is,js)
+           else
+              slater_out(is,js) = n0_slater(is,js)
+           end if
+           GZproj_out(is,js) = n0_GZproj(is,js)
+        end do
+     end do
+     !
+     call dump2vec(tmp_x,Rhop_out,slater_out,GZproj_out)
+     !
+     Fout=tmp_x
+     delta_out=0.d0
+     do is=1,Nopt
+        delta_out = delta_out + Fout(is)*Fout(is)
+     end do
+
+  else
+
+     Fout=1
+  end if
+
   !
   if(GZmin_verbose) then
      write(root_unit,'(30F18.10)') delta_out,Fout(1:Nopt)

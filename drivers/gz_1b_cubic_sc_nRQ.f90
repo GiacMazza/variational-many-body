@@ -38,8 +38,8 @@ program GUTZ_mb
   logical :: seed_file
 
 
-  character(len=10) :: dir_suffix
-  character(len=11) :: dir_iter
+  character(len=5) :: dir_suffix
+  character(len=6) :: dir_iter
   !
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
   complex(8),dimension(:,:),allocatable   :: R_init,Q_init
@@ -55,9 +55,6 @@ program GUTZ_mb
   real(8) :: nread,Ntest,ndelta,nerr
   real(8) :: ndelta_
   logical :: converged_mu
-  real(8) :: xmu1,xmu2,n1,n2,search_mu
-  integer :: xmu_unit
-
   !
 
   !
@@ -74,8 +71,6 @@ program GUTZ_mb
   call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
   call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nread,"NREAD","inputGZ.conf",default=0.d0)
-  call parse_input_variable(xmu1,"XMU1","inputGZ.conf",default=-0.1d0)
-  call parse_input_variable(xmu2,"XMU2","inputGZ.conf",default=0.1d0)
   call parse_input_variable(nerr,"NERR","inputGZ.conf",default=1.d-7)
   call parse_input_variable(ndelta,"NDELTA","inputGZ.conf",default=1.d-4)
   !
@@ -155,67 +150,33 @@ program GUTZ_mb
      do iorb=1,Norb
         Uloc(iorb) = Uiter
      end do
-     write(dir_suffix,'(F6.2)') Uiter
-     dir_suffix=adjustl(dir_suffix)
+     write(dir_suffix,'(F5.2)') Uiter
      dir_iter="U"//trim(dir_suffix)
-     
      call system('mkdir -v '//dir_iter)     
      !
      if(nread/=0.d0) then
-        
-        xmu_unit=free_unit()
-        open(xmu_unit,file='bracket_XMU.out') 
-        call bracket_density(xmu1,xmu2,0.01d0,300)     
-        write(xmu_unit,*)  xmu1,xmu2
-        close(xmu_unit)
-
-        xmu_unit=free_unit()
-        open(xmu_unit,file='search_XMU.out') 
-        search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
-        close(xmu_unit)     
-
-        
-        xmu=search_mu
-        call get_local_hamiltonian_trace
-        unit=free_unit()
-        open(unit,file='local_hamiltonian_parameters.out')
-        write(unit,*) 'Uloc',Uloc
-        write(unit,*) 'Ust',Ust
-        write(unit,*) 'Jh',Jh
-        write(unit,*) 'Jsf',Jsf
-        write(unit,*) 'Jph',Jph
-        write(unit,*) 'xmu',xmu
-        close(unit)           
-        call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        call get_gz_ground_state_superc(GZ_vector)  
-        
-        ! xmu1=xmu
-        ! xmu2=xmu+0.01
-
-
-
-        ! converged_mu=.false.
-        ! iloop=0
-        ! ndelta_=ndelta
-        ! do while(.not.converged_mu.AND.iloop<1000)
-        !    iloop = iloop + 1
-        !    call get_local_hamiltonian_trace
-        !    unit=free_unit()
-        !    open(unit,file='local_hamiltonian_parameters.out')
-        !    write(unit,*) 'Uloc',Uloc
-        !    write(unit,*) 'Ust',Ust
-        !    write(unit,*) 'Jh',Jh
-        !    write(unit,*) 'Jsf',Jsf
-        !    write(unit,*) 'Jph',Jph
-        !    write(unit,*) 'xmu',xmu
-        !    close(unit)           
-        !    call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        !    call get_gz_ground_state_superc(GZ_vector)  
-        !    Ntest=sum(gz_dens(1:Ns))
-        !    converged_mu=.true.
-        !    call search_chemical_potential(xmu,Ntest,converged_mu,nread,ndelta,nerr)
-        ! end do
-        ! ndelta=ndelta_
+        converged_mu=.false.
+        iloop=0
+        ndelta_=ndelta
+        do while(.not.converged_mu.AND.iloop<1000)
+           iloop = iloop + 1
+           call get_local_hamiltonian_trace
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)           
+           call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+           call get_gz_ground_state_superc(GZ_vector)  
+           Ntest=sum(gz_dens(1:Ns))
+           converged_mu=.true.
+           call search_chemical_potential(xmu,Ntest,converged_mu,nread,ndelta,nerr)
+        end do
+        ndelta=ndelta_
      else
         call get_local_hamiltonian_trace
         unit=free_unit()
@@ -247,53 +208,48 @@ CONTAINS
     real(8)                            :: ts,test_k,kx_,ky_,kz_,wini,wfin,de,test_n1,test_n2
     !
 
-    Lk=Nx
-    allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    wini=-Wband/2.d0
-    wfin= Wband/2.d0
+    ! Lk=Nx
+    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
     ! wini = -5.d0
     ! wfin =5.d0
-    epsik=linspace(wini,wfin,Lk,mesh=de)
-    !
-    test_k=0.d0
-    test_n1=0.d0;test_n2=0.d0
-    do ix=1,Lk
-       ! wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       ! !wtk(ix) = 1.d0/Wband*de
-       ! if(ix==1.or.ix==Lk) wtk(ix)=0.d0
-       if(epsik(ix).gt.-Wband/2.d0.and.epsik(ix).lt.Wband/2) then
-          wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       else
-          wtk(ix) = 0.d0
-       end if
-       test_n1=test_n1+wtk(ix)*fermi(epsik(ix)+Cfield*0.5d0,beta)
-       test_n2=test_n2+wtk(ix)*fermi(epsik(ix)-Cfield*0.5d0,beta)
-       write(77,*) epsik(ix),wtk(ix)
-    end do
-    hybik=0.d0
-    !write(*,*) test_n1,test_n2,Cfield; stop
-
-
-    ! allocate(kx(Nx))
-    ! kx = linspace(0.d0,pi,Nx,.true.,.true.)
-    ! Lk=Nx*Nx*Nx
-    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    ! ik=0
-    ! do ix=1,Nx
-    !    do iy=1,Nx
-    !       do iz=1,Nx
-    !          ik=ik+1
-    !          !kx_=dble(ix)/dble(Nx)*pi
-    !          epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
-    !          hybik(ik) = 0.d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
-    !          wtk(ik) = 1.d0/dble(Lk)
-    !       end do
-    !    end do
+    ! epsik=linspace(wini,wfin,Lk,mesh=de)
+    ! !
+    ! test_k=0.d0
+    ! test_n1=0.d0;test_n2=0.d0
+    ! do ix=1,Lk
+    !    ! wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+    !    ! !wtk(ix) = 1.d0/Wband*de
+    !    ! if(ix==1.or.ix==Lk) wtk(ix)=0.d0
+    !    if(epsik(ix).gt.-Wband/2.d0.and.epsik(ix).lt.Wband/2) then
+    !       wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+    !    else
+    !       wtk(ix) = 0.d0
+    !    end if
+    !    test_n1=test_n1+wtk(ix)*fermi(epsik(ix)+Cfield*0.5d0,beta)
+    !    test_n2=test_n2+wtk(ix)*fermi(epsik(ix)-Cfield*0.5d0,beta)
+    !    write(77,*) epsik(ix),wtk(ix)
     ! end do
-
+    ! hybik=0.d0
+    !write(*,*) test_n1,test_n2,Cfield; stop
+    !
+    allocate(kx(Nx))
+    kx = linspace(0.d0,pi,Nx,.true.,.true.)
+    Lk=Nx*Nx*Nx
+    allocate(epsik(Lk),wtk(Lk),hybik(Lk))
+    ik=0
+    do ix=1,Nx
+       do iy=1,Nx
+          do iz=1,Nx
+             ik=ik+1
+             epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
+             hybik(ik) =  0.d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
+             wtk(ik) = 1.d0/dble(Lk)
+          end do
+       end do
+    end do
+    !
     call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
-    !stop
-
+    !
     allocate(Hk_tb(Ns,Ns,Lk))    
     Hk_tb=0.d0
     do ik=1,Lk
@@ -442,7 +398,6 @@ CONTAINS
     integer,dimension(Ns) :: fock_state
     complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
-    complex(8),dimension(2,Ns,Ns) :: slater_vdm
 
     real(8),dimension(nFock,nFock) :: test_full_phi
 
@@ -468,24 +423,20 @@ CONTAINS
     !+- STORE SLATER DETERMINANT -+!
     do is=1,Ns
        do js=1,Ns
-          slater_vdm(1,is,js) = 0.d0
           out_unit=free_unit()
           open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
           do ik=1,Lk
              write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(1,is,js,ik)),dimag(GZ_opt_slater_superc(1,is,js,ik))
-             slater_vdm(1,is,js) = slater_vdm(1,is,js) + GZ_opt_slater_superc(1,is,js,ik)*wtk(ik)
           end do
           close(out_unit)
        end do
     end do
     do is=1,Ns
        do js=1,Ns
-          slater_vdm(2,is,js) = 0.d0
           out_unit=free_unit()
           open(out_unit,file='optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
           do ik=1,Lk
              write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(2,is,js,ik)),dimag(GZ_opt_slater_superc(2,is,js,ik))
-             slater_vdm(2,is,js) = slater_vdm(2,is,js) + GZ_opt_slater_superc(2,is,js,ik)*wtk(ik)
           end do
           close(out_unit)
        end do
@@ -511,20 +462,6 @@ CONTAINS
     write(out_unit,*) ! on the last line store the diagonal elements
     write(out_unit,'(20F18.10)') tmp(1:Ns)
     close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='optimized_variational_density_matrixSL.data')
-    write(out_unit,*) 'NORMAL VDM SLATER'
-    do istate=1,Ns
-       write(out_unit,'(20F18.10)') dreal(slater_vdm(1,istate,:)),dimag(slater_vdm(1,istate,:))
-    end do
-    write(out_unit,*)
-    write(out_unit,*) 'ANOMALOUS VDM SLATER'
-    do istate=1,Ns
-       write(out_unit,'(20F18.10)') dreal(slater_vdm(2,istate,:)),dimag(slater_vdm(2,istate,:))
-    end do
-    close(out_unit)
-
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_Rhop_matrix.data')
@@ -994,127 +931,6 @@ CONTAINS
     vdm_AC_indep(1) = vdm_AC_mat(is,js)
     !
   end subroutine vdm_AC_mat2vec
-
-
-
-
-
-  subroutine bracket_density(xmu1,xmu2,xmu_step,xmu_loop)
-    real(8),intent(inout) :: xmu1,xmu2
-    real(8)               :: xmu_step
-    real(8)               :: dens1,dens2,xmu,dens,sign_dens,xmu_max,xmu_min
-    real(8),dimension(2)  :: xmu_sort
-    integer :: i,xmu_loop
-    
-    if(xmu2.gt.xmu1) then
-       xmu_sort(1) = xmu2
-       xmu_sort(2) = xmu1
-    else
-       xmu_sort(1) = xmu1
-       xmu_sort(2) = xmu2
-    end if
-       
-    xmu_max = xmu_sort(1)
-    xmu_min = xmu_sort(2)
-
-    dens1 = gz_optimized_density_VS_xmu(xmu1)
-    dens2 = gz_optimized_density_VS_xmu(xmu2)
-
-    sign_dens = dens1*dens2
-
-    write(*,*) 'BRACKET IN',xmu1,xmu2,dens1,dens2
-    
-    if(sign_dens.gt.0.d0) then
-       !+- bracket xmu -+!
-       if(dens1.gt.0.d0) then          
-          xmu = xmu_min
-          do i=1,xmu_loop
-             xmu = xmu - abs(xmu_step)
-             dens = gz_optimized_density_VS_xmu(xmu)
-             sign_dens = dens*dens1
-             write(*,*) 'loop bracket',xmu,xmu_sort,dens,dens1,dens2,sign_dens
-             if(sign_dens.lt.0.d0) then
-                ! take the largest between xmu1 and xmu2 and <--- xmu
-                xmu_sort(1) = xmu
-                exit
-             end if
-          end do
-       else
-          xmu = xmu_max
-          do i=1,xmu_loop
-             xmu = xmu + abs(xmu_step)
-             dens = gz_optimized_density_VS_xmu(xmu)
-             sign_dens = dens*dens1
-             write(*,*) 'loop bracket',xmu,xmu_sort,dens,dens1,dens2
-             if(sign_dens.lt.0.d0) then
-                ! take the smallest between xmu1 and xmu2 and <--- xmu
-                xmu_sort(2) = xmu
-                exit             
-             end if
-          end do
-       end if
-    end if
-    xmu1=xmu_sort(1)
-    xmu2=xmu_sort(2)
-    write(*,*) 'BRACKET OUT',xmu1,xmu2,dens,dens1,dens2
-  end subroutine bracket_density
-
-
-
-  function gz_optimized_density_VS_xmu(chem_pot) result(delta_local_density)
-    real(8),intent(in) :: chem_pot
-    !    complex(8),dimension(Ns,Ns) :: R_init_,slater_lgr_init_,gzproj_lgr_init_
-    real(8)              :: delta_local_density,local_density
-    real(8)              :: Energy
-    complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix
-    real(8),dimension(:,:),allocatable   :: variational_density_matrix
-    real(8),dimension(1)   :: vdm_in,vdm_out
-    integer :: is,js
-    !
-    xmu = chem_pot
-
-    call get_local_hamiltonian_trace
-    unit=free_unit()
-    call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-    call get_gz_ground_state_superc(GZ_vector)  
-    delta_local_density=sum(gz_dens(1:Ns))
-    delta_local_density = delta_local_density - Nread
-    
-
-    ! call build_local_hamiltonian    
-    ! phi_traces_basis_Hloc = get_traces_basis_phiOphi(local_hamiltonian)
-    ! phi_traces_basis_free_Hloc = get_traces_basis_phiOphi(local_hamiltonian_free)
-
-    ! allocate(Rhop_init_matrix(Ns,Ns)); Rhop_init_matrix = 0.d0;
-    ! do is=1,Ns
-    !    Rhop_init_matrix(is,is) = 1.d0
-    ! end do
-    ! allocate(variational_density_matrix(Ns,Ns)); variational_density_matrix = 0.d0;
-    ! do is=1,Ns
-    !    variational_density_matrix(is,is) = dble(N_target)/dble(2*Ns)
-    ! end do
-    ! !
-    ! lgr_init_slater=0.d0
-    ! lgr_init_gzproj=0.d0
-    ! !
-    ! !vdm_init=0.5d0
-    ! !call gz_optimization_vdm_nlsq(vdm_in,vdm_out)
-    ! !
-    ! !call gz_optimization_vdm_Rhop(Rhop_init_matrix,variational_density_matrix)
-    ! call gz_optimization_vdm_Rhop(Rhop_init_matrix,variational_density_matrix)
-    ! call get_gz_ground_state(GZ_vector)
-    ! !
-    ! variational_density_matrix = GZ_opt_VDM
-    ! local_density=0.d0
-    ! do is=1,Ns
-    !    local_density = local_density + variational_density_matrix(is,is)
-    ! end do
-    ! !
-    ! delta_local_density = local_density-N_target
-    ! !write(*,*) xmu,delta_local_density,local_density
-    write(xmu_unit,*) xmu,delta_local_density,sum(gz_dens(1:Ns)),Nread
-
-  end function gz_optimized_density_VS_xmu
 
 
 

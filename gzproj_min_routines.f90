@@ -551,7 +551,7 @@ contains
     !+- build up the local H_projectors -+!
     call build_H_GZproj_superc(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !
-    call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
+    call matrix_diagonalize(H_projectors,H_eigens)!,'V','L')         
     !
     proj_gs = H_projectors(:,1)
     !
@@ -610,7 +610,7 @@ contains
     !+- build up the local H_projectors -+!
     call build_H_GZproj_superc(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !
-    call matrix_diagonalize(H_projectors,H_eigens,'V','L')         
+    call matrix_diagonalize(H_projectors,H_eigens)!,'V','L')         
     !
     proj_gs = H_projectors(:,1)
     !

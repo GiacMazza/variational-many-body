@@ -557,6 +557,8 @@ CONTAINS
     open(unit,file="GZsearch_mu_iteration.out",position="append")
     write(unit,*)var,ntmp,ndiff,nth
     close(unit)
+    write(*,*) 'madonna searching mu'
+    write(*,*)var,ntmp,ndiff,nth
     !
     !check convergence within actual threshold
     !if reduce is activetd

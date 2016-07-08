@@ -79,10 +79,11 @@ CONTAINS
 
 
 
-  subroutine read_optimized_variational_wf_superc(read_dir,slater_determinant,phi_vector)
+  subroutine read_optimized_variational_wf_superc(read_dir,slater_determinant,phi_vector,slater_lgr_A,proj_lgr_A)
     character(len=200)             :: read_dir
     complex(8),dimension(Nphi)     :: phi_vector
     complex(8),dimension(2,Ns,Ns,Lk) :: slater_determinant    
+    complex(8),dimension(Ns,Ns),optional :: slater_lgr_A,proj_lgr_A
     real(8)                        :: tmp_re,tmp_im,x
     integer :: is,js,read_unit,flen,ios,i
     character(len=200) :: file_name
@@ -171,6 +172,73 @@ CONTAINS
     else
        write(*,*) 'FILE',file_name,'does not exist!!!'
     end if
+
+
+    if(present(slater_lgr_A)) then
+       !
+       do is=1,Ns
+          do js=1,Ns
+             file_name=reg(read_dir)//'optimized_slaterLGR_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+             inquire(file=file_name,exist=check_file)
+             if(check_file) then
+                read_unit = free_unit()
+                open(read_unit,file=file_name,status='old')
+                flen=0
+                do
+                   read (read_unit,*,iostat=ios) x
+                   if (ios/=0) exit     
+                   flen=flen+1
+                end do
+                close(read_unit)                    
+                if(flen.ne.1) stop "READING OPTIMIZED SLATER DETRMINANT LGR ANOMALOUS: number of lines /= 1"
+                open(read_unit,file=file_name,status='old')
+                write(*,*) "Reading from file",file_name
+                do i=1,flen
+                   read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                   slater_lgr_A(is,js) = tmp_re + xi*tmp_im
+                end do
+                close(read_unit)
+             else
+                write(*,*) "FILE",file_name,"does not exist!!!"
+                stop 
+             end if
+          end do
+       end do
+    end if
+
+
+    if(present(proj_lgr_A)) then
+       !
+       do is=1,Ns
+          do js=1,Ns
+             file_name=reg(read_dir)//'optimized_gzprojLGR_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+             inquire(file=file_name,exist=check_file)
+             if(check_file) then
+                read_unit = free_unit()
+                open(read_unit,file=file_name,status='old')
+                flen=0
+                do
+                   read (read_unit,*,iostat=ios) x
+                   if (ios/=0) exit     
+                   flen=flen+1
+                end do
+                close(read_unit)                    
+                if(flen.ne.1) stop "READING OPTIMIZED GZ PROJ DETRMINANT LGR ANOMALOUS: number of lines /= 1"
+                open(read_unit,file=file_name,status='old')
+                write(*,*) "Reading from file",file_name
+                do i=1,flen
+                   read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                   proj_lgr_A(is,js) = tmp_re + xi*tmp_im
+                end do
+                close(read_unit)
+             else
+                write(*,*) "FILE",file_name,"does not exist!!!"
+                stop 
+             end if
+          end do
+       end do
+    end if
+
   end subroutine read_optimized_variational_wf_superc
 
 

@@ -21,12 +21,13 @@ EXE=gz_generate_phi_traces
 #EXE=gz_1b_attractiveU
 
 
-#EXE=gz_1b_bethe_sc_nRQ
+EXE=gz_1b_bethe_sc_nRQ
 #EXE=gz_1b_cubic_sc_nRQ
-EXE=gz_1b_bethe_sc
+#EXE=gz_1b_bethe_sc
 
 
 #EXE=gz_neq_1b_bethe_sc
+EXE=gz_neq_1b_bethe_sc_tdlgr
 
 
 #EXE=gz_2b_bethe_sc

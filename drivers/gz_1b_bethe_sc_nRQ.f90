@@ -490,6 +490,31 @@ CONTAINS
           close(out_unit)
        end do
     end do
+    
+    !+- STORE OPTIMIZED LAGRANGE MULTIPLIERS -+!
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slaterLGR_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_lgr_superc(1,is,js)),dimag(GZ_opt_slater_lgr_superc(1,is,js))
+          close(out_unit)
+          open(out_unit,file='optimized_slaterLGR_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_lgr_superc(2,is,js)),dimag(GZ_opt_slater_lgr_superc(2,is,js))
+          close(out_unit)
+       end do
+    end do
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_gzprojLGR_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          write(out_unit,'(2F18.10)') dreal(GZ_opt_proj_lgr_superc(1,is,js)),dimag(GZ_opt_proj_lgr_superc(1,is,js))
+          close(out_unit)
+          open(out_unit,file='optimized_gzprojLGR_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          write(out_unit,'(2F18.10)') dreal(GZ_opt_proj_lgr_superc(2,is,js)),dimag(GZ_opt_proj_lgr_superc(2,is,js))
+          close(out_unit)
+       end do
+    end do
+
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_internal_energy.data')

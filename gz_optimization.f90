@@ -116,6 +116,7 @@ function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
      GZ_opt_Eloc    = E_Hloc
      !+- here I should modify this ?? porca troia quante robbe da modificare...
      GZ_opt_slater_lgr = slater_lgr_multip
+     GZ_opt_proj_lgr = proj_lgr_multip
      !
   end if
   !
@@ -284,6 +285,7 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
      GZ_opt_Eloc    = E_Hloc
      !+- here I should modify this
      GZ_opt_slater_lgr_superc = slater_lgr_multip
+     GZ_opt_proj_lgr_superc = proj_lgr_multip
   end if
   !
 end function R_Q_VDM_free_zeros_superc

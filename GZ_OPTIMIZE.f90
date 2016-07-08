@@ -109,6 +109,9 @@ CONTAINS
     allocate(GZ_vector(Nphi))
     if(allocated(GZ_opt_slater_lgr)) deallocate(GZ_opt_slater_lgr)
     allocate(GZ_opt_slater_lgr(Ns,Ns))
+    if(allocated(GZ_opt_proj_lgr)) deallocate(GZ_opt_proj_lgr)
+    allocate(GZ_opt_proj_lgr(Ns,Ns))
+
     !
     xout = R_VDM_free_zeros_(xmin)
     out_err=0.d0
@@ -215,6 +218,8 @@ CONTAINS
     allocate(GZ_vector(Nphi))
     if(allocated(GZ_opt_slater_lgr)) deallocate(GZ_opt_slater_lgr)
     allocate(GZ_opt_slater_lgr(Ns,Ns))
+    if(allocated(GZ_opt_proj_lgr)) deallocate(GZ_opt_proj_lgr)
+    allocate(GZ_opt_proj_lgr(Ns,Ns))
     !
     xout = R_VDM_free_zeros_(xmin)
     out_err=0.d0
@@ -338,6 +343,8 @@ CONTAINS
     allocate(GZ_vector(Nphi))
     if(allocated(GZ_opt_slater_lgr_superc)) deallocate(GZ_opt_slater_lgr_superc)
     allocate(GZ_opt_slater_lgr_superc(2,Ns,Ns))
+    if(allocated(GZ_opt_proj_lgr_superc)) deallocate(GZ_opt_proj_lgr_superc)
+    allocate(GZ_opt_proj_lgr_superc(2,Ns,Ns))
     !
     xout = R_Q_VDM_free_zeros_superc(xmin)
     out_err=0.d0
@@ -457,6 +464,8 @@ CONTAINS
     allocate(GZ_vector(Nphi))
     if(allocated(GZ_opt_slater_lgr_superc)) deallocate(GZ_opt_slater_lgr_superc)
     allocate(GZ_opt_slater_lgr_superc(2,Ns,Ns))
+    if(allocated(GZ_opt_proj_lgr_superc)) deallocate(GZ_opt_proj_lgr_superc)
+    allocate(GZ_opt_proj_lgr_superc(2,Ns,Ns))
     !
     xout = R_Q_VDM_free_zeros_superc(xmin)
     out_err=0.d0

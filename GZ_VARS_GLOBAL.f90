@@ -78,6 +78,11 @@ MODULE GZ_VARS_GLOBAL
   complex(8),dimension(:,:,:),allocatable   :: GZ_opt_slater_lgr_superc(:,:,:)
   complex(8),dimension(:,:),allocatable   :: slater_ground_state_deriv   ! (Ns,Ns) aka d<H*>/R_{\alpha,\beta} \alpha,\beta=1,Ns
   
+  !+- projectors lgr_multipliers
+  complex(8),dimension(:,:),allocatable     :: GZ_opt_proj_lgr(:,:)
+  complex(8),dimension(:,:,:),allocatable   :: GZ_opt_proj_lgr_superc(:,:,:)
+  
+  
   !# Observables #!
   real(8),allocatable                :: gz_dens_dens(:,:)  !  (1:Ns,1:Ns)
   real(8),allocatable                :: gz_dens(:)           ! local density    (1:Ns)

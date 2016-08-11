@@ -274,7 +274,7 @@ program GUTZ_mb
         call system('rm *.out *.data fort* ')
         Uiter = Uiter + sweep_step
      end do
-
+     
   case('sweepD')
      !+- sweep JHund -+!
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
@@ -297,33 +297,52 @@ program GUTZ_mb
         dir_iter="d"//trim(dir_suffix)
         call system('mkdir -v '//dir_iter)     
         !
-        iloop=0;converged_mu=.false.
-        do while(.not.converged_mu.AND.iloop<30)
-           iloop=iloop+1
+
+        if(abs(deltaU).gt.1.d-10) then
+           iloop=0;converged_mu=.false.
+           do while(.not.converged_mu.AND.iloop<30)
+              iloop=iloop+1
+              !
+              call get_local_hamiltonian_trace
+              !
+              call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+              !
+              call get_gz_ground_state_superc(GZ_vector)  
+              !
+              Ntest=sum(gz_dens(1:Ns))
+              converged_mu=.true.;
+              !
+              call search_chemical_potential(xmu,Ntest,converged_mu,ntarget,ndelta,nerr)
+              !
+           end do
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)
+        else
            !
            call get_local_hamiltonian_trace
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)
            !
            call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
            !
            call get_gz_ground_state_superc(GZ_vector)  
            !
-           Ntest=sum(gz_dens(1:Ns))
-           converged_mu=.true.;
-           !
-           call search_chemical_potential(xmu,Ntest,converged_mu,ntarget,ndelta,nerr)
-           !
-        end do
-
-        unit=free_unit()
-        open(unit,file='local_hamiltonian_parameters.out')
-        write(unit,*) 'Uloc',Uloc
-        write(unit,*) 'Ust',Ust
-        write(unit,*) 'Jh',Jh
-        write(unit,*) 'Jsf',Jsf
-        write(unit,*) 'Jph',Jph
-        write(unit,*) 'xmu',xmu
-        close(unit)
-
+        end if
+        !
         call print_output_superc
         call system('cp * '//dir_iter)
         call system('rm *.out *.data fort.* ')
@@ -529,11 +548,11 @@ CONTAINS
 
   subroutine print_output_superc(vdm_simplex)
     real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
-    integer :: out_unit,istate,iorb,iphi,ifock,jfock
+    integer :: out_unit,istate,iorb,iphi,ifock,jfock,ik
     integer,dimension(Ns) :: fock_state
     complex(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
-
+    complex(8),dimension(2,Ns,Ns) :: slater_vdm
     real(8),dimension(nFock,nFock) :: test_full_phi
 
     out_unit=free_unit()
@@ -544,18 +563,66 @@ CONTAINS
     do iphi=1,Nphi
        !
        test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
-       write(out_unit,*) GZ_vector(iphi)
+       write(out_unit,'(2F18.10)') GZ_vector(iphi)
     end do
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
+    close(out_unit)    
+    open(out_unit,file='optimized_phi_matrix.data')    
     do ifock=1,nFock
        do jfock=1,nFock
           write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
        end do
     end do
-    close(out_unit)    
+    close(out_unit)
 
+
+    !+- STORE SLATER DETERMINANT -+!
+    do is=1,Ns
+       do js=1,Ns
+          slater_vdm(1,is,js) = 0.d0
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          do ik=1,Lk
+             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(1,is,js,ik)),dimag(GZ_opt_slater_superc(1,is,js,ik))
+             slater_vdm(1,is,js) = slater_vdm(1,is,js) + GZ_opt_slater_superc(1,is,js,ik)*wtk(ik)
+          end do
+          close(out_unit)
+       end do
+    end do
+    do is=1,Ns
+       do js=1,Ns
+          slater_vdm(2,is,js) = 0.d0
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          do ik=1,Lk
+             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_superc(2,is,js,ik)),dimag(GZ_opt_slater_superc(2,is,js,ik))
+             slater_vdm(2,is,js) = slater_vdm(2,is,js) + GZ_opt_slater_superc(2,is,js,ik)*wtk(ik)
+          end do
+          close(out_unit)
+       end do
+    end do
+
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slaterLGR_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_lgr_superc(1,is,js)),dimag(GZ_opt_slater_lgr_superc(1,is,js))
+          close(out_unit)
+          open(out_unit,file='optimized_slaterLGR_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          write(out_unit,'(2F18.10)') dreal(GZ_opt_slater_lgr_superc(2,is,js)),dimag(GZ_opt_slater_lgr_superc(2,is,js))
+          close(out_unit)
+       end do
+    end do
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_gzprojLGR_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          write(out_unit,'(2F18.10)') dreal(GZ_opt_proj_lgr_superc(1,is,js)),dimag(GZ_opt_proj_lgr_superc(1,is,js))
+          close(out_unit)
+          open(out_unit,file='optimized_gzprojLGR_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          write(out_unit,'(2F18.10)') dreal(GZ_opt_proj_lgr_superc(2,is,js)),dimag(GZ_opt_proj_lgr_superc(2,is,js))
+          close(out_unit)
+       end do
+    end do
     !
     out_unit=free_unit()
     open(out_unit,file='optimized_internal_energy.data')

@@ -513,10 +513,13 @@ CONTAINS
     end do
 
 
+    write(*,*) 'Time Dependent lagrange parameters'
+    write(*,*) lgr
+   
     !
     yt_old = yt
-    call fsolve(fix_anomalous_vdm,lgr,tol=1.d-10,info=iter)    
-    !call fmin_cg(lgr,fix_anomalous_vdm_,iter,delta,itmax=20)
+    !call fsolve(fix_anomalous_vdm,lgr,tol=1.d-10,info=iter)    
+    call fmin_cg(lgr,fix_anomalous_vdm_,iter,delta,itmax=20)
     delta_out = fix_anomalous_vdm(lgr)
     delta=0.d0
     do i=1,2*Nopt

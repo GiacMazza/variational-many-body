@@ -511,25 +511,26 @@ CONTAINS
        lgr(i0+i) = dreal(lgr_cmplx(i))
        lgr(i0+i+Nvdm_AC_opt) = dimag(lgr_cmplx(i))
     end do
-
-
-    write(*,*) 'Time Dependent lagrange parameters'
-    write(*,*) lgr
-   
     !
     yt_old = yt
-    !call fsolve(fix_anomalous_vdm,lgr,tol=1.d-10,info=iter)    
-    call fmin_cg(lgr,fix_anomalous_vdm_,iter,delta,itmax=20)
-    delta_out = fix_anomalous_vdm(lgr)
-    delta=0.d0
-    do i=1,2*Nopt
-       delta = delta + delta_out(i)**2.d0
-    end do
-    write(*,*) 'Time Dependent lagrange parameters'
-    write(*,*) lgr
-    write(*,*) 'Time Dependent lagrange parameters: error'
-    write(*,*) delta
-    write(*,*) 
+    !
+    delta=fix_anomalous_vdm_(lgr)
+    !
+    if(delta.gt.1.d-10) then
+       write(*,*) 'td-fixing of lagrange parameters   ',delta
+       !call fsolve(fix_anomalous_vdm,lgr,tol=1.d-06,info=iter)    
+       call fmin_cg(lgr,fix_anomalous_vdm_,iter,delta,itmax=20)
+       delta_out = fix_anomalous_vdm(lgr)
+       delta=0.d0
+       do i=1,2*Nopt
+          delta = delta + delta_out(i)**2.d0
+       end do
+       write(*,*) 'Time Dependent lagrange parameters'
+       write(*,*) lgr
+       write(*,*) 'Time Dependent lagrange parameters: error'
+       write(*,*) delta
+       write(*,*)
+    end if
     !
     yt=yt_new
     !
@@ -553,10 +554,11 @@ CONTAINS
       complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
       complex(8),dimension(Ns,Ns) :: anomalous_constrGZ,anomalous_constrSL
       integer :: i0,i,is,js
+      real(8) :: tmp_test
       !
       if(allocated(neq_lgr)) deallocate(neq_lgr)
       allocate(neq_lgr(2,Ns,Ns)); neq_lgr=zero
-
+      !
       !+- dump slater_lgr_multipliers
       allocate(lgr_cmplx(Nvdm_AC_opt))
       do i=1,Nvdm_AC_opt
@@ -597,9 +599,11 @@ CONTAINS
          delta(i0+i+Nvdm_AC_opt) = dimag(delta_cmplx(i))       
       end do
       deallocate(delta_cmplx)
-      
-      ! write(*,*) 'lgr',lgr
-      ! write(*,*) delta
+      tmp_test=0.d0
+      do i=1,size(lgr)
+         tmp_test=tmp_test+delta(i)**2.d0
+      end do
+      write(*,*) delta
       !
     end function fix_anomalous_vdm
 
@@ -657,8 +661,8 @@ CONTAINS
          end do
       end do
 
-      !write(*,*) lgr,delta
-
+      write(*,*) 'deviation from constraint conservation',delta
+      !
       ! allocate(delta_cmplx(Nvdm_AC_opt))
       ! call vdm_AC_stride_m2v(anomalous_constrSL,delta_cmplx)
       ! do i=1,Nvdm_AC_opt

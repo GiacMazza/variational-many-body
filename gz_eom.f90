@@ -345,7 +345,7 @@ function gz_equations_of_motion_superc_lgr(time,y,Nsys) result(f)
   !
   slater_derivatives = zero
   slater_dot = zero
-
+  
   do ik=1,Lk
      call get_Hk_t(Hk,ik,time)
      !

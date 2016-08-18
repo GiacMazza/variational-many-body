@@ -133,7 +133,10 @@ MODULE GZ_VARS_GLOBAL
   integer,dimension(:,:),allocatable     :: print_grid_SC
   !
 
+  logical,dimension(:,:),allocatable :: Rgrid,Qgrid,Ngrid
 
+
+  
   !+-------------------------+!
   !+- MODEL DETAILS DETAILS -+!
   !+-------------------------+!

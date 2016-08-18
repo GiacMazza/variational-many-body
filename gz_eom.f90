@@ -182,7 +182,7 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
      !
      tQQ = matmul(Hk,Qhop)
      tQQ = matmul(Qhop_hc,tQQ)
-     !
+     !+-> to speed up a bit I've to work out on these matrix products <-+!
      do is=1,Ns
         do js=1,Ns           
            slater_dot(1,is,js,ik) = zero
@@ -227,8 +227,7 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
            !
         end do
      end do
-     !  
-
+     !       
      do is=1,Ns
         do js=1,Ns
            do ks=1,Ns
@@ -255,8 +254,7 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   !
   slater_dot = -xi*slater_dot
   !
-
-  !+- create HLOC
+   !+- create HLOC
   Uloc=Uloc_t(:,it)
   Ust =Ust_t(it)
   Jh=Jh_t(it)
@@ -269,11 +267,11 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   do iphi=1,Nphi
      gzproj_dot(iphi) = zero
      do jphi=1,Nphi
-        gzproj_dot(iphi) = gzproj_dot(iphi) + Hproj(iphi,jphi)*gzproj(jphi)
+        gzproj_dot(iphi) = gzproj_dot(iphi) - xi * Hproj(iphi,jphi)*gzproj(jphi)
      end do
   end do
-  gzproj_dot = -xi*gzproj_dot
-  ! 
+  !
+  
   call wfMatrix_superc_2_dynamicalVector(slater_dot,gzproj_dot,f)
   !
 end function gz_equations_of_motion_superc
@@ -305,7 +303,9 @@ function gz_equations_of_motion_superc_lgr(time,y,Nsys) result(f)
   complex(8),dimension(Ns,Ns)      :: Rhop,Qhop,Rhop_hc,Qhop_hc
   complex(8),dimension(Ns,Ns)      :: tRR,tRQ,tQR,tQQ
   complex(8),dimension(Ns,Ns)      :: vdm_natural
-  real(8),dimension(Ns)            :: vdm_diag
+  complex(8)                       :: htmp
+  real(8),dimension(Ns)            :: vdm_diag,n0
+  real(8) :: test_slater
   !
 
   !HERE write the GZ EQUATIONS OF MOTION
@@ -452,9 +452,39 @@ function gz_equations_of_motion_superc_lgr(time,y,Nsys) result(f)
   call build_neqH_GZproj_superc_lgr(Hproj,slater_derivatives,Rhop,Qhop,vdm_diag)
   !
   do iphi=1,Nphi
+     !
      gzproj_dot(iphi) = zero
+     !
      do jphi=1,Nphi
-        gzproj_dot(iphi) = gzproj_dot(iphi) + Hproj(iphi,jphi)*gzproj(jphi)
+        !
+        ! htmp=phi_traces_basis_Hloc(iphi,jphi)
+        ! do is=1,Ns
+        !    do js=1,Ns
+        !       !
+        !       test_slater=sqrt(conjg(slater_derivatives(1,is,js))*slater_derivatives(1,is,js))
+        !       if(test_slater.gt.1.d-10) then
+        !          htmp = htmp + slater_derivatives(1,is,js)*phi_traces_basis_Rhop(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
+        !          htmp = htmp + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
+        !          !
+        !          htmp = htmp + slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi)
+        !          htmp = htmp + conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi)
+        !       end if
+        !       test_slater=sqrt(conjg(slater_derivatives(2,is,js))*slater_derivatives(2,is,js))
+        !       if(test_slater.gt.1.d-10) then
+        !          htmp = htmp + slater_derivatives(2,is,js)*phi_traces_basis_Qhop(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
+        !          htmp = htmp + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
+        !          !
+        !          htmp = htmp + slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi)
+        !          htmp = htmp + conjg(slater_derivatives(2,is,js)*Qhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi)
+        !       end if
+        !       htmp = htmp + neq_lgr(2,is,js)*phi_traces_basis_dens_anomalous(is,js,iphi,jphi)
+        !       htmp = htmp + conjg(neq_lgr(2,is,js))*phi_traces_basis_dens_anomalous_hc(is,js,iphi,jphi)
+        !       !
+        !    end do
+        ! end do
+        !
+        !gzproj_dot(iphi) = gzproj_dot(iphi) - xi* htmp *gzproj(jphi)
+        gzproj_dot(iphi) = gzproj_dot(iphi) + Hproj(iphi,jphi) *gzproj(jphi)
      end do
   end do
   gzproj_dot = -xi*gzproj_dot
@@ -505,26 +535,32 @@ subroutine build_neqH_GZproj_superc(Hproj,slater_derivatives,Rhop,Qhop,n0)
   complex(8),dimension(Ns,Ns)     :: Rhop,Qhop
   real(8),dimension(Ns)           :: n0 
   integer                         :: is,js
+  real(8)                         :: test_slater
   !
-  Hproj=zero
   Hproj=phi_traces_basis_Hloc
   do is=1,Ns
      do js=1,Ns
         !
-        Hproj = Hproj + slater_derivatives(1,is,js)*phi_traces_basis_Rhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
-        Hproj = Hproj + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
-
-        Hproj = Hproj + slater_derivatives(2,is,js)*phi_traces_basis_Qhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
-        Hproj = Hproj + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+        test_slater=conjg(slater_derivatives(1,is,js))*slater_derivatives(1,is,js)
+        if(test_slater.gt.1.d-10) then
+           Hproj = Hproj + slater_derivatives(1,is,js)*phi_traces_basis_Rhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+           Hproj = Hproj + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+        !
+           Hproj = Hproj + slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
+           Hproj = Hproj + conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
+        end if
         !
         !
         !
-        Hproj = Hproj + slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
-        Hproj = Hproj + conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
-
-        Hproj = Hproj + slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
-        Hproj = Hproj + conjg(slater_derivatives(2,is,js)*Qhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
-        !
+        test_slater=conjg(slater_derivatives(2,is,js))*slater_derivatives(2,is,js)
+        if(test_slater.gt.1.d-10) then
+           Hproj = Hproj + slater_derivatives(2,is,js)*phi_traces_basis_Qhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+           Hproj = Hproj + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+           !
+           Hproj = Hproj + slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
+           Hproj = Hproj + conjg(slater_derivatives(2,is,js)*Qhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
+        end if
+           !
      end do
   end do
 end subroutine build_neqH_GZproj_superc
@@ -537,26 +573,29 @@ subroutine build_neqH_GZproj_superc_lgr(Hproj,slater_derivatives,Rhop,Qhop,n0)
   complex(8),dimension(Ns,Ns)     :: Rhop,Qhop
   real(8),dimension(Ns)           :: n0 
   integer                         :: is,js
+  real(8)                         :: test_slater
   !
-  Hproj=zero
   Hproj=phi_traces_basis_Hloc
   do is=1,Ns
      do js=1,Ns
         !
-        Hproj = Hproj + slater_derivatives(1,is,js)*phi_traces_basis_Rhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
-        Hproj = Hproj + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
-
-        Hproj = Hproj + slater_derivatives(2,is,js)*phi_traces_basis_Qhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
-        Hproj = Hproj + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
-        !
-        !
-        !
-        Hproj = Hproj + slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
-        Hproj = Hproj + conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
-
-        Hproj = Hproj + slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
-        Hproj = Hproj + conjg(slater_derivatives(2,is,js)*Qhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
-        
+        test_slater=sqrt(conjg(slater_derivatives(1,is,js))*slater_derivatives(1,is,js))
+        if(test_slater.gt.1.d-10) then
+           Hproj = Hproj + slater_derivatives(1,is,js)*phi_traces_basis_Rhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+           Hproj = Hproj + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+           !
+           Hproj = Hproj + slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
+           Hproj = Hproj + conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
+        end if
+        test_slater=sqrt(conjg(slater_derivatives(2,is,js))*slater_derivatives(2,is,js))
+        if(test_slater.gt.1.d-10) then
+           !
+           Hproj = Hproj + slater_derivatives(2,is,js)*phi_traces_basis_Qhop(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+           Hproj = Hproj + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,:,:)/sqrt(n0(js)*(1.d0-n0(js)))
+           !
+           Hproj = Hproj + slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
+           Hproj = Hproj + conjg(slater_derivatives(2,is,js)*Qhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,:,:)
+        end if
         Hproj = Hproj + neq_lgr(2,is,js)*phi_traces_basis_dens_anomalous(is,js,:,:)
         Hproj = Hproj + conjg(neq_lgr(2,is,js))*phi_traces_basis_dens_anomalous_hc(is,js,:,:)
         !

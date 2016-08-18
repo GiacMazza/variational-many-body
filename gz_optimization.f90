@@ -223,7 +223,6 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
      end do
   end do
   !
-  !
   do is=1,Ns
      tmp = 0.d0
      do js=1,Ns
@@ -236,7 +235,7 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
   do is=1,Ns
      n0_diag(is) = n0_slater(1,is,is)
   end do
-  !  
+  !
   call gz_proj_minimization_fixed_lgr_hop_superc(n0_diag,proj_lgr_multip,Rhop_lgr_multip,Qhop_lgr_multip,E_Hloc,GZvect)
   !
   n0_GZproj = 0.d0

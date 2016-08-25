@@ -18,7 +18,7 @@ program GUTZ_mb
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t
-  integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin
+  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,ispin
   integer :: nprint
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir
@@ -183,7 +183,7 @@ program GUTZ_mb
   Jh_t  = Jh_t
   Jsf_t = Jh_t
   Jph_t = Jh_t
-  Ust_t = Uloc_t(1,:)-2.d0*Jh_t
+  Ust_t = Uloc_t(1,:)-2.d0*Jh_t ! be careful this has to be done using the first orbital -> we assume Ust is not changed during the excitation !
   !
   unit_neq_hloc = free_unit()
   open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
@@ -201,6 +201,10 @@ program GUTZ_mb
 
   Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   Nopt = 2*Nopt
+  Nopt_reduced = 2 + 2 + 2 + 2 + 2
+  !
+  stride_zeros_orig2red => stride2reduced
+  stride_zeros_red2orig => stride2orig
 
   
   allocate(Rgrid(Ns,Ns),Qgrid(Ns,Ns),Ngrid(Ns,Ns))
@@ -216,22 +220,12 @@ program GUTZ_mb
      js=index(2,iorb)
      Qgrid(is,js) = .true.
   end do
-     
-  
-  
+  !
   call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
-
-
-  
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
   nDynamics = 2*Ns*Ns*Lk + Nphi
   allocate(psi_t(nDynamics))
   allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))  
-  !
-  ! allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
-  ! call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init,td_lgr(1,:,:),td_lgr(2,:,:))
-  ! call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
-
   !
   expected_flen=Nopt
   inquire(file="RQn0_root_seed.conf",exist=seed_file)
@@ -255,7 +249,7 @@ program GUTZ_mb
         Jsf=Jsf_t(it)
         Jph=Jph_t(it)
         eLevels = eLevels_t(:,it)
-        call get_local_hamiltonian_trace(eLevels)      
+        call get_local_hamiltonian_trace(eLevels)
         !
         allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
         allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
@@ -266,9 +260,6 @@ program GUTZ_mb
         !
         slater_init = GZ_opt_slater_superc
         gz_proj_init = GZ_vector
-        do i=1,Nphi
-           write(564,*) GZ_vector(i) 
-        end do
         allocate(td_lgr(2,Ns,Ns))
         td_lgr(1,:,:) = slater_lgr_init(2,:,:)
         td_lgr(2,:,:) = gzproj_lgr_init(2,:,:)
@@ -293,12 +284,11 @@ program GUTZ_mb
      call get_local_hamiltonian_trace(eLevels)      
      !
   end if
-  
   !
   call setup_neq_dynamics_superc
   !    
   unit_neq_Rhop = free_unit()
-  open(unit_neq_Rhop,file='neq_Rhop_diag.data')
+  open(unit_neq_Rhop,file='neq_Rhop_matrix.data')
   !
   unit_neq_Qhop = free_unit()
   open(unit_neq_Qhop,file='neq_Qhop_matrix.data')  
@@ -341,29 +331,7 @@ program GUTZ_mb
   allocate(dens_constrGZ(2,Ns,Ns))  
   allocate(sc_order(Ns,Ns))
   allocate(dump_vect(Ns*Ns))
-
-
-
-
-
-  !+- TEST-SLATER READING -+!
-  ! do is=1,Ns
-  !    do js=1,Ns
-  !       out_unit=free_unit()
-  !       open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
-  !       do ik=1,Lk
-  !          write(out_unit,'(2F18.10)') dreal(slater_init(1,is,js,ik)),dimag(slater_init(1,is,js,ik))
-  !       end do
-  !       close(out_unit)
-  !    end do
-  ! end do
-
-  !+- TEST manually select the grid
-
-
-  
-
-  !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
+  !*) ACTUAL DYNAMICS 
   do it=1,Nt
      write(*,*) it,Nt
      !
@@ -408,23 +376,9 @@ program GUTZ_mb
         !
      end if
      !
-     
-     !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
      call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr)
      !
   end do
-
-
-
-
-
-
-  
-
-
-
-
-
   !
 CONTAINS
   !
@@ -445,36 +399,12 @@ CONTAINS
     test_k=0.d0
     do ix=1,Lk
        wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-       !wtk(ix) = 1.d0/Wband*de
        if(ix==1.or.ix==Lk) wtk(ix)=0.d0
        test_k=test_k+wtk(ix)
        write(77,*) epsik(ix),wtk(ix)
     end do
     hybik=0.d0
-    ! write(*,*) test_k,de
     !
-    ! allocate(kx(Nx))
-    ! kx = linspace(0.d0,pi,Nx,.true.,.true.)
-    ! Lk=Nx*Nx*Nx
-    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    ! ik=0
-    ! test_k=0.d0;n1=0.d0;n2=0.d0
-    ! do ix=1,Nx
-    !    do iy=1,Nx
-    !       do iz=1,Nx
-    !          ik=ik+1
-    !          !kx_=dble(ix)/dble(Nx)*pi
-    !          epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
-    !          hybik(ik) = 1.d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
-    !          wtk(ik) = 1.d0/dble(Lk)
-    !          n1=n1+fermi(epsik(ik)+cfield*0.5,beta)*wtk(ik)
-    !          n2=n2+fermi(epsik(ik)-cfield*0.5,beta)*wtk(ik)
-    !       end do
-    !    end do
-    ! end do
-    ! !
-    ! write(*,*) 'n1/n2'
-    ! write(*,*) n1,n2,n1+n2
     call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
     !
     allocate(Hk_tb(Ns,Ns,Lk))
@@ -514,7 +444,7 @@ CONTAINS
 
 
 
-
+  !+- STRIDES DEFINITION -+!
 
 
 
@@ -734,6 +664,53 @@ CONTAINS
     end do
     !
   end subroutine vdm_AC_mat2vec
+
+
+  subroutine stride2reduced(x_orig,x_reduced)
+    real(8),dimension(:) :: x_orig
+    real(8),dimension(:) :: x_reduced
+    if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
+    if(size(x_reduced).ne.Nopt_reduced) stop "error reduced @ stride2reduced"
+    !+- R
+    x_reduced(1) = x_orig(1)
+    x_reduced(2) = x_orig(2)
+    !+- Q
+    x_reduced(3) = x_orig(5)
+    x_reduced(4) = x_orig(6)
+    !+- LGR_slater normal
+    x_reduced(5) = x_orig(9)
+    x_reduced(6) = x_orig(10)
+    !+- LGR_slater anomalous
+    x_reduced(7) = x_orig(13)
+    x_reduced(8) = x_orig(14)
+    !+- GZproj slater anomalous
+    x_reduced(9)  = x_orig(17)
+    x_reduced(10) = x_orig(18)    
+    !
+  end subroutine stride2reduced
+  subroutine stride2orig(x_reduced,x_orig)
+    real(8),dimension(:) :: x_orig
+    real(8),dimension(:) :: x_reduced
+    if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
+    if(size(x_reduced).ne.Nopt_reduced) stop "error reduced @ stride2reduced"
+    x_orig=0.d0
+    !+- R
+    x_orig(1) = x_reduced(1)
+    x_orig(2) = x_reduced(2)
+    !+- Q
+    x_orig(5) = x_reduced(3)
+    x_orig(6) = x_reduced(4)
+    !+- LGR slater 
+    x_orig(9) = x_reduced(5)
+    x_orig(10) = x_reduced(6)
+    !+- LGR slater anomalous
+    x_orig(13) = x_reduced(7)
+    x_orig(14) = x_reduced(8)
+    !+- GZproj sanomalous
+    x_orig(17) = x_reduced(9)
+    x_orig(18) = x_reduced(10)
+  end subroutine stride2orig
+
 
   
 end program GUTZ_mb

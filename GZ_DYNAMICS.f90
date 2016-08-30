@@ -609,22 +609,6 @@ CONTAINS
        lgr(i0+i) = dreal(lgr_cmplx(i))
        lgr(i0+i+Nvdm_AC_opt) = dimag(lgr_cmplx(i))
     end do
-    
-    ! Nopt=2*Nvdm_AC_opt
-    ! allocate(lgr_cmplx(Nvdm_AC_opt))
-    ! allocate(lgr(2*Nopt));allocate(delta_out(2*Nopt))
-    ! !
-    ! call vdm_AC_stride_m2v(td_lgr(1,:,:),lgr_cmplx)    
-    ! do i=1,Nvdm_AC_opt
-    !    lgr(i) = dreal(lgr_cmplx(i))
-    !    lgr(i+Nvdm_AC_opt) = dimag(lgr_cmplx(i))
-    ! end do
-    ! call vdm_AC_stride_m2v(td_lgr(2,:,:),lgr_cmplx)    
-    ! i0 = 2*Nvdm_AC_opt
-    ! do i=1,Nvdm_AC_opt
-    !    lgr(i0+i) = dreal(lgr_cmplx(i))
-    !    lgr(i0+i+Nvdm_AC_opt) = dimag(lgr_cmplx(i))
-    ! end do
     !
     yt_old = yt
     !

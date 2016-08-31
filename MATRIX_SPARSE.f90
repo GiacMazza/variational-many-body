@@ -39,15 +39,25 @@ MODULE MATRIX_SPARSE
      integer,dimension(:),allocatable :: columns
      integer,dimension(:),allocatable :: rowIndex
   end type sparse_matrix_csr
+
+  type sparse_matrix_csr_z
+     logical                          :: status=.false.
+     integer                          :: Nrow
+     integer                          :: Nnz
+     complex(8),dimension(:),allocatable :: values
+     integer,dimension(:),allocatable :: columns
+     integer,dimension(:),allocatable :: rowIndex
+  end type sparse_matrix_csr_z
   !
   public :: sparse_matrix
   public :: sparse_matrix_csr
+  public :: sparse_matrix_csr_z
   !
 
 
   !INIT SPARSE MATRICES (LL,CSR)
   interface sp_init_matrix
-     module procedure sp_init_matrix_ll,sp_init_matrix_csr
+     module procedure sp_init_matrix_ll,sp_init_matrix_csr,sp_init_matrix_csr_z
   end interface sp_init_matrix
   !
   public :: sp_init_matrix      !init the sparse matrix   !checked
@@ -56,7 +66,7 @@ MODULE MATRIX_SPARSE
 
   !DELETE SPARSE MATRIX (LL,CSR) OR ONE OF ITS ELEMENTS (LL)
   interface sp_delete_matrix
-     module procedure sp_delete_matrix_ll,sp_delete_matrix_csr
+     module procedure sp_delete_matrix_ll,sp_delete_matrix_csr,sp_delete_matrix_csr_z
   end interface sp_delete_matrix
   !
   public :: sp_delete_matrix    !delete the sparse matrix !checked
@@ -66,7 +76,7 @@ MODULE MATRIX_SPARSE
 
   !GET NUMBER OF NON-ZERO ELEMENTS
   interface sp_get_nnz
-     module procedure sp_get_nnz_ll,sp_get_nnz_csr
+     module procedure sp_get_nnz_ll,sp_get_nnz_csr,sp_get_nnz_csr_z
   end interface sp_get_nnz
   !
   public :: sp_get_nnz
@@ -102,7 +112,7 @@ MODULE MATRIX_SPARSE
 
   !LOAD STANDARD MATRIX INTO SPARSE MATRICES
   interface sp_load_matrix
-     module procedure sp_load_matrix_d,sp_load_matrix_c,sp_load_matrix_csr
+     module procedure sp_load_matrix_d,sp_load_matrix_c,sp_load_matrix_csr,sp_load_matrix_csr_z
   end interface sp_load_matrix
   !
   public :: sp_load_matrix      !create sparse from array !checked
@@ -120,10 +130,10 @@ MODULE MATRIX_SPARSE
 
   !PRETTY PRINTING
   interface sp_print_matrix
-     module procedure sp_print_matrix_ll,sp_print_matrix_csr
+     module procedure sp_print_matrix_ll,sp_print_matrix_csr,sp_print_matrix_csr_z
   end interface sp_print_matrix
   public :: sp_print_matrix     !print sparse             !checked
-
+  
   !TEST
   public :: sp_test_symmetric
 
@@ -132,6 +142,12 @@ MODULE MATRIX_SPARSE
   public :: sp_matrix_vector_product_dc !checked
   public :: sp_matrix_vector_product_cc !checked
   public :: sp_matrix_vector_product_csr!checked
+  public :: sp_matrix_vector_product_csr_z ! checked
+
+  interface sp_scalar_matrix_csr
+     module procedure sp_scalar_matrix_csr_dd,sp_scalar_matrix_csr_dz,sp_scalar_matrix_csr_zd,sp_scalar_matrix_csr_zz
+  end interface sp_scalar_matrix_csr
+  public :: sp_scalar_matrix_csr !CHECKED
 
 #ifdef _MPI
   public :: sp_matrix_vector_product_mpi_dd
@@ -190,6 +206,21 @@ contains
     sparse%rowIndex=0
     sparse%status=.true.
   end subroutine sp_init_matrix_csr
+  !
+  subroutine sp_init_matrix_csr_z(sparse,Nnz,Nrow)
+    type(sparse_matrix_csr_z) :: sparse
+    integer                 :: Nnz,Nrow
+    if(sparse%status)stop "sp_init_matrix: alreay allocate can not init"
+    allocate(sparse%values(Nnz))
+    allocate(sparse%columns(Nnz))
+    allocate(sparse%rowIndex(Nrow+1))
+    sparse%nnz=nnz
+    sparse%nrow=nrow
+    sparse%values=zero
+    sparse%columns=0
+    sparse%rowIndex=0
+    sparse%status=.true.
+  end subroutine sp_init_matrix_csr_z
 
 
 
@@ -224,6 +255,17 @@ contains
     sparse%nrow=0
     sparse%status=.false.
   end subroutine sp_delete_matrix_csr
+  !
+  subroutine sp_delete_matrix_csr_z(sparse)    
+    type(sparse_matrix_csr_z),intent(inout) :: sparse
+    if(.not.sparse%status)stop "Warning SPARSE/sp_delete_matrix: sparse not allocated already."
+    deallocate(sparse%values)
+    deallocate(sparse%columns)
+    deallocate(sparse%rowIndex)
+    sparse%nnz=0
+    sparse%nrow=0
+    sparse%status=.false.
+  end subroutine sp_delete_matrix_csr_z
   !+------------------------------------------------------------------+
   !PURPOSE: delete a single element at (i,j) from the sparse matrix
   !+------------------------------------------------------------------+
@@ -324,6 +366,13 @@ contains
   end function sp_get_nnz_csr
 
 
+  function sp_get_nnz_csr_z(sparse) result(Nnz)
+    type(sparse_matrix_csr_z) :: sparse
+    integer                 :: Nnz
+    Nnz=size(sparse%values)
+  end function sp_get_nnz_csr_z
+
+
 
 
 
@@ -395,7 +444,7 @@ contains
     logical                           :: iadd
     p => row%root
     c => p%next
-    iadd = .false.                !check if column already exist
+    iadd = .false.                !check if column already exist    
     do                            !traverse the list
        if(.not.associated(c))exit !empty list or end of the list
        if(c%col == column)then
@@ -427,6 +476,7 @@ contains
     integer, intent(in)               :: column
     type(sparse_element),pointer      :: p,c
     logical :: iadd
+    !
     p => row%root
     c => p%next
     iadd = .false.                !check if column already exist
@@ -443,14 +493,14 @@ contains
     if(iadd)then
        c%cval=c%cval + value
     else
-       allocate(p%next)                !Create a new element in the list
+       allocate(p%next)           !create a new element in the list
        p%next%cval= value
        p%next%col = column
        row%size   = row%size+1
        if(.not.associated(c))then !end of the list special case (current=>current%next)
           p%next%next  => null()
        else
-          p%next%next  => c      !the %next of the new node come to current
+          p%next%next  => c       !the %next of the new node come to current
        end if
     endif
   end subroutine insert_element_in_row_c
@@ -536,6 +586,18 @@ contains
        if(j==sparse%columns(pos))value=sparse%values(pos)
     enddo
   end function sp_get_element_csr
+
+
+  function sp_get_element_csr_z(sparse,i,j) result(value)
+    type(sparse_matrix_csr_z),intent(inout) :: sparse    
+    integer,intent(in)                :: i,j
+    complex(8)                           :: value
+    integer :: pos
+    value=0.d0
+    do pos=sparse%rowIndex(i),sparse%rowIndex(i+1)-1
+       if(j==sparse%columns(pos))value=sparse%values(pos)
+    enddo
+  end function sp_get_element_csr_z
 
 
 
@@ -699,6 +761,39 @@ contains
 
 
 
+  
+  subroutine sp_load_matrix_csr_z(matrix,sparse)
+    complex(8),dimension(:,:),intent(in)     :: matrix
+    type(sparse_matrix_csr_z),intent(inout) :: sparse
+    type(sparse_matrix)                   :: A
+    integer                               :: i,j,Ndim1,Ndim2,Nnz
+    real(8) :: tmp
+    complex(8) :: tmp_c
+    Ndim1=size(matrix,1)
+    Ndim2=size(matrix,2)
+    if(Ndim1/=Ndim2)stop  "SPARSE/load_matrix Ndim1.ne.Ndim2: modify the code."
+    if(sparse%status)stop "SPARSE/load_matrix CSR matrix should not be init on call load. I'll take care of this."
+    call sp_init_matrix(A,Ndim1)
+    Nnz=0
+    do i=1,Ndim1
+       do j=1,Ndim2
+          if(matrix(i,j)/=cmplx(0.d0,0.d0,8)) then
+             Nnz=Nnz+1
+             tmp=dreal(matrix(i,j))
+             tmp_c=matrix(i,j)
+             call sp_insert_element_c(A,tmp_c,i,j)
+             !call sp_insert_element_d(A,tmp,i,j)
+          end if
+       enddo
+    enddo
+    !
+    call sp_init_matrix(sparse,nnz,Ndim1)
+    call sp_move_ll2csr_z(A,sparse)
+  end subroutine sp_load_matrix_csr_z
+
+
+
+
 
 
   !+-----------------------------------------------------------------------------+!
@@ -816,6 +911,7 @@ contains
     enddo
     M%rowIndex(Nrow+1)=Nnz+1
   end subroutine sp_copy_ll2csr
+  !
 
 
 
@@ -858,6 +954,40 @@ contains
     sparse%Nrow=0
     sparse%status=.false.
   end subroutine sp_move_ll2csr
+
+
+
+  subroutine sp_move_ll2csr_z(sparse,M)
+    type(sparse_matrix)          :: sparse
+    type(sparse_matrix_csr_z)      :: M
+    type(sparse_element),pointer :: c,p
+    integer                      :: i,count,Nrow,Nnz
+    if(.not.sparse%status)stop "sp_dump_sparse: sparse not allocated"
+    if(.not.M%status)stop "sp_dump_sparse: M not allocated"
+    Nnz  = sp_get_nnz(sparse)
+    if(Nnz /= size(M%values))stop "sp_dump_sparse: dimension mismatch"
+    Nrow = sparse%Nrow
+    count= 1
+    do i=1,Nrow
+       p => sparse%row(i)%root
+       M%rowIndex(i)=count
+       do 
+          c => p%next
+          if(.not.associated(c))exit
+          M%values(count)=c%cval
+          M%columns(count)=c%col
+          count=count+1
+          p%next => c%next !
+          c%next=>null()
+          deallocate(c)
+       enddo
+       nullify(sparse%row(i)%root)
+    enddo
+    M%rowIndex(Nrow+1)=Nnz+1
+    deallocate(sparse%row)
+    sparse%Nrow=0
+    sparse%status=.false.
+  end subroutine sp_move_ll2csr_z
 
 
 
@@ -937,6 +1067,25 @@ contains
     enddo
     write(unit_,*)
   end subroutine sp_print_matrix_csr
+
+  subroutine sp_print_matrix_csr_z(sparse,unit,fmt,full)
+    type(sparse_matrix_csr_z)        :: sparse
+    integer,optional               :: unit
+    integer                        :: i,j,unit_,Ns
+    character(len=*),optional      :: fmt
+    character(len=64)              :: fmt_
+    logical,optional               :: full
+    logical                        :: full_
+    unit_=6;if(present(unit))unit_=unit
+    fmt_='F8.3';if(present(fmt))fmt_=fmt
+    full_=.false.;if(present(full))full_=full
+    Ns=sparse%Nrow
+    write(*,*)"Print sparse matrix (full mode < 100) ->",unit_
+    do i=1,Ns
+       write(*,"(100"//trim(fmt_)//",1X)")(sp_get_element_csr_z(sparse,i,j),j=1,Ns)
+    enddo
+    write(unit_,*)
+  end subroutine sp_print_matrix_csr_z
 
 
 
@@ -1039,11 +1188,28 @@ contains
     !$omp end parallel do
   end subroutine sp_matrix_vector_product_dc
   !+------------------------------------------------------------------+
-  subroutine sp_matrix_vector_product_csr(Nrow,sparse,vin,vout)
+
+
+  
+  function sp_matrix_vector_product_csr(Nrow,sparse,vin) result(vout)
+    integer                            :: Nrow
+    real(8),dimension(Nrow)            :: vout
+    type(sparse_matrix_csr),intent(in) :: sparse
+    real(8),dimension(Nrow),intent(in) :: vin
+    integer                            :: i,pos
+    vout=0.d0
+    do i=1,Nrow
+       do pos=sparse%rowIndex(i),sparse%rowIndex(i+1)-1
+          vout(i) = vout(i) + sparse%values(pos)*vin(sparse%columns(pos))
+       end do
+    end do
+  end function sp_matrix_vector_product_csr
+  !
+  function sp_matrix_vector_product_csr_z(Nrow,sparse,vin) result(vout)
     integer                               :: Nrow
-    type(sparse_matrix_csr),intent(in)    :: sparse
-    real(8),dimension(Nrow),intent(in)    :: vin
-    real(8),dimension(Nrow),intent(inout) :: vout
+    complex(8),dimension(Nrow)            :: vout
+    type(sparse_matrix_csr_z),intent(in)  :: sparse
+    complex(8),dimension(Nrow),intent(in) :: vin
     integer                               :: i,pos
     vout=0.d0
     do i=1,Nrow
@@ -1051,7 +1217,85 @@ contains
           vout(i) = vout(i) + sparse%values(pos)*vin(sparse%columns(pos))
        end do
     end do
-  end subroutine sp_matrix_vector_product_csr
+  end function sp_matrix_vector_product_csr_z
+  !
+  !
+  function sp_scalar_matrix_csr_dd(sparse_in,x) result(sparse_out)
+    real(8) :: x
+    type(sparse_matrix_csr) :: sparse_in,sparse_out
+    integer :: i,nnz_,nrow_
+    !
+    nnz_=sparse_in%nnz
+    nrow_=sparse_in%nrow
+    call sp_init_matrix(sparse_out,nnz_,nrow_)
+    !
+    do i=1,nnz_
+       sparse_out%values(i) = x*sparse_in%values(i)
+       sparse_out%columns(i) = sparse_in%columns(i)
+    end do
+    do i=1,nrow_+1
+       sparse_out%rowIndex(i) = sparse_in%rowIndex(i)
+    end do
+  end function sp_scalar_matrix_csr_dd
+  !
+  function sp_scalar_matrix_csr_dz(sparse_in,x) result(sparse_out)
+    real(8) :: x
+    type(sparse_matrix_csr_z) :: sparse_in,sparse_out
+    integer :: i,nnz_,nrow_
+    !
+    nnz_=sparse_in%nnz
+    nrow_=sparse_in%nrow
+    call sp_init_matrix(sparse_out,nnz_,nrow_)
+    !
+    do i=1,nnz_
+       sparse_out%values(i) = x*sparse_in%values(i)
+       sparse_out%columns(i) = sparse_in%columns(i)
+    end do
+    do i=1,nrow_+1
+       sparse_out%rowIndex(i) = sparse_in%rowIndex(i)
+    end do
+  end function sp_scalar_matrix_csr_dz
+  !
+  function sp_scalar_matrix_csr_zd(sparse_in,x) result(sparse_out)
+    complex(8)              :: x
+    type(sparse_matrix_csr) :: sparse_in
+    type(sparse_matrix_csr_z) :: sparse_out
+    integer :: i,nnz_,nrow_
+    !
+    nnz_=sparse_in%nnz
+    nrow_=sparse_in%nrow
+    call sp_init_matrix(sparse_out,nnz_,nrow_)
+    !
+    do i=1,nnz_
+       sparse_out%values(i) = x*sparse_in%values(i)
+       sparse_out%columns(i) = sparse_in%columns(i)
+    end do
+    do i=1,nrow_+1
+       sparse_out%rowIndex(i) = sparse_in%rowIndex(i)
+    end do
+  end function sp_scalar_matrix_csr_zd
+  !
+  function sp_scalar_matrix_csr_zz(sparse_in,x) result(sparse_out)
+    complex(8) :: x
+    type(sparse_matrix_csr_z) :: sparse_in,sparse_out
+    integer :: i,nnz_,nrow_
+    !
+    nnz_=sparse_in%nnz
+    nrow_=sparse_in%nrow
+    call sp_init_matrix(sparse_out,nnz_,nrow_)
+    !
+    do i=1,nnz_
+       sparse_out%values(i) = x*sparse_in%values(i)
+       sparse_out%columns(i) = sparse_in%columns(i)
+    end do
+    do i=1,nrow_+1
+       sparse_out%rowIndex(i) = sparse_in%rowIndex(i)
+    end do
+  end function sp_scalar_matrix_csr_zz
+
+
+
+  !
 
   subroutine sp_matrix_vector_product_cc(sparse,Ndim,vin,vout)
     integer                                  :: Ndim

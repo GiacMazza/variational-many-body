@@ -339,7 +339,8 @@ program GUTZ_mb
      !
      if(mod(it-1,nprint).eq.0) then        
         !
-        call gz_neq_measure_superc(psi_t,t)
+        call gz_neq_measure_superc_sp(psi_t,t)
+        !call gz_neq_measure_superc(psi_t,t)
         !
         do is=1,Ns
            call get_neq_Rhop(is,is,Rhop(is))
@@ -376,7 +377,7 @@ program GUTZ_mb
         !
      end if
      !
-     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr)
+     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp)
      !
   end do
   !

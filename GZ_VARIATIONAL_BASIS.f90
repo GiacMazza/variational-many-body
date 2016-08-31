@@ -8,7 +8,7 @@ MODULE GZ_MATRIX_BASIS
   private
   !
   public :: init_variational_matrices
-  public :: trace_phi_basis
+  public :: trace_phi_basis,trace_phi_basis_sp
   !
   public :: get_traces_basis_phiOphi
   !
@@ -448,7 +448,21 @@ CONTAINS
        end do
     end do
   end function trace_phi_basis
+  !
+  !
+  function trace_phi_basis_sp(phi_vect,sp_phi_trace) result(trace)
+    complex(8),dimension(Nphi) :: phi_vect,phi_tmp
+    type(sparse_matrix_csr_z) :: sp_phi_trace
+    complex(8) :: trace
+    integer :: iphi,jphi,nrow
+    trace=zero
+    phi_tmp = sp_matrix_vector_product_csr_z(Nphi,sp_phi_trace,phi_vect)
+    do iphi=1,Nphi
+       trace = trace + conjg(phi_vect(iphi))*phi_tmp(iphi)
+    end do
+  end function trace_phi_basis_sp
 
+  
 
 
 
@@ -696,10 +710,8 @@ CONTAINS
     integer :: flen
 
     read_dir=trim(read_dir)
-
+    !
     allocate(phi_traces_basis_local_dens(Ns,Ns,Nphi,Nphi));phi_traces_basis_local_dens=zero
-    !allocate(phi_traces_basis_dens_dens_orb(Norb,Norb,Nphi,Nphi));phi_traces_basis_dens_dens_orb=zero
-    !allocate(phi_traces_basis_docc_orb(Norb,Nphi,Nphi));phi_traces_basis_docc_orb=zero
     allocate(phi_traces_basis_dens_dens(Ns,Ns,Nphi,Nphi));phi_traces_basis_dens_dens=zero
     allocate(phi_traces_basis_spin_flip(Norb,Norb,Nphi,Nphi));phi_traces_basis_spin_flip=zero
     allocate(phi_traces_basis_pair_hopping(Norb,Norb,Nphi,Nphi));phi_traces_basis_pair_hopping=zero
@@ -709,6 +721,7 @@ CONTAINS
     allocate(phi_traces_basis_spinZ(Nphi,Nphi));phi_traces_basis_spinZ=zero
     allocate(phi_traces_basis_isospin2(Nphi,Nphi));phi_traces_basis_isospin2=zero
     allocate(phi_traces_basis_isospinZ(Nphi,Nphi));phi_traces_basis_isospinZ=zero
+    !
     !
     write(*,*) "READING PHI TRACES"
     !
@@ -773,19 +786,13 @@ CONTAINS
           end if
        end do
     end do
-
-
-
-
-
-
     !
     do iorb=1,Norb
        do jorb=1,Norb
           !
           !
           !+- Orbital spin-flip -+!
-          file_name=reg(read_dir)//"phi_traces_basis_spin_flip_iorb"//reg(txtfy(iorb))//"_jorb"//reg(txtfy(jorb))//".gutz"             
+          file_name=reg(read_dir)//"phi_traces_basis_spin_flip_iorb"//reg(txtfy(iorb))//"_jorb"//reg(txtfy(jorb))//".gutz"
           write(*,*)
           write(*,*) "READING spin_flip",iorb,jorb          
           inquire(file=file_name,exist=read_file)
@@ -842,31 +849,6 @@ CONTAINS
           end if
           !          
        end do
-       ! !+- orbital double occupancy -+!
-       ! file_name=reg(read_dir)//"phi_traces_basis_docc_orb_iorb"//reg(txtfy(iorb))//".gutz"             
-       ! inquire(file=file_name,exist=read_file)
-       ! if(read_file) then
-       !    !
-       !    unit_store=free_unit()
-       !    open(unit_store,file=file_name,status='old')
-       !    flen=0
-       !    do
-       !       read (unit_store,*,iostat=ios) x
-       !       if (ios/=0) exit     
-       !       flen=flen+1
-       !    end do
-       !    close(unit_store)          
-       !    open(unit_store,file=file_name,status='old')
-       !    do ifile=1,flen
-       !       read(unit_store,'(2I4,2F18.10)') iphi,jphi,re_x,im_x
-       !       phi_traces_basis_docc_orb(iorb,iphi,jphi) = re_x+xi*im_x
-       !    end do
-       !    close(unit_store)
-       !    !
-       ! else
-       !    write(*,*) 'file',file_name,'not stored'
-       !    stop 
-       ! end if
     end do
     !
 
@@ -1172,12 +1154,78 @@ CONTAINS
        stop 
     end if
     !
+    !
+    !+- DUMP TO SPARSE CSR MATRICES -+!
+    !
+    !
+    allocate(phi_spTraces_basis_local_dens(Ns,Ns))
+    allocate(phi_spTraces_basis_dens_dens(Ns,Ns))
+    allocate(phi_spTraces_basis_spin_flip(Norb,Norb))
+    allocate(phi_spTraces_basis_pair_hopping(Norb,Norb))
+    allocate(phi_spTraces_basis_sc_order(Ns,Ns))
+    allocate(phi_spTraces_basis_dens(Ns,Ns))
+    allocate(phi_spTraces_basis_dens_hc(Ns,Ns))
+    allocate(phi_spTraces_basis_dens_anomalous(Ns,Ns))
+    allocate(phi_spTraces_basis_dens_anomalous_hc(Ns,Ns))
+    !
+    !
+    allocate(phi_spTraces_basis_Rhop(Ns,Ns),phi_spTraces_basis_Rhop_hc(Ns,Ns))
+    if(gz_superc) allocate(phi_spTraces_basis_Qhop(Ns,Ns),phi_spTraces_basis_Qhop_hc(Ns,Ns))
+    !
+    !
+    write(*,*) 'stuff allocated'
+    do is=1,Ns
+       do js=1,Ns
+          !
+          call sp_load_matrix(phi_traces_basis_local_dens(is,js,:,:),phi_spTraces_basis_local_dens(is,js))
+          write(*,*) '1',is,js
+          call sp_load_matrix(phi_traces_basis_dens_dens(is,js,:,:),phi_spTraces_basis_dens_dens(is,js))
+          write(*,*) '2',is,js
+          call sp_load_matrix(phi_traces_basis_sc_order(is,js,:,:),phi_spTraces_basis_sc_order(is,js))
+          write(*,*) '3',is,js
+          !
+          call sp_load_matrix(phi_traces_basis_dens(is,js,:,:),phi_spTraces_basis_dens(is,js))
+          write(*,*) '4',is,js
+          call sp_load_matrix(phi_traces_basis_dens_hc(is,js,:,:),phi_spTraces_basis_dens_hc(is,js))
+          write(*,*) '5',is,js
+          call sp_load_matrix(phi_traces_basis_dens_anomalous(is,js,:,:),phi_spTraces_basis_dens_anomalous(is,js))
+          write(*,*) '6',is,js
+          call sp_load_matrix(phi_traces_basis_dens_anomalous_hc(is,js,:,:),phi_spTraces_basis_dens_anomalous_hc(is,js))
+          write(*,*) '7',is,js
+          !
+          call sp_load_matrix(phi_traces_basis_Rhop(is,js,:,:),phi_spTraces_basis_Rhop(is,js))
+          write(*,*) '8',is,js
+          call sp_load_matrix(phi_traces_basis_Rhop_hc(is,js,:,:),phi_spTraces_basis_Rhop_hc(is,js))
+          write(*,*) '9',is,js
+          !
+          if(gz_superc) then
+             call sp_load_matrix(phi_traces_basis_Qhop(is,js,:,:),phi_spTraces_basis_Qhop(is,js))
+             write(*,*) '10',is,js
+             call sp_load_matrix(phi_traces_basis_Qhop_hc(is,js,:,:),phi_spTraces_basis_Qhop_hc(is,js))
+             write(*,*) '11',is,js
+          end if
+       end do
+    end do
+    do iorb=1,Norb
+       do jorb=1,Norb
+          call sp_load_matrix(phi_traces_basis_spin_flip(iorb,jorb,:,:),phi_spTraces_basis_spin_flip(iorb,jorb))
+          write(*,*) '12',iorb,jorb
+          call sp_load_matrix(phi_traces_basis_pair_hopping(iorb,jorb,:,:),phi_spTraces_basis_pair_hopping(iorb,jorb))
+          write(*,*) '13',iorb,jorb
+       end do
+    end do
+    !
+    call sp_load_matrix(phi_traces_basis_spin2,phi_spTraces_basis_spin2)
+    write(*,*) '14'
+    call sp_load_matrix(phi_traces_basis_spinZ,phi_spTraces_basis_spinZ)
+    write(*,*) '15'
+    call sp_load_matrix(phi_traces_basis_isospin2,phi_spTraces_basis_isospin2)
+    write(*,*) '16'
+    call sp_load_matrix(phi_traces_basis_isospinZ,phi_spTraces_basis_isospinZ)
+    write(*,*) '17'
+    !
   end subroutine read_traces_matrix_basis
   
-
-
-  
-
 
 
   subroutine build_traces_matrix_basis
@@ -1314,13 +1362,66 @@ CONTAINS
     write(*,*) 'BUILDING PHI TRACES: local ISOSPIN_z'
     phi_traces_basis_isospinZ = get_traces_basis_phiOphi_z(op_isospinZ) 
     !
+    !
+        !
+    !+- DUMP TO SPARSE CSR MATRICES -+!
+    !
+    !
+    allocate(phi_spTraces_basis_local_dens(Ns,Ns))
+    allocate(phi_spTraces_basis_dens_dens(Ns,Ns))
+    allocate(phi_spTraces_basis_spin_flip(Norb,Norb))
+    allocate(phi_spTraces_basis_pair_hopping(Norb,Norb))
+    allocate(phi_spTraces_basis_sc_order(Ns,Ns))
+    allocate(phi_spTraces_basis_dens(Ns,Ns))
+    allocate(phi_spTraces_basis_dens_hc(Ns,Ns))
+    allocate(phi_spTraces_basis_dens_anomalous(Ns,Ns))
+    allocate(phi_spTraces_basis_dens_anomalous_hc(Ns,Ns))
+    !
+    !
+    allocate(phi_spTraces_basis_Rhop(Ns,Ns),phi_spTraces_basis_Rhop_hc(Ns,Ns))
+    if(gz_superc) allocate(phi_spTraces_basis_Qhop(Ns,Ns),phi_spTraces_basis_Qhop_hc(Ns,Ns))
+    !
+    !
+    do is=1,Ns
+       do js=1,Ns
+          !
+          call sp_load_matrix(phi_traces_basis_local_dens(is,js,:,:),phi_spTraces_basis_local_dens(is,js))
+          call sp_load_matrix(phi_traces_basis_dens_dens(is,js,:,:),phi_spTraces_basis_dens_dens(is,js))
+          call sp_load_matrix(phi_traces_basis_sc_order(is,js,:,:),phi_spTraces_basis_sc_order(is,js))
+          !
+          call sp_load_matrix(phi_traces_basis_dens(is,js,:,:),phi_spTraces_basis_dens(is,js))
+          call sp_load_matrix(phi_traces_basis_dens_hc(is,js,:,:),phi_spTraces_basis_dens_hc(is,js))
+          call sp_load_matrix(phi_traces_basis_dens_anomalous(is,js,:,:),phi_spTraces_basis_dens_anomalous(is,js))
+          call sp_load_matrix(phi_traces_basis_dens_anomalous_hc(is,js,:,:),phi_spTraces_basis_dens_anomalous_hc(is,js))
+          !
+          call sp_load_matrix(phi_traces_basis_Rhop(is,js,:,:),phi_spTraces_basis_Rhop(is,js))
+          call sp_load_matrix(phi_traces_basis_Rhop_hc(is,js,:,:),phi_spTraces_basis_Rhop_hc(is,js))
+          !
+          if(gz_superc) then
+             call sp_load_matrix(phi_traces_basis_Qhop(is,js,:,:),phi_spTraces_basis_Qhop(is,js))
+             call sp_load_matrix(phi_traces_basis_Qhop_hc(is,js,:,:),phi_spTraces_basis_Qhop_hc(is,js))
+          end if
+       end do
+    end do
+    do iorb=1,Norb
+       do jorb=1,Norb
+          call sp_load_matrix(phi_traces_basis_spin_flip(iorb,jorb,:,:),phi_spTraces_basis_spin_flip(iorb,jorb))
+          call sp_load_matrix(phi_traces_basis_pair_hopping(iorb,jorb,:,:),phi_spTraces_basis_pair_hopping(iorb,jorb))
+       end do
+    end do
+    !
+    call sp_load_matrix(phi_traces_basis_spin2,phi_spTraces_basis_spin2)
+    call sp_load_matrix(phi_traces_basis_spinZ,phi_spTraces_basis_spinZ)
+    call sp_load_matrix(phi_traces_basis_isospin2,phi_spTraces_basis_isospin2)
+    call sp_load_matrix(phi_traces_basis_isospinZ,phi_spTraces_basis_isospinZ)
+    !
   end subroutine build_traces_matrix_basis
 
 
 
-  !                                                         !
-  !HERE  BUILD ALL THE TRACES MATRICES FOR LOCAL OBSERVABLES! 
-  !                                                         !
+  !                                                                  !
+  !+- BUILD ALL THE TRACES MATRICES FOR A GENERIC LOCAL OBSERVABLE -+! 
+  !                                                                  !
 
   function get_traces_basis_phiOphi(Oi) result(trace_matrix)
     real(8),dimension(nFock,nFock) :: Oi !local_operator whose traces should be computed

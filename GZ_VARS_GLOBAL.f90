@@ -1,19 +1,20 @@
 MODULE GZ_VARS_GLOBAL
   USE GZ_VARS_INPUT
   USE SF_CONSTANTS
+  USE MATRIX_SPARSE
   implicit none
-
+  !
   !+- LOCAL FOCK SPACE -+!
   integer                            :: nFock               ! dimension of the local Fock space = 2^{2*Norb}   
   integer                            :: Ns                  ! number of local energy levels = 2*Norb
   integer                              :: state_dim           ! dimension of a single Fock state  |(\up,\dn)_1,...,(\up,\dn)_Norb> ===> Ns = 2*Norb  
   integer,dimension(:,:),allocatable :: index               ! ispin,iorb  to  istate=1,Ns
-
+  !
   !# Operators in the space (nFock X nFock) #!
   real(8),allocatable                :: CC(:,:,:),CA(:,:,:)          ! creation annhilation 
   real(8),allocatable                :: local_hamiltonian(:,:)       ! Hamiltonian of the atomic problem
   real(8),allocatable                :: local_hamiltonian_free(:,:)       ! free Hamiltonian of the atomic problem
-
+  !
 
 
 
@@ -54,6 +55,34 @@ MODULE GZ_VARS_GLOBAL
   complex(8),allocatable :: phi_traces_basis_spinZ(:,:)
   complex(8),allocatable :: phi_traces_basis_isospin2(:,:)
   complex(8),allocatable :: phi_traces_basis_isospinZ(:,:)
+  !
+  !sparse_verision
+  !
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_Rhop(:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_Rhop_hc(:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_Qhop(:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_Qhop_hc(:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  ! density constraints
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_dens(:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_dens_hc(:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_dens_anomalous(:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_dens_anomalous_hc(:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 
+  ! local operators
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_Hloc     ! Single matrix of dimension (nPhi X nPhi) 
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_free_Hloc     ! Single matrix of dimension (nPhi X nPhi) 
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_local_dens(:,:)  !Ns x Ns matrices (c+a cb)
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_dens_dens(:,:)
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_spin_flip(:,:)
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_pair_hopping(:,:)
+  type(sparse_matrix_csr_z),allocatable :: phi_spTraces_basis_sc_order(:,:)
+  type(sparse_matrix_csr_z) :: phi_spTraces_basis_spin2
+  type(sparse_matrix_csr_z) :: phi_spTraces_basis_spinZ
+  type(sparse_matrix_csr_z) :: phi_spTraces_basis_isospin2
+  type(sparse_matrix_csr_z) :: phi_spTraces_basis_isospinZ
+  
+
+
+  
 
   !<init_lgr
   !real(8),dimension(:),allocatable :: lgr_init_slater,lgr_init_gzproj

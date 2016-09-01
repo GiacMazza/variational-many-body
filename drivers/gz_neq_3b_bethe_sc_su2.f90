@@ -377,7 +377,8 @@ program GUTZ_mb
         !
      end if
      !
-     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp)
+     if(it==2) stop
+     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr)
      !
   end do
   !

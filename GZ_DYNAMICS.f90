@@ -897,8 +897,8 @@ CONTAINS
     do i=1,2*Nopt
        delta = delta + delta_out(i)**2.d0
     end do
-    write(*,*) 'Time Dependent lagrange parameters'
-    write(*,*) lgr
+    ! write(*,*) 'Time Dependent lagrange parameters'
+    ! write(*,*) lgr
     write(*,*) 'Time Dependent lagrange parameters: error'
     write(*,*) delta
     write(*,*)
@@ -943,9 +943,10 @@ CONTAINS
       end do
       call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(2,:,:))
       !
-      yt_new = RK_step(nDynamics,4,tstep,t,yt_old,gz_equations_of_motion_superc_lgr)
+      !yt_new = RK_step(nDynamics,4,tstep,t,yt_old,gz_equations_of_motion_superc_lgr_sp)
+      yt_new = RK_step(nDynamics,4,tstep,t,yt_old,eom_funct)
       !
-      call gz_neq_measure_constr_superc_sp(yt_new,t)
+      call gz_neq_measure_constr_superc_sp(yt_new,t) !+- che cazzo?!?!
       !
       do is=1,Ns
          do js=1,Ns
@@ -974,8 +975,16 @@ CONTAINS
       do i=1,size(lgr)
          tmp_test=tmp_test+delta(i)**2.d0
       end do
-      write(*,*) lgr
-      write(*,*) 'deviation from constraint consrvation',delta
+      write(*,*) 't-dep LAGRANGE fsolve'
+      do is=1,Ns
+         write(*,'(20F18.10)') neq_lgr(1,is,:)         
+      end do
+      write(*,*) 
+      do is=1,Ns
+         write(*,'(20F18.10)') neq_lgr(2,is,:)         
+      end do
+      write(*,*) 'deviation from constraint conservation'
+      write(*,'(20F18.10)') delta
       !
     end function fix_anomalous_vdm
     !
@@ -1002,7 +1011,8 @@ CONTAINS
       end do
       call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(2,:,:))
       !
-      yt_new = RK_step(nDynamics,4,tstep,t,yt_old,gz_equations_of_motion_superc_lgr)
+      !yt_new = RK_step(nDynamics,4,tstep,t,yt_old,gz_equations_of_motion_superc_lgr_sp)
+      yt_new = RK_step(nDynamics,4,tstep,t,yt_old,eom_funct)
       !
       call gz_neq_measure_constr_superc_sp(yt_new,t)
       !

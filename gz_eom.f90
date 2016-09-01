@@ -454,7 +454,7 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
         !
         xtmp=slater_derivatives(1,is,js)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then
+        if(xtmp/=zero) then
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop(is,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
@@ -467,7 +467,7 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
         !htmp = htmp + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp=slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then           
+        if(xtmp/=zero) then           
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)        
@@ -480,7 +480,7 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
         !htmp = htmp + conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi) !hc conjgate capra!        
         xtmp=slater_derivatives(2,is,js)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then           
+        if(xtmp/=zero) then           
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Qhop(is,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
@@ -493,7 +493,7 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
         !htmp = htmp + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp=slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then           
+        if(xtmp/=zero) then           
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
@@ -901,7 +901,7 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
         !
         xtmp=slater_derivatives(1,is,js)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then
+        if(xtmp/=zero) then
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop(is,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
@@ -914,7 +914,7 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
         !htmp = htmp + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp=slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then
+        if(xtmp/=zero) then
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)        
@@ -927,7 +927,7 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
         !htmp = htmp + conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi) !hc conjgate capra!        
         xtmp=slater_derivatives(2,is,js)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then
+        if(xtmp/=zero) then
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Qhop(is,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
@@ -940,7 +940,7 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
         !htmp = htmp + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp=slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then
+        if(xtmp/=zero) then
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
@@ -955,7 +955,7 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
         !+- > add time dependent lagrange multipliers <-!
         xtmp=neq_lgr(2,is,js)
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
-        if(xtmp_.gt.1.d-10) then
+        if(xtmp/=zero) then
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous(is,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)

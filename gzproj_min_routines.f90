@@ -700,8 +700,10 @@ subroutine gz_proj_minimization_fixed_lgr_hop_superc(n0,lgr_multip,lgr_multip_Rh
   do is=1,Ns
      do js=1,Ns
         ! !        
-        H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens(is,js,:,:)
-        H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens_hc(is,js,:,:)
+        ! H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens(is,js,:,:)
+        ! H_projectors = H_projectors + dreal(lgr_multip(1,is,js))*phi_traces_basis_dens_hc(is,js,:,:)
+        H_projectors = H_projectors + lgr_multip(1,is,js)*phi_traces_basis_dens(is,js,:,:)
+        H_projectors = H_projectors + conjg(lgr_multip(1,is,js))*phi_traces_basis_dens_hc(is,js,:,:)
         ! !
         H_projectors = H_projectors + lgr_multip(2,is,js)*phi_traces_basis_dens_anomalous(is,js,:,:)
         H_projectors = H_projectors + conjg(lgr_multip(2,is,js))*phi_traces_basis_dens_anomalous_hc(is,js,:,:)

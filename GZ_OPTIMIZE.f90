@@ -511,7 +511,7 @@ CONTAINS
     real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_,out_err
     real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
     integer                           :: iunit,err_unit,ene_unit,Nsuccess  
-    real(8),dimension(:),allocatable  :: xmin,xout
+    real(8),dimension(:),allocatable  :: xmin,xout,xmin_,xout_
     integer :: Nopt,iopt,Nslater_lgr,NRhop,NQhop,Nproj_lgr
     integer :: is,js,imap
     !
@@ -564,6 +564,12 @@ CONTAINS
     end if
     !
     !
+    ! allocate(xmin_(Nopt_reduced),xout_(Nopt_reduced))
+    ! call stride_zeros_orig2red(xmin,xmin_)
+    ! xout_ = R_Q_VDM_free_zeros_superc_(xmin_)
+    ! !    call fsolve(R_Q_VDM_free_zeros_superc_,xmin_,tol=1.d-10,info=iter)
+    ! call stride_zeros_red2orig(xout_,xout)
+
     !+- once optimization is achieved store the ground state results -+!
     optimization_flag=.true.
     if(allocated(GZ_vector)) deallocate(GZ_vector)

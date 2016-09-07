@@ -41,7 +41,7 @@ contains
     character(len=*) :: INPUTunit
 
     call parse_input_variable(Norb,"Norb",INPUTunit,default=1)
-    call parse_input_variable(Uloc,"ULOC",INPUTunit,default=[2.d0,0.d0,0.d0])
+    call parse_input_variable(Uloc,"ULOC",INPUTunit,default=[0.d0,0.d0,0.d0])
     call parse_input_variable(ust,"UST",INPUTunit,default=0.d0)
     call parse_input_variable(Jh,"JH",INPUTunit,default=0.d0)
     call parse_input_variable(Jsf,"JSF",INPUTunit,default=0.d0)

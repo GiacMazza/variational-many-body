@@ -84,9 +84,6 @@ program GUTZ_mb
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
   
-  !  call parse_input_variable(neqU,"neqU","inputGZ.conf",default=0)    ! {0 -> quench; 1 -> ramp; 2 -> modulation}
-
-
 
   call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=[0.d0,0.d0,0.d0])
   call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
@@ -113,9 +110,40 @@ program GUTZ_mb
 
   !
   call initialize_local_fock_space
+  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)    
+  !
   call build_lattice_model; get_Hk_t => getHk
   allocate(eLevels(Ns)); eLevels=0.d0
   !
+
+  NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
+  NQhop_opt=2;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
+  Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
+  Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
+  Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+
+  Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+  Nopt = 2*Nopt
+  Nopt_reduced = 2 + 2 + 2 + 2 + 2
+  !
+  stride_zeros_orig2red => stride2reduced
+  stride_zeros_red2orig => stride2orig
+  !
+  allocate(Rgrid(Ns,Ns),Qgrid(Ns,Ns),Ngrid(Ns,Ns))
+  Rgrid=.false.
+  Ngrid=.false.
+  do is=1,Ns
+     Rgrid(is,is)=.true.
+     Ngrid(is,js)=.true.
+  end do
+  Qgrid=.false.
+  do iorb=1,Norb
+     is=index(1,iorb)
+     js=index(2,iorb)
+     Qgrid(is,js) = .true.
+  end do
+  !
+
 
 
 
@@ -193,35 +221,7 @@ program GUTZ_mb
   end do
   close(unit_neq_hloc)
 
-  NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
-  NQhop_opt=2;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
-  Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
-  Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
-  Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
 
-  Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
-  Nopt = 2*Nopt
-  Nopt_reduced = 2 + 2 + 2 + 2 + 2
-  !
-  stride_zeros_orig2red => stride2reduced
-  stride_zeros_red2orig => stride2orig
-
-  
-  allocate(Rgrid(Ns,Ns),Qgrid(Ns,Ns),Ngrid(Ns,Ns))
-  Rgrid=.false.
-  Ngrid=.false.
-  do is=1,Ns
-     Rgrid(is,is)=.true.
-     Ngrid(is,js)=.true.
-  end do
-  Qgrid=.false.
-  do iorb=1,Norb
-     is=index(1,iorb)
-     js=index(2,iorb)
-     Qgrid(is,js) = .true.
-  end do
-  !
-  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
   nDynamics = 2*Ns*Ns*Lk + Nphi
   allocate(psi_t(nDynamics))
@@ -242,20 +242,24 @@ program GUTZ_mb
         end do
         !+------------------+!
         !
-        it=1
-        Uloc=Uloc_t(:,it)
-        Ust =Ust_t(it)
-        Jh=Jh_t(it)
-        Jsf=Jsf_t(it)
-        Jph=Jph_t(it)
+        it = 1
+        Uloc = Uloc_t(:,it)
+        Ust = Ust_t(it)
+        Jh = Jh_t(it)
+        Jsf = Jsf_t(it)
+        Jph = Jph_t(it)
         eLevels = eLevels_t(:,it)
-        call get_local_hamiltonian_trace(eLevels)
+        !
+        call get_local_hamiltonian_trace
         !
         allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
         allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
+        slater_lgr_init=0.d0
+        gzproj_lgr_init=0.d0
         call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+        !
         call get_gz_optimized_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        !        
+        !
         call get_gz_ground_state_superc(GZ_vector)  
         !
         slater_init = GZ_opt_slater_superc
@@ -284,6 +288,9 @@ program GUTZ_mb
      call get_local_hamiltonian_trace(eLevels)      
      !
   end if
+
+  
+        
   !
   call setup_neq_dynamics_superc
   !    
@@ -331,6 +338,7 @@ program GUTZ_mb
   allocate(dens_constrGZ(2,Ns,Ns))  
   allocate(sc_order(Ns,Ns))
   allocate(dump_vect(Ns*Ns))
+
   !*) ACTUAL DYNAMICS 
   do it=1,Nt
      write(*,*) it,Nt
@@ -340,7 +348,6 @@ program GUTZ_mb
      if(mod(it-1,nprint).eq.0) then        
         !
         call gz_neq_measure_superc_sp(psi_t,t)
-        !call gz_neq_measure_superc(psi_t,t)
         !
         do is=1,Ns
            call get_neq_Rhop(is,is,Rhop(is))
@@ -377,8 +384,7 @@ program GUTZ_mb
         !
      end if
      !
-     if(it==2) stop
-     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr)
+     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp)
      !
   end do
   !

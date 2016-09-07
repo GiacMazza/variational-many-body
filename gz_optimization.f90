@@ -208,12 +208,6 @@ function R_Q_VDM_free_zeros_superc(x)  result(Fout)
   !
   call dump2mats_superc(x,Rhop,Qhop,slater_lgr_multip,proj_lgr_multip)
   !
-  !<TMP TEST
-  ! slater_lgr_multip(1,:,:)=dreal(slater_lgr_multip(1,:,:))
-  ! slater_lgr_multip(2,:,:)=zero
-  ! proj_lgr_multip(:,:,:)=zero
-  !TMP TEST>
-  !
   call slater_minimization_fixed_lgr_superc(Rhop,Qhop,slater_lgr_multip,E_Hstar,n0_slater,slater_derivatives)
   !
   do is=1,Ns

@@ -175,7 +175,7 @@ program GUTZ_mb
         s_orb = 1.d0
      else
         !      s_orb(:) = 1.d0 + dUneq(:)*dsin(2.d0*pi*t/tSin_neqU)
-        s_orb(:) = 1.d0 + dUneq(:)*(1.d0-dcos(2.d0*pi*t/tSin_neqU))
+        s_orb(:) = 1.d0 + dUneq(:)*(1.d0-dcos(2.d0*pi*t/tSin_neqU))/2.d0
      end if
      !
      Ut(:,itt) = Uneq0 + r*(Uneq(:)*s_orb(:)-Uneq0)

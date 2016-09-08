@@ -58,7 +58,11 @@ program GUTZ_mb
   character(len=200) :: store_dir,read_dir
   real(8),dimension(:),allocatable :: energy_levels
   real(8) :: deltaU,Ntest,ndelta,ntarget,nerr
+  real(8) :: nread
   logical :: converged_mu
+  real(8) :: xmu1,xmu2,n1,n2,search_mu
+  integer :: xmu_unit
+
   !
 
   !+- PARSE INPUT DRIVER -+!
@@ -68,12 +72,13 @@ program GUTZ_mb
   call parse_input_variable(sweep,"SWEEP","inputGZ.conf",default='sweepJ')  
   call parse_input_variable(sweep_start,"SWEEP_START","inputGZ.conf",default=-0.4d0)  
   call parse_input_variable(sweep_stop,"SWEEP_STOP","inputGZ.conf",default=0.d0)  
-  call parse_input_variable(sweep_step,"SWEEP_STEP","inputGZ.conf",default=0.05d0)  
+  call parse_input_variable(sweep_step,"SWEEP_STEP","inputGZ.conf",default=0.05d0)
+  call parse_input_variable(nread,"NREAD","inputGZ.conf",default=0.d0)
   call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
   call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(ntarget,"NTARGET","inputGZ.conf",default=3.d0)
-  call parse_input_variable(nerr,"NERR","inputGZ.conf",default=1.d-7)
-  call parse_input_variable(ndelta,"NDELTA","inputGZ.conf",default=1.d-4)
+  call parse_input_variable(xmu1,"XMU1","inputGZ.conf",default=0.d0)
+  call parse_input_variable(xmu2,"XMU2","inputGZ.conf",default=0.02d0)
   call parse_input_variable(deltaU,"deltaU","inputGZ.conf",default=0.d0)
   !
   call read_input("inputGZ.conf")
@@ -174,24 +179,49 @@ program GUTZ_mb
         Jph = Jh
         Ust = Uloc(1)-2.d0*Jh
         !
-        call get_local_hamiltonian_trace
-        unit=free_unit()
-        open(unit,file='local_interactions.used')
-        write(unit,*) 'Uloc',Uloc
-        write(unit,*) 'Ust',Ust
-        write(unit,*) 'Jh',Jh
-        write(unit,*) 'Jsf',Jsf
-        write(unit,*) 'Jph',Jph
-        close(unit)
+        Uloc(2) = Uloc(1) + deltaU*Uloc(1)
+        Uloc(3) = Uloc(1) + deltaU*Uloc(1)
         !
-        write(dir_suffix,'(F4.2)') abs(Jiter)
-        dir_iter="J"//trim(dir_suffix)
-        call system('mkdir -v '//dir_iter)     
-        !
-        !call gz_optimization_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        !
-        call get_gz_ground_state_superc(GZ_vector)  
+        
+        if(nread/=0.d0) then        
+           xmu_unit=free_unit()
+           open(xmu_unit,file='bracket_XMU.out') 
+           call bracket_density(xmu1,xmu2,0.01d0,300)     
+           write(xmu_unit,*)  xmu1,xmu2
+           close(xmu_unit)
+
+           xmu_unit=free_unit()
+           open(xmu_unit,file='search_XMU.out') 
+           search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
+           close(xmu_unit)     
+           !        
+           xmu=search_mu
+           call get_local_hamiltonian_trace
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)           
+           call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+           call get_gz_ground_state_superc(GZ_vector)
+        else
+           call get_local_hamiltonian_trace
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)           
+           call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+           call get_gz_ground_state_superc(GZ_vector)  
+        end if
         !
         call print_output_superc
         call system('cp * '//dir_iter)
@@ -207,47 +237,29 @@ program GUTZ_mb
            Uloc(iorb) = Uiter 
         end do
         ! !
-        ! Jsf = Jh
-        ! Jph = Jh
-        ! Ust = Uloc(1)-2.d0*Jh
-        ! !
         !
         Jh  = Jh        
         Jsf = Jh
         Jph = Jh
         !
-        Uloc(2) = Uloc(1) + deltaU
-        Uloc(3) = Uloc(1) + deltaU
+        Uloc(2) = Uloc(1) + deltaU*Uloc(1)
+        Uloc(3) = Uloc(1) + deltaU*Uloc(1)
         !
         Ust = Uloc(1)-2.d0*Jh
         !
-        if(abs(deltaU).gt.1.d-10) then
-           do while(.not.converged_mu.AND.iloop<30)
-              iloop=iloop+1
-              !
-              call get_local_hamiltonian_trace
-              unit=free_unit()
-              open(unit,file='local_hamiltonian_parameters.out')
-              write(unit,*) 'Uloc',Uloc
-              write(unit,*) 'Ust',Ust
-              write(unit,*) 'Jh',Jh
-              write(unit,*) 'Jsf',Jsf
-              write(unit,*) 'Jph',Jph
-              write(unit,*) 'xmu',xmu
-              close(unit)
-              !
-              call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-              !
-              call get_gz_ground_state_superc(GZ_vector)  
-              !
-              Ntest=sum(gz_dens(1:Ns))
-              converged_mu=.true.;
-              !
-              call search_chemical_potential(xmu,Ntest,converged_mu,ntarget,ndelta,nerr)
-              !
-           end do
-        else
-           !
+        if(nread/=0.d0) then        
+           xmu_unit=free_unit()
+           open(xmu_unit,file='bracket_XMU.out') 
+           call bracket_density(xmu1,xmu2,0.01d0,300)     
+           write(xmu_unit,*)  xmu1,xmu2
+           close(xmu_unit)
+
+           xmu_unit=free_unit()
+           open(xmu_unit,file='search_XMU.out') 
+           search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
+           close(xmu_unit)     
+           !        
+           xmu=search_mu
            call get_local_hamiltonian_trace
            unit=free_unit()
            open(unit,file='local_hamiltonian_parameters.out')
@@ -257,17 +269,24 @@ program GUTZ_mb
            write(unit,*) 'Jsf',Jsf
            write(unit,*) 'Jph',Jph
            write(unit,*) 'xmu',xmu
-           close(unit)
-           !
-           write(dir_suffix,'(F4.2)') Uiter
-           dir_iter="U"//trim(dir_suffix)
-           call system('mkdir -v '//dir_iter)     
-           !
+           close(unit)           
            call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-           !
+           call get_gz_ground_state_superc(GZ_vector)
+        else
+           call get_local_hamiltonian_trace
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)           
+           call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
            call get_gz_ground_state_superc(GZ_vector)  
-           !
         end if
+
         !
         call print_output_superc
         call system('cp * '//dir_iter)
@@ -285,8 +304,8 @@ program GUTZ_mb
         Jsf = Jh
         Jph = Jh
         !
-        Uloc(2) = Uloc(1) + deltaU
-        Uloc(3) = Uloc(1) + deltaU
+        Uloc(2) = Uloc(1) + deltaU*Uloc(1)
+        Uloc(3) = Uloc(1) + deltaU*Uloc(1)
         !
         Ust = Uloc(1)-2.d0*Jh
         !
@@ -298,34 +317,19 @@ program GUTZ_mb
         call system('mkdir -v '//dir_iter)     
         !
 
-        if(abs(deltaU).gt.1.d-10) then
-           iloop=0;converged_mu=.false.
-           do while(.not.converged_mu.AND.iloop<30)
-              iloop=iloop+1
-              !
-              call get_local_hamiltonian_trace
-              !
-              call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-              !
-              call get_gz_ground_state_superc(GZ_vector)  
-              !
-              Ntest=sum(gz_dens(1:Ns))
-              converged_mu=.true.;
-              !
-              call search_chemical_potential(xmu,Ntest,converged_mu,ntarget,ndelta,nerr)
-              !
-           end do
-           unit=free_unit()
-           open(unit,file='local_hamiltonian_parameters.out')
-           write(unit,*) 'Uloc',Uloc
-           write(unit,*) 'Ust',Ust
-           write(unit,*) 'Jh',Jh
-           write(unit,*) 'Jsf',Jsf
-           write(unit,*) 'Jph',Jph
-           write(unit,*) 'xmu',xmu
-           close(unit)
-        else
-           !
+        if(nread/=0.d0.and.deltaU/=0.d0) then        
+           xmu_unit=free_unit()
+           open(xmu_unit,file='bracket_XMU.out') 
+           call bracket_density(xmu1,xmu2,0.01d0,300)     
+           write(xmu_unit,*)  xmu1,xmu2
+           close(xmu_unit)
+
+           xmu_unit=free_unit()
+           open(xmu_unit,file='search_XMU.out') 
+           search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
+           close(xmu_unit)     
+           !        
+           xmu=search_mu
            call get_local_hamiltonian_trace
            unit=free_unit()
            open(unit,file='local_hamiltonian_parameters.out')
@@ -335,13 +339,24 @@ program GUTZ_mb
            write(unit,*) 'Jsf',Jsf
            write(unit,*) 'Jph',Jph
            write(unit,*) 'xmu',xmu
-           close(unit)
-           !
+           close(unit)           
            call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-           !
+           call get_gz_ground_state_superc(GZ_vector)
+        else
+           call get_local_hamiltonian_trace
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)           
+           call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
            call get_gz_ground_state_superc(GZ_vector)  
-           !
         end if
+
         !
         call print_output_superc
         call system('cp * '//dir_iter)
@@ -1223,6 +1238,90 @@ CONTAINS
     end do
     !
   end subroutine vdm_AC_mat2vec
+
+
+  subroutine bracket_density(xmu1,xmu2,xmu_step,xmu_loop)
+    real(8),intent(inout) :: xmu1,xmu2
+    real(8)               :: xmu_step
+    real(8)               :: dens1,dens2,xmu,dens,sign_dens,xmu_max,xmu_min
+    real(8),dimension(2)  :: xmu_sort
+    integer :: i,xmu_loop
+    
+    if(xmu2.gt.xmu1) then
+       xmu_sort(1) = xmu2
+       xmu_sort(2) = xmu1
+    else
+       xmu_sort(1) = xmu1
+       xmu_sort(2) = xmu2
+    end if
+       
+    xmu_max = xmu_sort(1)
+    xmu_min = xmu_sort(2)
+
+    dens1 = gz_optimized_density_VS_xmu(xmu1)
+    dens2 = gz_optimized_density_VS_xmu(xmu2)
+
+    sign_dens = dens1*dens2
+
+    write(*,*) 'BRACKET IN',xmu1,xmu2,dens1,dens2
+    
+    if(sign_dens.gt.0.d0) then
+       !+- bracket xmu -+!
+       if(dens1.gt.0.d0) then          
+          xmu = xmu_min
+          do i=1,xmu_loop
+             xmu = xmu - abs(xmu_step)
+             dens = gz_optimized_density_VS_xmu(xmu)
+             sign_dens = dens*dens1
+             write(*,*) 'loop bracket',xmu,xmu_sort,dens,dens1,dens2,sign_dens
+             if(sign_dens.lt.0.d0) then
+                ! take the largest between xmu1 and xmu2 and <--- xmu
+                xmu_sort(1) = xmu
+                exit
+             end if
+          end do
+       else
+          xmu = xmu_max
+          do i=1,xmu_loop
+             xmu = xmu + abs(xmu_step)
+             dens = gz_optimized_density_VS_xmu(xmu)
+             sign_dens = dens*dens1
+             write(*,*) 'loop bracket',xmu,xmu_sort,dens,dens1,dens2
+             if(sign_dens.lt.0.d0) then
+                ! take the smallest between xmu1 and xmu2 and <--- xmu
+                xmu_sort(2) = xmu
+                exit             
+             end if
+          end do
+       end if
+    end if
+    xmu1=xmu_sort(1)
+    xmu2=xmu_sort(2)
+    write(*,*) 'BRACKET OUT',xmu1,xmu2,dens,dens1,dens2
+  end subroutine bracket_density
+
+
+
+  function gz_optimized_density_VS_xmu(chem_pot) result(delta_local_density)
+    real(8),intent(in) :: chem_pot
+    !    complex(8),dimension(Ns,Ns) :: R_init_,slater_lgr_init_,gzproj_lgr_init_
+    real(8)              :: delta_local_density,local_density
+    real(8)              :: Energy
+    complex(8),dimension(:,:),allocatable   :: Rhop_init_matrix
+    real(8),dimension(:,:),allocatable   :: variational_density_matrix
+    real(8),dimension(1)   :: vdm_in,vdm_out
+    integer :: is,js
+    !
+    xmu = chem_pot
+    !
+    call get_local_hamiltonian_trace
+    unit=free_unit()
+    call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+    call get_gz_ground_state_superc(GZ_vector)  
+    delta_local_density=sum(gz_dens(1:Ns))
+    delta_local_density = delta_local_density - Nread
+    write(xmu_unit,*) xmu,delta_local_density,sum(gz_dens(1:Ns)),Nread
+  end function gz_optimized_density_VS_xmu
 
 
 

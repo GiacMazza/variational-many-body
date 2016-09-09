@@ -889,20 +889,28 @@ CONTAINS
     end do
     !
     yt_old = yt
-    !
-    call fsolve(fix_anomalous_vdm,lgr,tol=1.d-04,info=iter)    
-    !
+
+
     delta_out = fix_anomalous_vdm(lgr)
     delta=0.d0
     do i=1,2*Nopt
        delta = delta + delta_out(i)**2.d0
     end do
-    ! write(*,*) 'Time Dependent lagrange parameters'
-    ! write(*,*) lgr
+    
+    if(delta.gt.1.d-10) then
+       !
+       call fsolve(fix_anomalous_vdm,lgr,tol=1.d-04,info=iter)    
+       !
+       delta_out = fix_anomalous_vdm(lgr)
+       delta=0.d0
+       do i=1,2*Nopt
+          delta = delta + delta_out(i)**2.d0
+       end do
+       !
+    end if
     write(*,*) 'Time Dependent lagrange parameters: error'
     write(*,*) delta
     write(*,*)
-    !end if
     !
     yt=yt_new
     !

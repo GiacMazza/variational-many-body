@@ -62,13 +62,14 @@ program GUTZ_mb
   real(8) :: nread
   logical :: converged_mu
   real(8) :: xmu1,xmu2,n1,n2,search_mu
-  integer :: xmu_unit
+  integer :: xmu_unit,cf_type
 
   !
 
   !+- PARSE INPUT DRIVER -+!
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=10)
   call parse_input_variable(cf_delta,"Cfield","inputGZ.conf",default=0.d0)
+  call parse_input_variable(cf_type,"CF_TYPE","inputGZ.conf",default=0)
   call parse_input_variable(Wband,"Wband","inputGZ.conf",default=1.d0)
   call parse_input_variable(sweep,"SWEEP","inputGZ.conf",default='sweepJ')  
   call parse_input_variable(sweep_start,"SWEEP_START","inputGZ.conf",default=-0.4d0)  
@@ -78,8 +79,8 @@ program GUTZ_mb
   call parse_input_variable(read_dir,"READ_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
   call parse_input_variable(store_dir,"STORE_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(ntarget,"NTARGET","inputGZ.conf",default=3.d0)
-  call parse_input_variable(xmu1,"XMU1","inputGZ.conf",default=-0.1d0)
-  call parse_input_variable(xmu2,"XMU2","inputGZ.conf",default=0.1d0)
+  call parse_input_variable(xmu1,"XMU1","inputGZ.conf",default=0.0d0)
+  call parse_input_variable(xmu2,"XMU2","inputGZ.conf",default=0.01d0)
   call parse_input_variable(deltaU,"deltaU","inputGZ.conf",default=0.d0)
   !
   call read_input("inputGZ.conf")
@@ -106,12 +107,6 @@ program GUTZ_mb
   allocate(energy_levels(Ns)); energy_levels=0.d0
   !  
   call build_lattice_model
-  !
-  ! NRhop_opt=3;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
-  ! NQhop_opt=3;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
-  ! Nvdm_NC_opt=3; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
-  ! Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
-  ! Nvdm_AC_opt=3; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
   !
   NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   NQhop_opt=2;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
@@ -179,14 +174,14 @@ program GUTZ_mb
         Jph = Jh
         Ust = Uloc(1)-2.d0*Jh
 
-        do iorb=2,3
+        do iorb=1,2
            do ispin=1,2
-              is=index(iorb,ispin)
-              eLevels(is) = cf_delta
+              is=index(ispin,iorb)
+              energy_levels(is) = cf_delta
            end do
         end do
 
-        if(nread/=0.d0) then        
+        if(nread/=0.d0.and.cf_delta/=0.d0) then        
            xmu_unit=free_unit()
            open(xmu_unit,file='bracket_XMU.out') 
            call bracket_density(xmu1,xmu2,0.01d0,300)     
@@ -199,7 +194,7 @@ program GUTZ_mb
            close(xmu_unit)     
            !        
            xmu=search_mu
-           call get_local_hamiltonian_trace(eLevels)
+           call get_local_hamiltonian_trace(energy_levels)
            unit=free_unit()
            open(unit,file='local_hamiltonian_parameters.out')
            write(unit,*) 'Uloc',Uloc
@@ -212,7 +207,7 @@ program GUTZ_mb
            call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
            call get_gz_ground_state_superc(GZ_vector)
         else
-           call get_local_hamiltonian_trace(eLevels)
+           call get_local_hamiltonian_trace(energy_levels)
            unit=free_unit()
            open(unit,file='local_hamiltonian_parameters.out')
            write(unit,*) 'Uloc',Uloc
@@ -247,14 +242,14 @@ program GUTZ_mb
         !
         Ust = Uloc(1)-2.d0*Jh
         !
-        do iorb=2,3
+        do iorb=1,2
            do ispin=1,2
-              is=index(iorb,ispin)
-              eLevels(is) = cf_delta
+              is=index(ispin,iorb)
+              energy_levels(is) = cf_delta
            end do
         end do
         !
-        if(nread/=0.d0) then        
+        if(nread/=0.d0.and.cf_delta/=0.d0) then        
            xmu_unit=free_unit()
            open(xmu_unit,file='bracket_XMU.out') 
            call bracket_density(xmu1,xmu2,0.01d0,300)     
@@ -267,7 +262,7 @@ program GUTZ_mb
            close(xmu_unit)     
            !        
            xmu=search_mu
-           call get_local_hamiltonian_trace(eLevels)
+           call get_local_hamiltonian_trace(energy_levels)
            unit=free_unit()
            open(unit,file='local_hamiltonian_parameters.out')
            write(unit,*) 'Uloc',Uloc
@@ -280,7 +275,7 @@ program GUTZ_mb
            call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
            call get_gz_ground_state_superc(GZ_vector)
         else
-           call get_local_hamiltonian_trace(eLevels)
+           call get_local_hamiltonian_trace(energy_levels)
            unit=free_unit()
            open(unit,file='local_hamiltonian_parameters.out')
            write(unit,*) 'Uloc',Uloc
@@ -301,10 +296,10 @@ program GUTZ_mb
         Uiter = Uiter + sweep_step
      end do
      
-  case('sweepD')
+  case('sweepC')
      !+- sweep JHund -+!
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
-     deltaU = sweep_start
+     cfield = sweep_start
      do i=1,Nsweep
         !
         Jh  = Jh        
@@ -313,19 +308,19 @@ program GUTZ_mb
         !
         Ust = Uloc(1)-2.d0*Jh
         !
-        do iorb=2,3
+        do iorb=1,2
            do ispin=1,2
-              is=index(iorb,ispin)
-              eLevels(is) = cf_delta
+              is=index(ispin,iorb)
+              energy_levels(is) = cfield
            end do
         end do
         !
-        write(dir_suffix,'(F6.3)') deltaU
+        write(dir_suffix,'(F6.3)') cfield
         dir_suffix=adjustl(dir_suffix)
-        dir_iter="d"//trim(dir_suffix)
+        dir_iter="C"//trim(dir_suffix)
         call system('mkdir -v '//dir_iter)     
         !
-        if(nread/=0.d0) then        
+        if(nread/=0.d0.and.cfield/=0.d0) then        
            xmu_unit=free_unit()
            open(xmu_unit,file='bracket_XMU.out') 
            call bracket_density(xmu1,xmu2,0.01d0,300)     
@@ -338,7 +333,7 @@ program GUTZ_mb
            close(xmu_unit)     
            !        
            xmu=search_mu
-           call get_local_hamiltonian_trace(eLevels)
+           call get_local_hamiltonian_trace(energy_levels)
            unit=free_unit()
            open(unit,file='local_hamiltonian_parameters.out')
            write(unit,*) 'Uloc',Uloc
@@ -347,11 +342,12 @@ program GUTZ_mb
            write(unit,*) 'Jsf',Jsf
            write(unit,*) 'Jph',Jph
            write(unit,*) 'xmu',xmu
+           write(unit,*) 'local energies',energy_levels
            close(unit)           
            call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
            call get_gz_ground_state_superc(GZ_vector)
         else
-           call get_local_hamiltonian_trace(eLevels)
+           call get_local_hamiltonian_trace(energy_levels)
            unit=free_unit()
            open(unit,file='local_hamiltonian_parameters.out')
            write(unit,*) 'Uloc',Uloc
@@ -360,6 +356,7 @@ program GUTZ_mb
            write(unit,*) 'Jsf',Jsf
            write(unit,*) 'Jph',Jph
            write(unit,*) 'xmu',xmu
+           write(unit,*) 'local energies',energy_levels
            close(unit)           
            call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
            call get_gz_ground_state_superc(GZ_vector)  
@@ -368,8 +365,8 @@ program GUTZ_mb
         !
         call print_output_superc
         call system('cp * '//dir_iter)
-        call system('rm *.out *.data fort.* ')
-        deltaU = deltaU + sweep_step
+        call system('rm *.out *.data fort.* ')        
+        cfield = cfield + sweep_step
      end do
      !
   end select
@@ -747,6 +744,7 @@ CONTAINS
 
 
 
+
   subroutine stride2reduced(x_orig,x_reduced)
     real(8),dimension(:) :: x_orig
     real(8),dimension(:) :: x_reduced
@@ -791,249 +789,7 @@ CONTAINS
     x_orig(17) = x_reduced(9)
     x_orig(18) = x_reduced(10)
   end subroutine stride2orig
-
-
-
-  ! subroutine stride2reduced(x_orig,x_reduced)
-  !   real(8),dimension(:) :: x_orig
-  !   real(8),dimension(:) :: x_reduced
-  !   if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
-  !   if(size(x_reduced).ne.Nopt_reduced) stop "error reduced @ stride2reduced"
-  !   !+- R
-  !   x_reduced(1) = x_orig(1)
-  !   x_reduced(2) = x_orig(2)
-  !   x_reduced(3) = x_orig(3)
-  !   !+- Q
-  !   x_reduced(4) = x_orig(7)
-  !   x_reduced(5) = x_orig(8)
-  !   x_reduced(6) = x_orig(9)
-  !   !+- LGR_slater
-  !   x_reduced(7) = x_orig(13)
-  !   x_reduced(8) = x_orig(14)
-  !   x_reduced(9) = x_orig(15)
-  !   !
-  ! end subroutine stride2reduced
-  ! subroutine stride2orig(x_reduced,x_orig)
-  !   real(8),dimension(:) :: x_orig
-  !   real(8),dimension(:) :: x_reduced
-  !   if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
-  !   if(size(x_reduced).ne.Nopt_reduced) stop "error reduced @ stride2reduced"
-  !   x_orig=0.d0
-  !   !+- R
-  !   x_orig(1) = x_reduced(1)
-  !   x_orig(2) = x_reduced(2)
-  !   x_orig(3) = x_reduced(3)
-  !   !+- Q
-  !   x_orig(7) = x_reduced(4)
-  !   x_orig(8) = x_reduced(5)
-  !   x_orig(9) = x_reduced(6)
-  !   !+- LGR slater
-  !   x_orig(13) = x_reduced(7)
-  !   x_orig(14) = x_reduced(8)
-  !   x_orig(15) = x_reduced(9)    
-  ! end subroutine stride2orig
-
-
-
-
-
-
-
-
-
-  !+- STRIDES -+!
-  ! subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
-  !   complex(8),dimension(:)   :: Rhop_indep
-  !   complex(8),dimension(:,:) :: Rhop_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
-  !   if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
-  !   Rhop_mat = zero
-  !   do iorb=1,Norb
-  !      do ispin=1,2
-  !         is=index(ispin,iorb)
-  !         Rhop_mat(is,is) = Rhop_indep(iorb)
-  !      end do
-  !   end do
-  !   !
-  ! end subroutine Rhop_vec2mat
-  ! subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
-  !   complex(8),dimension(:,:) :: Rhop_mat
-  !   complex(8),dimension(:)   :: Rhop_indep
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   complex(8) :: test_stride
-  !   real(8) :: test
-  !   if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
-  !   if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
-  !   !
-  !   do iorb=1,Norb
-  !      ispin=1
-  !      is=index(ispin,iorb)
-  !      Rhop_indep(iorb)=Rhop_mat(is,is)
-  !   end do
-  !   !
-  ! end subroutine Rhop_mat2vec
-
-  ! subroutine Qhop_vec2mat(Qhop_indep,Qhop_mat)
-  !   complex(8),dimension(:)   :: Qhop_indep
-  !   complex(8),dimension(:,:) :: Qhop_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
-  !   if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
-
-  !   !+- to understand why the SU2xisoZ allows only inter-orbital SC ???? -+!
-  !   Qhop_mat = zero
-  !   do iorb=1,Norb
-  !      do jorb=1,Norb
-  !         do ispin=1,2
-  !            jspin=3-ispin
-  !            is=index(ispin,iorb)
-  !            js=index(jspin,jorb)
-  !            !             write(*,*) is,js,size(Qhop_mat,1),size(Qhop_mat,2)
-  !            if(iorb.ne.jorb) then
-  !               Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
-  !            else
-  !               Qhop_mat(is,js) = zero
-  !            end if
-  !         end do
-  !      end do
-  !   end do
-  ! end subroutine Qhop_vec2mat
-  ! subroutine Qhop_mat2vec(Qhop_mat,Qhop_indep)
-  !   complex(8),dimension(:)   :: Qhop_indep
-  !   complex(8),dimension(:,:) :: Qhop_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
-  !   if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
-  !   !
-  !   iorb=1;jorb=2;ispin=1;jspin=2
-  !   is=index(ispin,iorb)
-  !   js=index(jspin,jorb)
-  !   Qhop_indep(1) = Qhop_mat(is,js)
-  ! end subroutine Qhop_mat2vec
-
-
-
-  ! subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_mat = zero
-  !   do iorb=1,Norb
-  !      do ispin=1,2
-  !         is=index(ispin,iorb)
-  !         vdm_NC_mat(is,is) = vdm_NC_indep(iorb)
-  !      end do
-  !   end do
-  !   Nopt_odiag = 0
-  !   !
-  ! end subroutine vdm_NC_vec2mat
-  ! subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-  !   !
-  !   ispin=1
-  !   do iorb=1,Norb
-  !      is=index(ispin,iorb)       
-  !      vdm_NC_indep(iorb) = vdm_NC_mat(is,is)
-  !   end do
-  !   !
-  ! end subroutine vdm_NC_mat2vec
-
-
-
-  ! subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_mat = zero
-  !   !
-  ! end subroutine vdm_NCoff_vec2mat
-  ! subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
-  !   complex(8),dimension(:)   :: vdm_NC_indep
-  !   complex(8),dimension(:,:) :: vdm_NC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_NC_indep = zero
-  !   !
-  ! end subroutine vdm_NCoff_mat2vec
-
-
-
-
-
-  ! !
-  ! subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
-  !   complex(8),dimension(:)   :: vdm_AC_indep
-  !   complex(8),dimension(:,:) :: vdm_AC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
-  !   !
-  !   vdm_AC_mat = zero
-  !   do iorb=1,Norb
-  !      do jorb=1,Norb
-  !         do ispin=1,2
-  !            jspin=3-ispin
-  !            is=index(ispin,iorb)
-  !            js=index(jspin,jorb)
-  !            if(iorb.ne.jorb) then
-  !               vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(1)
-  !            else
-  !               vdm_AC_mat(is,js) = zero
-  !            end if
-  !         end do
-  !      end do
-  !   end do
-  !   !
-  ! end subroutine vdm_AC_vec2mat
-  ! subroutine vdm_AC_mat2vec(vdm_AC_mat,vdm_AC_indep)
-  !   complex(8),dimension(:)   :: vdm_AC_indep
-  !   complex(8),dimension(:,:) :: vdm_AC_mat
-  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-  !   if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
-  !   if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
-  !   if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
-  !   !
-  !   iorb=1;jorb=2;ispin=1;jspin=2
-  !   is=index(ispin,iorb)
-  !   js=index(jspin,jorb)
-  !   vdm_AC_indep(1) = vdm_AC_mat(is,js)
-  !   !
-  ! end subroutine vdm_AC_mat2vec
-
-
-
-
-
-
-
-
-
-
-
-
-
+  !
   subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
     complex(8),dimension(:)   :: Rhop_indep
     complex(8),dimension(:,:) :: Rhop_mat
@@ -1045,7 +801,7 @@ CONTAINS
     do iorb=1,Norb
        do ispin=1,2
           is=index(ispin,iorb)
-          if(iorb.eq.1) then
+          if(iorb.eq.3) then
              Rhop_mat(is,is) = Rhop_indep(1)
           else
              Rhop_mat(is,is) = Rhop_indep(2)
@@ -1067,7 +823,7 @@ CONTAINS
     do iorb=1,Norb
        ispin=1
        is=index(ispin,iorb)
-       if(iorb.eq.1) then
+       if(iorb.eq.3) then
           Rhop_indep(1)=Rhop_mat(is,is)
        else
           Rhop_indep(2)=Rhop_mat(is,is)
@@ -1093,7 +849,7 @@ CONTAINS
              is=index(ispin,iorb)
              js=index(jspin,jorb)
              if(iorb.eq.jorb) then
-                if(iorb.eq.1) then
+                if(iorb.eq.3) then
                    Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
                 else
                    Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(2)
@@ -1118,7 +874,7 @@ CONTAINS
     do iorb=1,Norb
        is=index(ispin,iorb)
        js=index(jspin,iorb)
-       if(iorb.eq.1) then
+       if(iorb.eq.3) then
           Qhop_indep(1) = Qhop_mat(is,js)
        else
           Qhop_indep(2) = Qhop_mat(is,js)
@@ -1140,7 +896,7 @@ CONTAINS
     do iorb=1,Norb
        do ispin=1,2
           is=index(ispin,iorb)
-          if(iorb.eq.1) then
+          if(iorb.eq.3) then
              vdm_NC_mat(is,is) = vdm_NC_indep(1)
           else
              vdm_NC_mat(is,is) = vdm_NC_indep(2)
@@ -1160,7 +916,7 @@ CONTAINS
     do iorb=1,Norb
        ispin=1
        is=index(ispin,iorb)
-       if(iorb.eq.1) then
+       if(iorb.eq.3) then
           vdm_NC_indep(1) = vdm_NC_mat(is,is)
        else
           vdm_NC_indep(2) = vdm_NC_mat(is,is)
@@ -1213,7 +969,7 @@ CONTAINS
              is=index(ispin,iorb)
              js=index(jspin,jorb)
              if(iorb.eq.jorb) then
-                if(iorb.eq.1) then
+                if(iorb.eq.3) then
                    vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(1)
                 else
                    vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(2)
@@ -1238,7 +994,7 @@ CONTAINS
     do iorb=1,Norb
        is=index(ispin,iorb)
        js=index(jspin,iorb)
-       if(iorb.eq.1) then
+       if(iorb.eq.3) then
           vdm_AC_indep(1) = vdm_AC_mat(is,js)
        else
           vdm_AC_indep(2) = vdm_AC_mat(is,js)
@@ -1322,7 +1078,7 @@ CONTAINS
     !
     xmu = chem_pot
     !
-    call get_local_hamiltonian_trace
+    call get_local_hamiltonian_trace(energy_levels)
     unit=free_unit()
     call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
     call get_gz_ground_state_superc(GZ_vector)  

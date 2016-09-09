@@ -890,19 +890,30 @@ CONTAINS
     !
     yt_old = yt
     !
-    call fsolve(fix_anomalous_vdm,lgr,tol=1.d-04,info=iter)    
+    ! delta_out = fix_anomalous_vdm(lgr)
+    ! delta=0.d0
+    ! do i=1,2*Nopt
+    !    delta = delta + delta_out(i)**2.d0
+    ! end do   
+    !
+    select case(lgr_method)
+    case('CG_min')
+       call fmin_cgminimize(lgr,fix_anomalous_vdm_,iter,delta,ftol=1.d-04,itmax=20)    
+    case('f_zero')
+       call fsolve(fix_anomalous_vdm,lgr,tol=1.d-04,info=iter)    
+    case default
+       call fsolve(fix_anomalous_vdm,lgr,tol=1.d-04,info=iter)    
+    end select
     !
     delta_out = fix_anomalous_vdm(lgr)
     delta=0.d0
     do i=1,2*Nopt
        delta = delta + delta_out(i)**2.d0
     end do
-    ! write(*,*) 'Time Dependent lagrange parameters'
-    ! write(*,*) lgr
+    !
     write(*,*) 'Time Dependent lagrange parameters: error'
     write(*,*) delta
     write(*,*)
-    !end if
     !
     yt=yt_new
     !

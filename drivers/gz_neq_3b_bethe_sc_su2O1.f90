@@ -26,10 +26,11 @@ program GUTZ_mb
   complex(8),dimension(:),allocatable     :: gz_proj_init
   !
   complex(8),dimension(:),allocatable     :: psi_t
-  real(8),dimension(:,:),allocatable      :: Ut 
+  real(8),dimension(:,:),allocatable      :: Ut,CFt
   real(8),dimension(:),allocatable      :: Jht
-  real(8) :: r,s,tmpU
+  real(8) :: r,tmpU
   real(8),dimension(3) :: s_orb
+  real(8),dimension(:),allocatable :: s
   !
   integer :: unit_neq_hloc
   integer :: unit_neq_local_dens
@@ -59,19 +60,15 @@ program GUTZ_mb
   !
   real(8),dimension(:),allocatable      :: dump_vect
   
-  real(8) :: Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU
-  real(8),dimension(3) :: Uneq,dUneq
-  real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
-
-
+  real(8) :: CFneq,CFneq0,tStart_neqCF,tRamp_neqCF,tSin_neqCF,dCFneq
 
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
   complex(8),dimension(:,:),allocatable   :: R_init,Q_init
   integer :: Nopt
   real(8),dimension(:),allocatable :: dump_seed
-  integer :: expected_flen,flen,unit
+  integer :: expected_flen,flen,unit,cf_type
   logical :: seed_file
-  logical :: tdLGR
+
 
   complex(8),dimension(:,:,:),allocatable :: td_lgr
   
@@ -83,23 +80,14 @@ program GUTZ_mb
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
-  
-
-  call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=[0.d0,0.d0,0.d0])
-  call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
-  call parse_input_variable(tStart_neqU,"TSTART_NEQU","inputGZ.conf",default=0.d0)
-  call parse_input_variable(tRamp_neqU,"TRAMP_NEQU","inputGZ.conf",default=0.d0)  
-  call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
-  call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=[0.d0,0.d0,0.d0]) 
-  !
-  call parse_input_variable(Jhneq,"Jhneq","inputGZ.conf",default=0.d0) 
-  call parse_input_variable(Jhneq0,"Jhneq0","inputGZ.conf",default=0.d0) 
-  call parse_input_variable(tStart_neqJ,"TSTART_NEQJ","inputGZ.conf",default=0.d0)
-  call parse_input_variable(tRamp_neqJ,"TRAMP_NEQJ","inputGZ.conf",default=0.d0)  
-  call parse_input_variable(tSin_neqJ,"TSIN_NEQJ","inputGZ.conf",default=0.5d0)
-  call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
-  call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default=.true.) 
-  
+    !
+  call parse_input_variable(CFneq,"CFneq","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(CFneq0,"CFneq0","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(tStart_neqCF,"TSTART_NEQCF","inputGZ.conf",default=0.d0)
+  call parse_input_variable(tRamp_neqCF,"TRAMP_NEQCF","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(tSin_neqCF,"TSIN_NEQCF","inputGZ.conf",default=0.5d0)
+  call parse_input_variable(dCFneq,"DCFneq","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(cf_type,"CF_TYPE","inputGZ.conf",default=0) 
   
   !
   call read_input("inputGZ.conf")
@@ -108,7 +96,8 @@ program GUTZ_mb
      write(*,*) 'WARNING THE O(1) x SU(2)c x ORBITAL_ROTATION = O(1) x SU(2)c for the Norb=1 case!'
      wf_symmetry=0
   end if
-
+  !+---> constrain the SU2xO1 orbatial symmetry
+  wf_symmetry=6
   !
   call initialize_local_fock_space
   call init_variational_matrices(wf_symmetry,read_dir_=read_dir)    
@@ -157,54 +146,61 @@ program GUTZ_mb
   t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
   !
 
-  allocate(Ut(3,Nt_aux))  
+  allocate(Ut(3,Nt_aux)) ;
   do itt=1,Nt_aux
-     t = t_grid_aux(itt) 
-     !
-     if(t.lt.tStart_neqU) then
-        r=0.d0
-     else
-        if(t.lt.tStart_neqU+tRamp_neqU) then
-           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
-        else
-           r = 1.d0 
-        end if
-     end if
-     !
-!     if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
-     if(t.lt.tStart_neqU+tRamp_neqU) then
-        s_orb = 1.d0
-     else
-        !      s_orb(:) = 1.d0 + dUneq(:)*dsin(2.d0*pi*t/tSin_neqU)
-        s_orb(:) = 1.d0 + dUneq(:)*(1.d0-dcos(2.d0*pi*t/tSin_neqU))/2.d0
-     end if
-     !
-     Ut(:,itt) = Uneq0 + r*(Uneq(:)*s_orb(:)-Uneq0)
+     Ut(:,itt) = Uloc
   end do
   allocate(Jht(Nt_aux))  
   do itt=1,Nt_aux
+     Jht(itt) = Jh
+  end do
+  ! 
+  allocate(CFT(Ns,Nt_aux));allocate(s(Ns))
+  do itt=1,Nt_aux
      t = t_grid_aux(itt) 
      !
-     if(t.lt.tStart_neqJ) then
+     if(t.lt.tStart_neqCF) then
         r=0.d0
      else
-        if(t.lt.tStart_neqJ+tRamp_neqJ) then
-           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqJ)/tRamp_neqJ) + 0.5d0*(cos(pi*(t-tStart_neqJ)/tRamp_neqJ))**3)*0.5d0
+        if(t.lt.tStart_neqCF+tRamp_neqCF) then
+           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqCF)/tRamp_neqCF) + 0.5d0*(cos(pi*(t-tStart_neqCF)/tRamp_neqCF))**3)*0.5d0
         else
            r = 1.d0 
         end if
      end if
      !
-     if(t.lt.tStart_neqU+tRamp_neqJ+tSin_neqJ) then
-        s = 1.d0
+     if(t.lt.tStart_neqCF+tRamp_neqCF) then
+        s = CFneq
      else
-        s = 1.d0 + dJneq*dsin(2.d0*pi*t/tSin_neqJ)
+        select case(cf_type)
+        case(0)
+           s = CFneq
+           do iorb=1,2
+              do ispin=1,2
+                 is = index(ispin,iorb)
+                 s(is) = CFneq + dCFneq*dsin(2.d0*pi*t/tSin_neqCF)
+              end do
+           end do
+        case(1)
+           s = 1.d0
+           do iorb=1,2
+              do ispin=1,2
+                 is = index(ispin,iorb)
+                 s(is) = CFneq + dCFneq*(1.d0-dcos(2.d0*pi*t/tSin_neqCF))
+              end do
+           end do
+        end select
      end if
      !
-     Jht(itt) = Jhneq0 + r*(Jhneq*s-Jhneq0)
+     CFt(:,itt) = CFneq0 + r*(s(:)-CFneq0)
   end do
   !
-  call setup_neq_hamiltonian(Uloc_t_=Ut,Jh_t_=Jht)
+  !
+  !
+  call setup_neq_hamiltonian(Uloc_t_=Ut,Jh_t_=Jht,eLevels_t_=CFt)
+  !
+  !
+  !
   !+- IMPOSE RELATIONS BETWEEN LOCAL INTERACTION PARAMETERS -+!
   !       NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
@@ -218,7 +214,7 @@ program GUTZ_mb
   open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
   !
   do itt=1,Nt_aux
-     write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
+     write(unit_neq_hloc,'(20F18.10)') t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt),CFt(:,itt)
   end do
   close(unit_neq_hloc)
 
@@ -385,11 +381,7 @@ program GUTZ_mb
         !
      end if
      !
-     if(tdLGR) then
-        call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp)
-     else
-        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
-     end if
+     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp)
      !
   end do
   !

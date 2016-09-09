@@ -50,6 +50,8 @@ EXE=gz_generate_phi_traces
 #EXE=gz_neq_3b_bethe_sc
 EXE=gz_neq_3b_bethe_sc_su2
 
+#EXE=gz_neq_3b_bethe_sc_su2O1
+
 
 
 DIR=drivers

@@ -1178,51 +1178,34 @@ CONTAINS
        do js=1,Ns
           !
           call sp_load_matrix(phi_traces_basis_local_dens(is,js,:,:),phi_spTraces_basis_local_dens(is,js))
-          write(*,*) '1',is,js
           call sp_load_matrix(phi_traces_basis_dens_dens(is,js,:,:),phi_spTraces_basis_dens_dens(is,js))
-          write(*,*) '2',is,js
           call sp_load_matrix(phi_traces_basis_sc_order(is,js,:,:),phi_spTraces_basis_sc_order(is,js))
-          write(*,*) '3',is,js
           !
           call sp_load_matrix(phi_traces_basis_dens(is,js,:,:),phi_spTraces_basis_dens(is,js))
-          write(*,*) '4',is,js
           call sp_load_matrix(phi_traces_basis_dens_hc(is,js,:,:),phi_spTraces_basis_dens_hc(is,js))
-          write(*,*) '5',is,js
           call sp_load_matrix(phi_traces_basis_dens_anomalous(is,js,:,:),phi_spTraces_basis_dens_anomalous(is,js))
-          write(*,*) '6',is,js
           call sp_load_matrix(phi_traces_basis_dens_anomalous_hc(is,js,:,:),phi_spTraces_basis_dens_anomalous_hc(is,js))
-          write(*,*) '7',is,js
           !
           call sp_load_matrix(phi_traces_basis_Rhop(is,js,:,:),phi_spTraces_basis_Rhop(is,js))
-          write(*,*) '8',is,js
           call sp_load_matrix(phi_traces_basis_Rhop_hc(is,js,:,:),phi_spTraces_basis_Rhop_hc(is,js))
-          write(*,*) '9',is,js
           !
           if(gz_superc) then
              call sp_load_matrix(phi_traces_basis_Qhop(is,js,:,:),phi_spTraces_basis_Qhop(is,js))
-             write(*,*) '10',is,js
              call sp_load_matrix(phi_traces_basis_Qhop_hc(is,js,:,:),phi_spTraces_basis_Qhop_hc(is,js))
-             write(*,*) '11',is,js
           end if
        end do
     end do
     do iorb=1,Norb
        do jorb=1,Norb
           call sp_load_matrix(phi_traces_basis_spin_flip(iorb,jorb,:,:),phi_spTraces_basis_spin_flip(iorb,jorb))
-          write(*,*) '12',iorb,jorb
           call sp_load_matrix(phi_traces_basis_pair_hopping(iorb,jorb,:,:),phi_spTraces_basis_pair_hopping(iorb,jorb))
-          write(*,*) '13',iorb,jorb
        end do
     end do
     !
     call sp_load_matrix(phi_traces_basis_spin2,phi_spTraces_basis_spin2)
-    write(*,*) '14'
     call sp_load_matrix(phi_traces_basis_spinZ,phi_spTraces_basis_spinZ)
-    write(*,*) '15'
     call sp_load_matrix(phi_traces_basis_isospin2,phi_spTraces_basis_isospin2)
-    write(*,*) '16'
     call sp_load_matrix(phi_traces_basis_isospinZ,phi_spTraces_basis_isospinZ)
-    write(*,*) '17'
     !
   end subroutine read_traces_matrix_basis
   

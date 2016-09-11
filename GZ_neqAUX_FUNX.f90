@@ -8,6 +8,8 @@ MODULE GZ_neqAUX_FUNX
   public :: read_optimized_variational_wf,read_optimized_variational_wf_superc
   public :: wfMatrix_2_dynamicalVector,dynamicalVector_2_wfMatrix
   public :: wfMatrix_superc_2_dynamicalVector,dynamicalVector_2_wfMatrix_superc
+  public :: wfMatrix_superc_2_dynamicalVector_,dynamicalVector_2_wfMatrix_superc_
+  public :: slater_full2reduced
   public :: BCSwf_2_dynamicalVector,dynamicalVector_2_BCSwf
   public :: t2it
   !
@@ -315,6 +317,36 @@ CONTAINS
     end do
     if(idyn.ne.nDynamics) stop 'dimension problems wfMatrix_superc_2_dynamicalVector'
   end subroutine wfMatrix_superc_2_dynamicalVector
+  subroutine wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gzproj,dynVect)
+    complex(8),dimension(Nsl_normal_opt,Lk) :: slater_normal
+    complex(8),dimension(Nsl_anomalous_opt,Lk) :: slater_anomalous
+    complex(8),dimension(Nphi)      :: gzproj
+    complex(8),dimension(nDynamics):: dynVect
+    integer :: i,j,is,js,iphi,idyn,ik    
+    idyn=0
+    do ik=1,Lk
+       do i=1,Nsl_normal_opt
+          idyn = idyn + 1
+          dynVect(idyn) = slater_normal(i,ik)
+       end do
+    end do
+    do ik=1,Lk
+       do i=1,Nsl_anomalous_opt
+          idyn = idyn + 1
+          dynVect(idyn) = slater_anomalous(i,ik)
+       end do
+    end do
+    !
+    do iphi=1,Nphi
+       idyn=idyn+1
+       dynVect(idyn) = gzproj(iphi)
+    end do
+    if(idyn.ne.nDynamics) stop 'dimension problems wfMatrix_superc_2_dynamicalVector_'
+  end subroutine wfMatrix_superc_2_dynamicalVector_
+
+
+
+  
   !
   subroutine dynamicalVector_2_wfMatrix_superc(dynVect,slater,gzproj)
     complex(8),dimension(2,Ns,Ns,Lk) :: slater
@@ -344,9 +376,54 @@ CONTAINS
     end do
     if(idyn.ne.nDynamics) stop 'dimension problems dynamicalVector_2_wfMatrix_superc'
   end subroutine dynamicalVector_2_wfMatrix_superc
+  subroutine dynamicalVector_2_wfMatrix_superc_(dynVect,slater_normal,slater_anomalous,gzproj)
+    complex(8),dimension(Nsl_normal_opt,Lk) :: slater_normal
+    complex(8),dimension(Nsl_anomalous_opt,Lk) :: slater_anomalous
+    complex(8),dimension(Nphi)      :: gzproj
+    complex(8),dimension(nDynamics):: dynVect
+    integer :: i,j,is,js,iphi,idyn,ik  
+    idyn=0
+    do ik=1,Lk
+       do i=1,Nsl_normal_opt
+          idyn=idyn+1
+          slater_normal(i,ik) = dynVect(idyn)
+       end do
+    end do
+    do ik=1,Lk
+       do i=1,Nsl_anomalous_opt
+          idyn=idyn+1
+          slater_anomalous(i,ik) = dynVect(idyn)
+       end do
+    end do
+    !
+    do iphi=1,Nphi
+       idyn=idyn+1
+       gzproj(iphi) = dynVect(idyn) 
+    end do
+    !
+    if(idyn.ne.nDynamics) stop 'dimension problems dynamicalVector_2_wfMatrix_superc_'
+  end subroutine dynamicalVector_2_wfMatrix_superc_
 
 
 
+
+  subroutine slater_full2reduced(slater,slater_normal,slater_anomalous)
+    complex(8),dimension(2,Ns,Ns,Lk) :: slater
+    complex(8),dimension(Nsl_normal_opt,Lk) :: slater_normal
+    complex(8),dimension(Nsl_anomalous_opt,Lk) :: slater_anomalous
+    integer :: ik
+    do ik=1,Lk
+       call sl_normal_stride_v2m(slater_normal(:,ik),slater(1,:,:,ik))
+       call sl_anomalous_stride_v2m(slater_anomalous(:,ik),slater(2,:,:,ik))
+    end do
+  end subroutine slater_full2reduced
+
+  
+
+
+
+
+  
 
 
   subroutine BCSwf_2_dynamicalVector(bcs_wf,dynVect)

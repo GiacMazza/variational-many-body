@@ -23,6 +23,8 @@ program GUTZ_mb
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir
   complex(8),dimension(:,:,:,:),allocatable :: slater_init
+  complex(8),dimension(:,:),allocatable :: slater_normal
+  complex(8),dimension(:,:),allocatable :: slater_anomalous
   complex(8),dimension(:),allocatable     :: gz_proj_init
   !
   complex(8),dimension(:),allocatable     :: psi_t
@@ -117,6 +119,13 @@ program GUTZ_mb
   allocate(eLevels(Ns)); eLevels=0.d0
   !
 
+  Nsl_normal_opt=2; sl_normal_stride_v2m => sl_normal_vec2mat; sl_normal_stride_m2v => sl_normal_mat2vec
+  slNi_v2m => i2m_slN
+  slAi_v2m => i2m_slA
+  slNi_m2v => m2i_slN
+  slAi_m2v => m2i_slA
+
+  Nsl_anomalous_opt=2; sl_anomalous_stride_v2m => sl_anomalous_vec2mat; sl_anomalous_stride_m2v => sl_anomalous_mat2vec  
   NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   NQhop_opt=2;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
   Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
@@ -224,9 +233,10 @@ program GUTZ_mb
 
 
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  nDynamics = 2*Ns*Ns*Lk + Nphi
+  nDynamics = Nsl_normal_opt*Lk + Nsl_anomalous_opt*Lk + Nphi
   allocate(psi_t(nDynamics))
-  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))  
+  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))
+  allocate(slater_normal(Nsl_normal_opt,Lk),slater_anomalous(Nsl_anomalous_opt,Lk))  
   !
   expected_flen=Nopt
   inquire(file="RQn0_root_seed.conf",exist=seed_file)
@@ -264,11 +274,14 @@ program GUTZ_mb
         call get_gz_ground_state_superc(GZ_vector)  
         !
         slater_init = GZ_opt_slater_superc
+        call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
         gz_proj_init = GZ_vector
         allocate(td_lgr(2,Ns,Ns))
         td_lgr(1,:,:) = slater_lgr_init(2,:,:)
         td_lgr(2,:,:) = gzproj_lgr_init(2,:,:)
-        call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
+        !
+        call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
+        !
      else
         write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
         write(*,*) 'please check your file for the optimized wavefunction'
@@ -278,7 +291,8 @@ program GUTZ_mb
      !
      allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
      call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init,td_lgr(1,:,:),td_lgr(2,:,:))
-     call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
+     call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
+     call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
      it=1
      Uloc=Uloc_t(:,it)
      Ust =Ust_t(it)
@@ -348,7 +362,7 @@ program GUTZ_mb
      !
      if(mod(it-1,nprint).eq.0) then        
         !
-        call gz_neq_measure_superc_sp(psi_t,t)
+        call gz_neq_measure_superc_sp_(psi_t,t)
         !
         do is=1,Ns
            call get_neq_Rhop(is,is,Rhop(is))
@@ -368,6 +382,7 @@ program GUTZ_mb
         call get_neq_local_angular_momenta(local_angular_momenta)
         call get_neq_unitary_constr(unitary_constr)
         !
+        !-> here it's useless to write all the matrix (only stride allowed one!!)
         call write_complex_matrix_grid(Rhop_matrix,unit_neq_Rhop,print_grid_Rhop,t)
         call write_complex_matrix_grid(Qhop_matrix,unit_neq_Qhop,print_grid_Qhop,t)
         call write_complex_matrix_grid(sc_order,unit_neq_sc_order,print_grid_SC,t)
@@ -388,7 +403,7 @@ program GUTZ_mb
      if(tdLGR) then
         call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp)
      else
-        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
+        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp_)
      end if
      !
   end do
@@ -458,9 +473,180 @@ CONTAINS
 
 
   !+- STRIDES DEFINITION -+!
+  subroutine i2m_slN(iv,imI,imJ)
+    integer :: iv,imI,imJ
+    integer :: iorb,jorb
+    if(iv.gt.Nsl_normal_opt) stop "wrong stride!!"
+    select case(iv)
+    case(1)
+       iorb=1
+       imI=index(1,iorb)
+       imJ=index(1,iorb)
+    case(2)
+       iorb=2
+       imI=index(1,iorb)
+       imJ=index(1,iorb)
+    end select
+  end subroutine i2m_slN
+  subroutine i2m_slA(iv,imI,imJ)
+    integer :: iv,imI,imJ
+    integer :: iorb,jorb
+    if(iv.gt.Nsl_anomalous_opt) stop "wrong stride!!"
+    select case(iv)
+    case(1)
+       iorb=1
+       imI=index(1,iorb)
+       imJ=index(2,iorb)
+    case(2)
+       iorb=2
+       imI=index(1,iorb)
+       imJ=index(2,iorb)
+    end select
 
+  end subroutine i2m_slA
+  !
+  subroutine m2i_slN(imI,imJ,iv)
+    integer:: iv,imI,imJ
+    integer :: iorb,jorb,ispin,jspin
+    if(imI.gt.Ns.or.imJ.gt.Ns) stop "wrong stride!!"
+    !
+    ispin= (imI-1)/Norb+1    
+    iorb = imI - (ispin-1)*Norb
+    jspin= (imJ-1)/Norb+1    
+    jorb = imJ - (jspin-1)*Norb
+    if(ispin.ne.jspin) then
+       iv=0
+    else
+       if(iorb.ne.jorb) then
+          iv = 0
+       else
+          select case(iorb)
+          case(1)
+             iv = 1
+          case(2)
+             iv = 2
+          case(3)
+             iv = 2             
+          end select
+       end if
+    end if
+  end subroutine m2i_slN
+  subroutine m2i_slA(iv,imI,imJ)
+    integer:: iv,imI,imJ
+    integer :: iorb,jorb,ispin,jspin
+    if(imI.gt.Ns.or.imJ.gt.Ns) stop "wrong stride!!"
+    !
+    ispin= (imI-1)/Norb+1    
+    iorb = imI - (ispin-1)*Norb
+    jspin= (imJ-1)/Norb+1    
+    jorb = imJ - (jspin-1)*Norb
+    if(ispin.eq.jspin) then
+       iv=0
+    else
+       if(iorb.ne.jorb) then
+          iv = 0
+       else
+          select case(iorb)
+          case(1)
+             iv = 1
+          case(2)
+             iv = 2
+          case(3)
+             iv = 2             
+          end select
+       end if
+    end if
+  end subroutine m2i_slA
 
-
+  subroutine sl_normal_vec2mat(slater_indep,slater_mat)
+    complex(8),dimension(:)   :: slater_indep
+    complex(8),dimension(:,:) :: slater_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(slater_mat,1).ne.size(slater_mat,2)) stop "wrong stride"
+    if(size(slater_mat,1).ne.Ns) stop "wrong stride"
+    if(size(slater_indep).ne.Nsl_normal_opt) stop "wrong stride!"    
+    slater_mat = zero
+    do iorb=1,Norb
+       do ispin=1,2
+          is=index(ispin,iorb)
+          if(iorb.eq.1) then
+             slater_mat(is,is) = slater_indep(1)
+          else
+             slater_mat(is,is) = slater_indep(2)
+          end if
+       end do
+    end do
+    !
+  end subroutine sl_normal_vec2mat
+  subroutine sl_normal_mat2vec(slater_mat,slater_indep)
+    complex(8),dimension(:,:) :: slater_mat
+    complex(8),dimension(:)   :: slater_indep
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    complex(8) :: test_stride
+    real(8) :: test
+    if(size(slater_mat,1).ne.size(slater_mat,2)) stop "wrong stride"
+    if(size(slater_mat,1).ne.Ns) stop "wrong stride"
+    if(size(slater_indep).ne.Nsl_normal_opt) stop "wrong stride!"    
+    !
+    do iorb=1,Norb
+       ispin=1
+       is=index(ispin,iorb)
+       if(iorb.eq.1) then
+          slater_indep(1)=slater_mat(is,is)
+       else
+          slater_indep(2)=slater_mat(is,is)
+       end if
+    end do
+    !
+  end subroutine sl_normal_mat2vec
+  !
+  subroutine sl_anomalous_vec2mat(slater_indep,slater_mat)
+    complex(8),dimension(:)   :: slater_indep
+    complex(8),dimension(:,:) :: slater_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(slater_mat,1).ne.size(slater_mat,2)) stop "wrong stride"
+    if(size(slater_mat,1).ne.Ns) stop "wrong stride"
+    if(size(slater_indep).ne.Nsl_anomalous_opt) stop "wrong stride!"    
+    slater_mat = zero
+    do iorb=1,Norb
+       do jorb=1,Norb
+          do ispin=1,2
+             jspin=3-ispin
+             is=index(ispin,iorb)
+             js=index(jspin,jorb)
+             if(iorb.eq.jorb) then
+                if(iorb.eq.1) then
+                   slater_mat(is,js) = (-1.d0)**dble(jspin)*slater_indep(1)
+                else
+                   slater_mat(is,js) = (-1.d0)**dble(jspin)*slater_indep(2)
+                end if
+             else
+                slater_mat(is,js) = zero
+             end if
+          end do
+       end do
+    end do
+  end subroutine sl_anomalous_vec2mat
+  subroutine sl_anomalous_mat2vec(slater_mat,slater_indep)
+    complex(8),dimension(:)   :: slater_indep
+    complex(8),dimension(:,:) :: slater_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(slater_mat,1).ne.size(slater_mat,2)) stop "wrong stride"
+    if(size(slater_mat,1).ne.Ns) stop "wrong stride"
+    if(size(slater_indep).ne.Nsl_anomalous_opt) stop "wrong stride!"    
+    !
+    iorb=1;jorb=1;ispin=1;jspin=2
+    !
+    do iorb=1,Norb
+       is=index(ispin,iorb)
+       js=index(jspin,iorb)
+       if(iorb.eq.1) then
+          slater_indep(1) = slater_mat(is,js)
+       else
+          slater_indep(2) = slater_mat(is,js)
+       end if
+    end do
+  end subroutine sl_anomalous_mat2vec
 
 
 

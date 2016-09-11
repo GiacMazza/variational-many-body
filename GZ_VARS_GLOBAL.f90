@@ -27,6 +27,7 @@ MODULE GZ_VARS_GLOBAL
 
   !+- PARAMETERS TO BE OPTIMIZED -+!
   integer :: NRhop_opt,NQhop_opt,Nvdm_NC_opt,Nvdm_NCoff_opt,Nvdm_AC_opt,Nopt_reduced
+  integer :: Nsl_normal_opt,Nsl_anomalous_opt
   logical :: optimization_flag
   
   !+- PHI BASIS -+!
@@ -179,7 +180,7 @@ MODULE GZ_VARS_GLOBAL
   real(8),dimension(:),allocatable :: wr
 
 
-  !+- TESTING POINTER FUCNTIONS -+!
+  !+---> STRIDES <-----+!
   abstract interface
      subroutine opt_stride_vec2mat(vec,mat)
        complex(8),dimension(:) :: vec
@@ -193,6 +194,8 @@ MODULE GZ_VARS_GLOBAL
      end subroutine opt_stride_mat2vec
   end interface
   !
+  procedure (opt_stride_vec2mat),pointer :: sl_normal_stride_v2m => null ()
+  procedure (opt_stride_vec2mat),pointer :: sl_anomalous_stride_v2m => null ()
   procedure (opt_stride_vec2mat),pointer :: Rhop_stride_v2m => null ()
   procedure (opt_stride_vec2mat),pointer :: Qhop_stride_v2m => null ()  
   procedure (opt_stride_vec2mat),pointer :: vdm_NC_stride_v2m => null ()
@@ -200,6 +203,8 @@ MODULE GZ_VARS_GLOBAL
   procedure (opt_stride_vec2mat),pointer :: vdm_AC_stride_v2m => null ()
   !
   !
+  procedure (opt_stride_mat2vec),pointer :: sl_normal_stride_m2v => null ()
+  procedure (opt_stride_mat2vec),pointer :: sl_anomalous_stride_m2v => null ()
   procedure (opt_stride_mat2vec),pointer :: Rhop_stride_m2v => null ()
   procedure (opt_stride_mat2vec),pointer :: Qhop_stride_m2v => null ()  
   procedure (opt_stride_mat2vec),pointer :: vdm_NC_stride_m2v => null ()
@@ -207,6 +212,25 @@ MODULE GZ_VARS_GLOBAL
   procedure (opt_stride_mat2vec),pointer :: vdm_AC_stride_m2v => null ()
   !
 
+
+  abstract interface
+     subroutine opt_stride_iv2im(iv,imI,imJ)
+       integer :: iv
+       integer :: imI,imJ
+     end subroutine opt_stride_iv2im
+  end interface
+  abstract interface
+     subroutine opt_stride_im2iv(imI,imJ,iv)
+       integer :: iv
+       integer :: imI,imJ
+     end subroutine opt_stride_im2iv
+  end interface
+  !
+  procedure(opt_stride_iv2im),pointer :: slNi_v2m => null()
+  procedure(opt_stride_iv2im),pointer :: slAi_v2m => null()
+  procedure(opt_stride_im2iv),pointer :: slNi_m2v => null()
+  procedure(opt_stride_im2iv),pointer :: slAi_m2v => null()
+  !
   abstract interface
      subroutine zeros_stride(x1,x2)
        real(8),dimension(:) :: x1

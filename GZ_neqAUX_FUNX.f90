@@ -413,8 +413,12 @@ CONTAINS
     complex(8),dimension(Nsl_anomalous_opt,Lk) :: slater_anomalous
     integer :: ik
     do ik=1,Lk
-       call sl_normal_stride_v2m(slater_normal(:,ik),slater(1,:,:,ik))
-       call sl_anomalous_stride_v2m(slater_anomalous(:,ik),slater(2,:,:,ik))
+       ! call sl_normal_stride_v2m(slater_normal(:,ik),slater(1,:,:,ik))
+       ! call sl_anomalous_stride_v2m(slater_anomalous(:,ik),slater(2,:,:,ik))
+       !
+       call sl_normal_stride_m2v(slater(1,:,:,ik),slater_normal(:,ik))
+       call sl_anomalous_stride_m2v(slater(2,:,:,ik),slater_anomalous(:,ik))
+       !
     end do
   end subroutine slater_full2reduced
 

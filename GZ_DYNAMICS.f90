@@ -22,6 +22,7 @@ MODULE GZ_DYNAMICS
   !
   public :: gz_equations_of_motion_superc_lgr
   public :: gz_equations_of_motion_superc_lgr_sp
+  public :: gz_equations_of_motion_superc_lgr_sp_
   !
   public :: step_dynamics_td_lagrange_superc
   public :: bcs_equations_of_motion
@@ -63,6 +64,9 @@ MODULE GZ_DYNAMICS
   real(8),dimension(:,:),allocatable    :: gz_neq_nqp        
   !
   complex(8),dimension(:,:,:),allocatable :: neq_lgr
+
+  complex(8),dimension(:,:,:),allocatable :: neq_lgr_
+  
 CONTAINS
   !
   include 'gz_eom.f90'
@@ -765,6 +769,28 @@ CONTAINS
        !
        call sl_normal_stride_v2m(slN(:,ik),slater(1,1:Ns,1:Ns,ik))
        call sl_anomalous_stride_v2m(slA(:,ik),slater(2,1:Ns,1:Ns,ik))
+
+       ! if(ik.eq.1.or.ik.eq.100) then
+       !    write(*,*) slN(:,ik)
+       !    do is=1,Ns
+       !       write(*,*) dreal(slater(1,is,:,ik))
+       !    end do
+       !    write(*,*)
+       !    do is=1,Ns
+       !       write(*,*) dimag(slater(1,is,:,ik))
+       !    end do
+       !    write(*,*)
+       !    write(*,*)
+       !    write(*,*) slA(:,ik)
+       !    do is=1,Ns
+       !       write(*,*) dreal(slater(2,is,:,ik))
+       !    end do
+       !    write(*,*)
+       !    do is=1,Ns
+       !       write(*,*) dimag(slater(2,is,:,ik))
+       !    end do
+       ! end if
+       
        !
        !       
        do is=1,Ns

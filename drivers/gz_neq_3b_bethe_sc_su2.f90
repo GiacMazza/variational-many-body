@@ -110,7 +110,6 @@ program GUTZ_mb
      write(*,*) 'WARNING THE O(1) x SU(2)c x ORBITAL_ROTATION = O(1) x SU(2)c for the Norb=1 case!'
      wf_symmetry=0
   end if
-
   !
   call initialize_local_fock_space
   call init_variational_matrices(wf_symmetry,read_dir_=read_dir)    
@@ -118,20 +117,19 @@ program GUTZ_mb
   call build_lattice_model; get_Hk_t => getHk
   allocate(eLevels(Ns)); eLevels=0.d0
   !
-
   Nsl_normal_opt=2; sl_normal_stride_v2m => sl_normal_vec2mat; sl_normal_stride_m2v => sl_normal_mat2vec
   slNi_v2m => i2m_slN
   slAi_v2m => i2m_slA
   slNi_m2v => m2i_slN
   slAi_m2v => m2i_slA
-
+  !
   Nsl_anomalous_opt=2; sl_anomalous_stride_v2m => sl_anomalous_vec2mat; sl_anomalous_stride_m2v => sl_anomalous_mat2vec  
   NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   NQhop_opt=2;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
   Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
-
+  !
   Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   Nopt = 2*Nopt
   Nopt_reduced = 2 + 2 + 2 + 2 + 2
@@ -233,7 +231,8 @@ program GUTZ_mb
 
 
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  nDynamics = Nsl_normal_opt*Lk + Nsl_anomalous_opt*Lk + Nphi
+  !nDynamics = Nsl_normal_opt*Lk + Nsl_anomalous_opt*Lk + Nphi
+  nDynamics = 2*Ns*Ns*Lk + Nphi
   allocate(psi_t(nDynamics))
   allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))
   allocate(slater_normal(Nsl_normal_opt,Lk),slater_anomalous(Nsl_anomalous_opt,Lk))  
@@ -277,10 +276,11 @@ program GUTZ_mb
         call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
         gz_proj_init = GZ_vector
         allocate(td_lgr(2,Ns,Ns))
-        td_lgr(1,:,:) = slater_lgr_init(2,:,:)
-        td_lgr(2,:,:) = gzproj_lgr_init(2,:,:)
+        td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
+        td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
         !
-        call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
+        !call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
+        call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
         !
      else
         write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
@@ -291,8 +291,11 @@ program GUTZ_mb
      !
      allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
      call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init,td_lgr(1,:,:),td_lgr(2,:,:))
+     td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
+     td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
      call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
-     call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
+     !call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
+     call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
      it=1
      Uloc=Uloc_t(:,it)
      Ust =Ust_t(it)
@@ -303,9 +306,6 @@ program GUTZ_mb
      call get_local_hamiltonian_trace(eLevels)      
      !
   end if
-
-  
-        
   !
   call setup_neq_dynamics_superc
   !    
@@ -362,7 +362,7 @@ program GUTZ_mb
      !
      if(mod(it-1,nprint).eq.0) then        
         !
-        call gz_neq_measure_superc_sp_(psi_t,t)
+        call gz_neq_measure_superc_sp(psi_t,t)
         !
         do is=1,Ns
            call get_neq_Rhop(is,is,Rhop(is))
@@ -401,11 +401,14 @@ program GUTZ_mb
      end if
      !
      !stop
-     if(tdLGR) then
-        call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp_)
-     else
-        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp_)
-     end if
+     psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
+     !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
+
+     ! if(tdLGR) then
+     !    call step_dynamics_td_lagrange_superc_(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp_)
+     ! else
+     !    psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp_)
+     ! end if
      !
   end do
   !
@@ -475,7 +478,8 @@ CONTAINS
 
   !+- STRIDES DEFINITION -+!
   subroutine i2m_slN(iv,imI,imJ)
-    integer :: iv,imI,imJ
+    integer :: iv
+    integer :: imI,imJ
     integer :: iorb,jorb
     if(iv.gt.Nsl_normal_opt) stop "wrong stride!!"
     select case(iv)
@@ -490,7 +494,8 @@ CONTAINS
     end select
   end subroutine i2m_slN
   subroutine i2m_slA(iv,imI,imJ)
-    integer :: iv,imI,imJ
+    integer :: iv
+    integer :: imI,imJ
     integer :: iorb,jorb
     if(iv.gt.Nsl_anomalous_opt) stop "wrong stride!!"
     select case(iv)

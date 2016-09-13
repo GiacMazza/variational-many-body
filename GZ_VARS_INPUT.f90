@@ -33,6 +33,7 @@ MODULE GZ_VARS_INPUT
   integer              :: Nt
   real(8)              :: tstart
   real(8)              :: tstep
+  logical              :: GZneq_verbose
   
 
 contains
@@ -67,6 +68,7 @@ contains
     call parse_input_variable(Nt,"NT",INPUTunit,default=100)
     call parse_input_variable(tstart,"TSTART",INPUTunit,default=0.d0)
     call parse_input_variable(tstep,"TSTEP",INPUTunit,default=1.d-2)
+    call parse_input_variable(GZneq_verbose,"GZNEQ_VERBOSE",INPUTunit,default=.false.)
     !
   end subroutine read_input
 

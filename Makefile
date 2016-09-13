@@ -69,14 +69,14 @@ OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX
 
 
 #FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
-LIBDIR=$(HOME)/opt_local
-#LIBDIR=/opt/
+#LIBDIR=$(HOME)/opt_local
+LIBDIR=/opt/
 
 
-#GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
-#GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
-GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
-GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
+GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
+GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
+#GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
+#GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
 
 
 GALLIBS1   = -lgalahad -lgalahad_hsl 
@@ -90,7 +90,7 @@ INCARGS+=-I$(LIBDIR)/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib
 INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
-FFLAG+=-O0 -p -g -Wall -fbacktrace 
+FFLAG+=-O0 -p -g -Wall -fbacktrace -Wuninitialized
 
 
 

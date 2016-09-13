@@ -15,16 +15,23 @@ MODULE GZ_DYNAMICS
   !
   public :: gz_equations_of_motion
   !  public :: gz_equations_of_motion_sp to be coded, not urgent
-  
+
   public :: gz_equations_of_motion_superc
   public :: gz_equations_of_motion_superc_sp
   public :: gz_equations_of_motion_superc_sp_
   !
+  !+- kind of bsolete routines -+!
   public :: gz_equations_of_motion_superc_lgr
   public :: gz_equations_of_motion_superc_lgr_sp
   public :: gz_equations_of_motion_superc_lgr_sp_
+  
+  !
+  public :: gz_eom_superc_lgr_sp
+  public :: gz_eom_superc_lgr_tmp
+
   !
   public :: step_dynamics_td_lagrange_superc
+  public :: step_dynamics_td_lagrange_superc_
   public :: bcs_equations_of_motion
   !
   public :: setup_neq_hamiltonian
@@ -66,7 +73,8 @@ MODULE GZ_DYNAMICS
   complex(8),dimension(:,:,:),allocatable :: neq_lgr
 
   complex(8),dimension(:,:,:),allocatable :: neq_lgr_
-  
+  complex(8),dimension(:),allocatable     :: gzproj_dot0
+
 CONTAINS
   !
   include 'gz_eom.f90'
@@ -218,7 +226,7 @@ CONTAINS
     if(present(eLevels_t_)) eLevels_t = eLevels_t_
     !
   end subroutine setup_neq_hamiltonian
-  
+
 
   subroutine gz_neq_measure(psi_t,time)
     complex(8),dimension(nDynamics) :: psi_t
@@ -318,7 +326,7 @@ CONTAINS
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
     !
-    
+
     !
     gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
     Eloc = 0.d0
@@ -475,7 +483,7 @@ CONTAINS
        !               Hks(iis+Ns,is)*conjg(Hks(jjs,is))*conjg(slater_(2,jjs,iis,ik))
        !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
        !               Hks(iis+Ns,is)*conjg(Hks(jjs+Ns,is))*slater_(3,iis,jjs,ik)
-                
+
        !       enddo
        !    enddo
        ! enddo
@@ -521,7 +529,7 @@ CONTAINS
 
 
 
-  
+
   subroutine gz_neq_measure_superc_sp(psi_t,time)
     complex(8),dimension(nDynamics)   :: psi_t
     real(8)                           :: time
@@ -672,7 +680,7 @@ CONTAINS
     complex(8),dimension(2,Ns,Ns)  :: sl
     complex(8),dimension(Nsl_normal_opt,Lk) :: slN
     complex(8),dimension(Nsl_anomalous_opt,Lk) :: slA
-    
+
     complex(8),dimension(3,Ns,Ns,Lk)  :: slater_
     complex(8),dimension(Ns,Ns)     :: Hk,Hk_tmp
     complex(8),dimension(Ns,Ns)     :: Rhop,Qhop,Rhop_dag,Qhop_dag
@@ -686,10 +694,7 @@ CONTAINS
     !
     it=t2it(time,tstep)
     !
-    !    call dynamicalVector_2_wfMatrix_superc(psi_t,slater,gzproj)
-    !
     call dynamicalVector_2_wfMatrix_superc_(psi_t,slN,slA,gzproj)
-    
     slater_(1:2,:,:,:) = slater
     slater_(3,:,:,:) = zero
     do is=1,Ns
@@ -769,28 +774,6 @@ CONTAINS
        !
        call sl_normal_stride_v2m(slN(:,ik),slater(1,1:Ns,1:Ns,ik))
        call sl_anomalous_stride_v2m(slA(:,ik),slater(2,1:Ns,1:Ns,ik))
-
-       ! if(ik.eq.1.or.ik.eq.100) then
-       !    write(*,*) slN(:,ik)
-       !    do is=1,Ns
-       !       write(*,*) dreal(slater(1,is,:,ik))
-       !    end do
-       !    write(*,*)
-       !    do is=1,Ns
-       !       write(*,*) dimag(slater(1,is,:,ik))
-       !    end do
-       !    write(*,*)
-       !    write(*,*)
-       !    write(*,*) slA(:,ik)
-       !    do is=1,Ns
-       !       write(*,*) dreal(slater(2,is,:,ik))
-       !    end do
-       !    write(*,*)
-       !    do is=1,Ns
-       !       write(*,*) dimag(slater(2,is,:,ik))
-       !    end do
-       ! end if
-       
        !
        !       
        do is=1,Ns
@@ -830,7 +813,7 @@ CONTAINS
 
 
 
-  
+
 
 
 
@@ -870,7 +853,7 @@ CONTAINS
           gz_neq_dens_constr_gzproj(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens(is,js,:,:))
           gz_neq_dens_constrA_gzproj(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens_anomalous(is,js,:,:))
           !
-        end do
+       end do
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
     !
@@ -969,16 +952,9 @@ CONTAINS
           gz_neq_dens_constr_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens(is,js))
           gz_neq_dens_constrA_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_anomalous(is,js))          
           !
-        end do
+       end do
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
-    !
-    Eloc = trace_phi_basis(gzproj,phi_traces_basis_Hloc)
-    !
-    gz_neq_local_angular_momenta(1) = trace_phi_basis(gzproj,phi_traces_basis_spin2(:,:))
-    gz_neq_local_angular_momenta(2) = trace_phi_basis(gzproj,phi_traces_basis_spinZ(:,:))
-    gz_neq_local_angular_momenta(3) = trace_phi_basis(gzproj,phi_traces_basis_isoSpin2(:,:))
-    gz_neq_local_angular_momenta(4) = trace_phi_basis(gzproj,phi_traces_basis_isoSpinZ(:,:))
     !
     gz_neq_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
     gz_neq_Qhop = hopping_renormalization_anomalous_sp(gzproj,vdm_diag)
@@ -1028,6 +1004,89 @@ CONTAINS
     end do
     !
   end subroutine gz_neq_measure_constr_superc_sp
+  subroutine gz_neq_measure_constr_superc_sp_(psi_t,time)
+    complex(8),dimension(nDynamics) :: psi_t
+    real(8) :: time
+    complex(8),dimension(2,Ns,Ns,Lk) :: slater
+    complex(8),dimension(3,Ns,Ns,Lk) :: slater_
+    complex(8),dimension(Nsl_normal_opt,Lk) :: slN
+    complex(8),dimension(Nsl_anomalous_opt,Lk) :: slA
+    complex(8),dimension(Ns,Ns) :: Hk,Hk_tmp
+    complex(8),dimension(Ns,Ns) :: Rhop,Qhop,Rhop_dag,Qhop_dag
+    complex(8),dimension(2*Ns,2*Ns) :: Hks
+    real(8),dimension(2*Ns) ::eks
+    complex(8),dimension(Nphi) :: gzproj
+    real(8) :: Estar,Eloc,Egz
+    real(8),dimension(Ns) :: vdm_diag
+    real(8) :: nqp
+
+    integer                         :: is,js,ik,it,iphi,iis,jjs
+    !
+    it=t2it(time,tstep)
+    !
+    call dynamicalVector_2_wfMatrix_superc_(psi_t,slN,slA,gzproj)
+    !
+    do is=1,Ns
+       do js=1,Ns
+          !
+          gz_neq_dens_constr_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens(is,js))
+          gz_neq_dens_constrA_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_anomalous(is,js))          
+          !
+       end do
+       vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
+    end do
+    !
+    gz_neq_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
+    gz_neq_Qhop = hopping_renormalization_anomalous_sp(gzproj,vdm_diag)
+    !
+    Rhop=gz_neq_Rhop
+    Qhop=gz_neq_Qhop
+    !
+    do is=1,Ns
+       do js=1,Ns
+          Rhop_dag(is,js) = conjg(Rhop(js,is))
+          Qhop_dag(is,js) = conjg(Qhop(js,is))
+       end do
+    end do
+    !
+    gz_neq_unitary_constr = 0.d0
+    do iphi=1,Nphi
+       gz_neq_unitary_constr = gz_neq_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
+    end do
+
+    !+- SLATER
+    Estar=0.d0
+    gz_neq_dens_constr_slater=0.d0
+    gz_neq_dens_constrA_slater=0.d0
+    do ik=1,Lk
+       call get_Hk_t(Hk,ik,time)
+       !+- define Hk_renormalized -+!
+       Hk_tmp=matmul(Hk,Rhop)
+       Hk_tmp=matmul(Rhop_dag,Hk_tmp)
+       !
+       Hk_tmp=matmul(Hk,Qhop)
+       Hk_tmp=matmul(Rhop_dag,Hk_tmp)
+       !
+       Hk_tmp=matmul(Hk,Rhop)
+       Hk_tmp=matmul(Qhop_dag,Hk_tmp)
+       !
+       Hk_tmp=matmul(Hk,Qhop)
+       Hk_tmp=matmul(Qhop_dag,Hk_tmp)
+       !
+       call sl_normal_stride_v2m(slN(:,ik),slater(1,1:Ns,1:Ns,ik))
+       call sl_anomalous_stride_v2m(slA(:,ik),slater(2,1:Ns,1:Ns,ik))
+       !
+       do is=1,Ns
+          do js=1,Ns
+             !
+             gz_neq_dens_constr_slater(is,js) = gz_neq_dens_constr_slater(is,js) + slater(1,is,js,ik)*wtk(ik)
+             gz_neq_dens_constrA_slater(is,js) = gz_neq_dens_constrA_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
+             !
+          end do
+       end do
+    end do
+    !
+  end subroutine gz_neq_measure_constr_superc_sp_
 
 
 
@@ -1232,6 +1291,207 @@ CONTAINS
 
 
   end subroutine step_dynamics_td_lagrange_superc
+
+
+
+
+
+
+
+  subroutine step_dynamics_td_lagrange_superc_(nsys,tstep,t,yt,td_lgr,eom_funct) 
+    integer :: nsys
+    real(8) :: tstep,t
+    complex(8),dimension(nsys),intent(inout) :: yt
+    complex(8),dimension(nsys) :: yt_old,yt_new
+    complex(8),dimension(2,Ns,Ns),intent(inout) :: td_lgr
+    real(8),dimension(:),allocatable            :: lgr,delta_out
+    complex(8),dimension(:),allocatable :: lgr_cmplx
+    integer :: iter,Nopt
+    integer :: i,i0
+    real(8) :: delta
+    interface
+       function eom_funct(t,y,Nsys)
+         implicit none
+         integer                    :: Nsys
+         real(8)                    :: t   
+         complex(8),dimension(Nsys) :: eom_funct
+         complex(8),dimension(Nsys) :: y
+       end function eom_funct
+    end interface
+
+    Nopt=2*Nvdm_AC_opt
+    allocate(lgr_cmplx(Nvdm_AC_opt))
+    allocate(lgr(2*Nopt));allocate(delta_out(2*Nopt))
+    !
+    call vdm_AC_stride_m2v(td_lgr(1,:,:),lgr_cmplx)    
+    do i=1,Nvdm_AC_opt
+       lgr(i) = dreal(lgr_cmplx(i))
+       lgr(i+Nvdm_AC_opt) = dimag(lgr_cmplx(i))
+    end do
+    call vdm_AC_stride_m2v(td_lgr(2,:,:),lgr_cmplx)    
+    i0 = 2*Nvdm_AC_opt
+    do i=1,Nvdm_AC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       lgr(i0+i+Nvdm_AC_opt) = dimag(lgr_cmplx(i))
+    end do
+    !
+    yt_old = yt
+    !
+    select case(lgr_method)
+    case('CG_min')
+       call fmin_cgminimize(lgr,fix_anomalous_vdm_,iter,delta,ftol=1.d-04,itmax=20)    
+    case('f_zero')
+       call fsolve(fix_anomalous_vdm,lgr,tol=1.d-04,info=iter)    
+    case default
+       call fsolve(fix_anomalous_vdm,lgr,tol=1.d-04,info=iter)    
+    end select
+    !
+    delta_out = fix_anomalous_vdm(lgr)
+    delta=0.d0
+    do i=1,2*Nopt
+       delta = delta + delta_out(i)**2.d0
+    end do
+    !
+    write(*,*) 'Time Dependent lagrange parameters: error'
+    write(*,*) delta
+    write(*,*)
+    !
+    yt=yt_new
+    !
+    lgr_cmplx=zero
+    do i=1,Nvdm_AC_opt
+       lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_AC_opt)
+    end do
+    call vdm_AC_stride_v2m(lgr_cmplx,td_lgr(1,:,:))
+    i0=2*Nvdm_AC_opt
+    do i=1,Nvdm_AC_opt
+       lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+    end do
+    call vdm_AC_stride_v2m(lgr_cmplx,td_lgr(2,:,:))  
+    !    
+  contains
+
+    function fix_anomalous_vdm(lgr) result(delta)
+      real(8),dimension(:) :: lgr
+      real(8),dimension(size(lgr)) :: delta
+      complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
+      complex(8),dimension(Ns,Ns) :: anomalous_constrGZ,anomalous_constrSL
+      integer :: i0,i,is,js
+      real(8) :: tmp_test
+      !
+      if(allocated(neq_lgr)) deallocate(neq_lgr)
+      allocate(neq_lgr(2,Ns,Ns)); neq_lgr=zero
+      !
+      !+- dump slater_lgr_multipliers
+      allocate(lgr_cmplx(Nvdm_AC_opt))
+      do i=1,Nvdm_AC_opt
+         lgr_cmplx(i) = lgr(i) + xi*lgr(i+Nvdm_AC_opt)
+      end do
+      call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(1,:,:))
+      i0 = 2*Nvdm_AC_opt
+      !+- dump gzproj_lgr_multipliers
+      do i=1,Nvdm_AC_opt
+         lgr_cmplx(i) = lgr(i+i0) + xi*lgr(i+i0+Nvdm_AC_opt)
+      end do
+      call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(2,:,:))
+      !
+      !yt_new = RK_step(nDynamics,4,tstep,t,yt_old,gz_equations_of_motion_superc_lgr_sp)
+      yt_new = RK_step(nDynamics,4,tstep,t,yt_old,eom_funct)
+      !
+      call gz_neq_measure_constr_superc_sp_(yt_new,t)
+      !
+      do is=1,Ns
+         do js=1,Ns
+            call get_neq_dens_constrA_slater(is,js,anomalous_constrSL(is,js))
+            call get_neq_dens_constrA_gzproj(is,js,anomalous_constrGZ(is,js))
+         end do
+      end do
+      !
+      delta=0.d0
+      allocate(delta_cmplx(Nvdm_AC_opt))
+      call vdm_AC_stride_m2v(anomalous_constrSL,delta_cmplx)
+      do i=1,Nvdm_AC_opt
+         delta(i) = dreal(delta_cmplx(i))
+         delta(i+Nvdm_AC_opt) = dimag(delta_cmplx(i))
+      end do
+      deallocate(delta_cmplx)
+      i0 = 2*Nvdm_AC_opt
+      allocate(delta_cmplx(Nvdm_AC_opt))
+      call vdm_AC_stride_m2v(anomalous_constrGZ,delta_cmplx)
+      do i=1,Nvdm_AC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         delta(i0+i+Nvdm_AC_opt) = dimag(delta_cmplx(i))       
+      end do
+      deallocate(delta_cmplx)
+      tmp_test=0.d0
+      do i=1,size(lgr)
+         tmp_test=tmp_test+delta(i)**2.d0
+      end do
+      write(*,*) 't-dep LAGRANGE fsolve'
+      do is=1,Ns
+         write(*,'(20F18.10)') neq_lgr(1,is,:)         
+      end do
+      write(*,*) 
+      do is=1,Ns
+         write(*,'(20F18.10)') neq_lgr(2,is,:)         
+      end do
+      write(*,*) 'deviation from constraint conservation'
+      write(*,'(20F18.10)') delta
+      !
+    end function fix_anomalous_vdm
+    !
+    function fix_anomalous_vdm_(lgr) result(delta)
+      real(8),dimension(:) :: lgr
+      real(8) :: delta
+      complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
+      complex(8),dimension(Ns,Ns) :: anomalous_constrGZ,anomalous_constrSL
+      integer :: i0,i,is,js
+      !
+      if(allocated(neq_lgr)) deallocate(neq_lgr)
+      allocate(neq_lgr(2,Ns,Ns)); neq_lgr=zero
+
+      !+- dump slater_lgr_multipliers
+      allocate(lgr_cmplx(Nvdm_AC_opt))
+      do i=1,Nvdm_AC_opt
+         lgr_cmplx(i) = lgr(i) + xi*lgr(i+Nvdm_AC_opt)
+      end do
+      call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(1,:,:))
+      i0 = 2*Nvdm_AC_opt
+      !+- dump gzproj_lgr_multipliers
+      do i=1,Nvdm_AC_opt
+         lgr_cmplx(i) = lgr(i+i0) + xi*lgr(i+i0+Nvdm_AC_opt)
+      end do
+      call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(2,:,:))
+      !
+      !yt_new = RK_step(nDynamics,4,tstep,t,yt_old,gz_equations_of_motion_superc_lgr_sp)
+      yt_new = RK_step(nDynamics,4,tstep,t,yt_old,eom_funct)
+      !
+      call gz_neq_measure_constr_superc_sp_(yt_new,t)
+      !
+      do is=1,Ns
+         do js=1,Ns
+            call get_neq_dens_constrA_slater(is,js,anomalous_constrSL(is,js))
+            call get_neq_dens_constrA_gzproj(is,js,anomalous_constrGZ(is,js))
+         end do
+      end do
+      !
+      delta=0.d0
+      do is=1,Ns
+         do js=1,Ns
+            delta = delta + anomalous_constrSL(is,js)*conjg(anomalous_constrSL(is,js))
+            delta = delta + anomalous_constrGZ(is,js)*conjg(anomalous_constrGZ(is,js))
+         end do
+      end do
+
+      write(*,*) 'deviation from constraint conservation',delta
+      !
+    end function fix_anomalous_vdm_
+
+
+
+
+
+  end subroutine step_dynamics_td_lagrange_superc_
 
 
 

@@ -81,15 +81,6 @@ MODULE GZ_VARS_GLOBAL
   type(sparse_matrix_csr_z) :: phi_spTraces_basis_isospin2
   type(sparse_matrix_csr_z) :: phi_spTraces_basis_isospinZ
   
-
-
-  
-
-  !<init_lgr
-  !real(8),dimension(:),allocatable :: lgr_init_slater,lgr_init_gzproj
-
-
-
   !+- OPTIMIZED QUANTITIES -+!
   complex(8),allocatable                    :: GZ_vector(:)  
   !# Slater Determinant #!

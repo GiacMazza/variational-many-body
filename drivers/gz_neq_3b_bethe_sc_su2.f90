@@ -400,15 +400,7 @@ program GUTZ_mb
         !
      end if
      !
-     !stop
      psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
-     !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
-
-     ! if(tdLGR) then
-     !    call step_dynamics_td_lagrange_superc_(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp_)
-     ! else
-     !    psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp_)
-     ! end if
      !
   end do
   !

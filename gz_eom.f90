@@ -977,22 +977,6 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
   if(Nsys.ne.nDynamics) stop "wrong dimensions in the GZ_equations_of_motion"
   !
 
-  write(*,*) 'GZ eqs of motions w/ lgr params'
-  do is=1,Ns
-     write(*,'(20F14.8)') dreal(neq_lgr(1,is,:))
-  end do
-  write(*,*)
-  do is=1,Ns
-     write(*,'(20F14.8)') dimag(neq_lgr(1,is,:))
-  end do
-  write(*,*)
-  write(*,*)
-  do is=1,Ns
-     write(*,'(20F14.8)') dreal(neq_lgr(1,is,:))
-  end do
-  do is=1,Ns
-     write(*,'(20F14.8)') dimag(neq_lgr(1,is,:))
-  end do
 
 
   

@@ -156,17 +156,9 @@ program GUTZ_mb
   allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
   call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init,td_lgr(1,:,:),td_lgr(2,:,:))
   call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
-  
-
-  !+- TEMPORARY
-  ! td_lgr(1,1,2) = 5.0909750733481980E-002
-  ! td_lgr(1,2,1) = -5.0909750733481980E-002
-
-  ! td_lgr(2,1,2) = -5.0909750733481980E-002
-  ! td_lgr(2,2,1) = 5.0909750733481980E-002
-
+  !
   Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
-
+  !
   if(bcs_neq) then
      !+- BCS init
      !
@@ -346,7 +338,7 @@ program GUTZ_mb
         !
      end if
      !
-     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr) 
+     psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
      !
   end do
 

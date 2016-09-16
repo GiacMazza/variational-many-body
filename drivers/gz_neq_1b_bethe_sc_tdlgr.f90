@@ -47,6 +47,9 @@ program GUTZ_mb
   integer :: unit_neq_sc_order
   integer :: unit_neq_nqp
   integer :: unit_neq_bcs
+  integer :: unit_neq_lgr
+
+  complex(8),dimension(:),allocatable :: dump_write,write_
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -262,6 +265,9 @@ program GUTZ_mb
   unit_neq_bcs = free_unit()
   open(unit_neq_bcs,file='neq_bcs.data')
   !
+  unit_neq_lgr = free_unit()
+  open(unit_neq_lgr,file='neq_lgr.data');allocate(neq_lgr(2,Ns,Ns)); neq_lgr=zero
+  !
   allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
   allocate(Qhop_matrix(Ns,Ns))
   allocate(local_density_matrix(Ns,Ns))
@@ -315,9 +321,19 @@ program GUTZ_mb
         call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_neq_dens_constrGZa,t)
         call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
         call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
+
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies
         write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
+
+        
+        allocate(dump_write(Nvdm_AC_opt),write_(2*Nvdm_AC_opt)) 
+        call vdm_AC_stride_m2v(neq_lgr(1,:,:),dump_write)
+        write_(1:Nvdm_AC_opt)=dump_write
+        call vdm_AC_stride_m2v(neq_lgr(2,:,:),dump_write)
+        write_(Nvdm_AC_opt+1:2*Nvdm_AC_opt)=dump_write
+        write(unit_neq_lgr,'(20F18.10)') t,write_
+        deallocate(dump_write,write_)
         !        
         !+- measure BCS -+!
         if(bcs_neq) then
@@ -680,9 +696,9 @@ CONTAINS
     complex(8),dimension(:)   :: vdm_AC_indep
     complex(8),dimension(:,:) :: vdm_AC_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
-    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride AC (1)"
+    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride AC (2)"
+    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride AC (3)"    
     !
     vdm_AC_mat = zero
     do iorb=1,Norb
@@ -705,9 +721,9 @@ CONTAINS
     complex(8),dimension(:)   :: vdm_AC_indep
     complex(8),dimension(:,:) :: vdm_AC_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
-    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride AC(1)"
+    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride AC(2)"
+    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride AC(3)"    
     !
     iorb=1;jorb=1;ispin=1;jspin=2
     is=index(ispin,iorb)

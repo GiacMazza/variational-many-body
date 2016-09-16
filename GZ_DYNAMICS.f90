@@ -70,7 +70,7 @@ MODULE GZ_DYNAMICS
   complex(8),dimension(:,:),allocatable :: gz_neq_local_sc_order 
   real(8),dimension(:,:),allocatable    :: gz_neq_nqp        
   !
-  complex(8),dimension(:,:,:),allocatable :: neq_lgr
+  complex(8),dimension(:,:,:),allocatable,public :: neq_lgr
 
   complex(8),dimension(:,:,:),allocatable :: neq_lgr_
   complex(8),dimension(:),allocatable     :: gzproj_dot0
@@ -598,6 +598,7 @@ CONTAINS
     !
     Rhop=gz_neq_Rhop
     Qhop=gz_neq_Qhop
+    !
     !
     do is=1,Ns
        do js=1,Ns

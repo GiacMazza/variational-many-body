@@ -478,7 +478,7 @@ subroutine gz_proj_minimization_lgr_superc(slater_derivatives,n0_target,E_Hloc,G
      call fsolve(fix_density,lgr,tol=1.d-10,info=iter)
      delta_out=fix_density(lgr)
      delta=0.d0
-     do is=1,2*Nopt
+     do is=1,Nopt
         delta = delta + delta_out(is)**2.d0
      end do
   end select
@@ -510,7 +510,7 @@ subroutine gz_proj_minimization_lgr_superc(slater_derivatives,n0_target,E_Hloc,G
      end do
      !
      write(*,*) "GZ projectors: Variational density matrix error"
-     write(*,'(10F18.10)') delta!,delta_out
+     write(*,'(10F18.10)') delta,delta_out
      !
      write(*,*) "GZ projectors: Optimized Local Energy"
      write(*,'(10F18.10)') E_Hloc

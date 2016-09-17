@@ -382,7 +382,7 @@ CONTAINS
     complex(8),dimension(Ns,Ns)     :: Rhop,Qhop,Rhop_dag,Qhop_dag
     complex(8),dimension(2*Ns,2*Ns)     :: Hks
     real(8),dimension(2*Ns)         :: eks
-    complex(8),dimension(Nphi)      :: gzproj
+    complex(8),dimension(Nphi)      :: gzproj  !+--> probably there some conflicts with this name variable here when also lgr multipliers are there +-!
     real(8)                         :: Estar,Eloc,Egz
     real(8),dimension(Ns)           :: vdm_diag
     real(8)                         :: nqp

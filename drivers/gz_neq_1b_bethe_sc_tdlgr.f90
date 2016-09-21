@@ -280,7 +280,7 @@ program GUTZ_mb
      !
      if(mod(it-1,nprint).eq.0) then        
         !
-        call gz_neq_measure_superc(psi_t,t)
+        call gz_neq_measure_superc_sp(psi_t,t)
         !
         do is=1,Ns
            call get_neq_Rhop(is,is,Rhop(is))

@@ -14,20 +14,15 @@ MODULE GZ_DYNAMICS
   private
   !
   public :: gz_equations_of_motion
-  !  public :: gz_equations_of_motion_sp to be coded, not urgent
-
+  !
   public :: gz_equations_of_motion_superc
   public :: gz_equations_of_motion_superc_sp
-  public :: gz_equations_of_motion_superc_sp_
   !
   !+- kind of bsolete routines -+!
   public :: gz_equations_of_motion_superc_lgr
-  public :: gz_equations_of_motion_superc_lgr_sp
-  public :: gz_equations_of_motion_superc_lgr_sp_
-  
+  public :: gz_equations_of_motion_superc_lgr_sp  
   !
   public :: gz_eom_superc_lgr_sp
-  public :: gz_eom_superc_lgr_tmp
 
   !
   public :: step_dynamics_td_lagrange_superc
@@ -237,7 +232,7 @@ CONTAINS
     real(8)                         :: Estar,Eloc,Egz
     real(8),dimension(Ns)           :: vdm_diag
 
-    integer                         :: is,js,ik,it,iphi,iis,jjs
+    integer                         :: is,js,ik,it,iphi,iis,jjs,itt
 
     it=t2it(time,tstep)
     !
@@ -257,6 +252,16 @@ CONTAINS
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
     !
+
+    itt=t2it(time,0.5d0*tstep)
+    Uloc=Uloc_t(:,itt)
+    Ust =Ust_t(itt)
+    Jh=Jh_t(itt)
+    Jsf=Jsf_t(itt)
+    Jph=Jph_t(itt)
+    eLevels = eLevels_t(:,itt)
+    call get_local_hamiltonian_trace(eLevels)  
+
     Eloc = trace_phi_basis(gzproj,phi_traces_basis_Hloc)
     !
     gz_neq_local_angular_momenta(1) = trace_phi_basis(gzproj,phi_traces_basis_spin2(:,:))
@@ -387,7 +392,7 @@ CONTAINS
     real(8),dimension(Ns)           :: vdm_diag
     real(8)                         :: nqp
 
-    integer                         :: is,js,ik,it,iphi,iis,jjs
+    integer                         :: is,js,ik,it,iphi,iis,jjs,itt
 
     it=t2it(time,tstep)
     !
@@ -418,6 +423,16 @@ CONTAINS
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
     !
+
+    itt=t2it(time,0.5d0*tstep)
+    Uloc=Uloc_t(:,itt)
+    Ust =Ust_t(itt)
+    Jh=Jh_t(itt)
+    Jsf=Jsf_t(itt)
+    Jph=Jph_t(itt)
+    eLevels = eLevels_t(:,itt)
+    call get_local_hamiltonian_trace(eLevels)  
+
     Eloc = trace_phi_basis(gzproj,phi_traces_basis_Hloc)
     !
     gz_neq_local_angular_momenta(1) = trace_phi_basis(gzproj,phi_traces_basis_spin2(:,:))
@@ -437,13 +452,11 @@ CONTAINS
           Qhop_dag(is,js) = conjg(Qhop(js,is))
        end do
     end do
-
     !
     gz_neq_unitary_constr = 0.d0
     do iphi=1,Nphi
        gz_neq_unitary_constr = gz_neq_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
     end do
-
     !+- SLATER
     Estar=0.d0
     gz_neq_dens_constr_slater=0.d0
@@ -453,43 +466,16 @@ CONTAINS
        !+- define Hk_renormalized -+!
        Hk_tmp=matmul(Hk,Rhop)
        Hk_tmp=matmul(Rhop_dag,Hk_tmp)
-       !Hks(1:Ns,1:Ns) = Hk_tmp 
        !
        Hk_tmp=matmul(Hk,Qhop)
        Hk_tmp=matmul(Rhop_dag,Hk_tmp)
-       !Hks(1:Ns,Ns+1:2*Ns) = Hk_tmp 
        !
        Hk_tmp=matmul(Hk,Rhop)
        Hk_tmp=matmul(Qhop_dag,Hk_tmp)
-       !Hks(Ns+1:2*Ns,1:Ns) = Hk_tmp
        !
        Hk_tmp=matmul(Hk,Qhop)
        Hk_tmp=matmul(Qhop_dag,Hk_tmp)
-       !Hks(Ns+1:2*Ns,Ns+1:2*Ns) = Hk_tmp
-       !
-       !+- get eigenstates
-       !call matrix_diagonalize(Hks,eks)
-       !
-       !+- project onto the natural basis
-       ! do is=1,Ns
-       !    gz_neq_nqp(is,ik) = 0.d0
-       !    do iis=1,Ns
-       !       do jjs=1,Ns
-       !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
-       !               Hks(iis,is)*conjg(Hks(jjs,is))*slater_(1,iis,jjs,ik)
-       !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
-       !               Hks(iis,is)*conjg(Hks(jjs+Ns,is))*slater_(2,iis,jjs,ik)
-       !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
-       !               Hks(iis+Ns,is)*conjg(Hks(jjs,is))*conjg(slater_(2,jjs,iis,ik))
-       !          gz_neq_nqp(is,ik) = gz_neq_nqp(is,ik) + &
-       !               Hks(iis+Ns,is)*conjg(Hks(jjs+Ns,is))*slater_(3,iis,jjs,ik)
-
-       !       enddo
-       !    enddo
-       ! enddo
-
-
-
+       !       
        do is=1,Ns
           do js=1,Ns
              !
@@ -506,13 +492,6 @@ CONTAINS
                    if(is.eq.js) then
                       Estar = Estar + conjg(gz_neq_Qhop(iis,is))*Hk(iis,jjs)*gz_neq_Qhop(jjs,js)*wtk(ik)
                    end if
-                   ! Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Rhop(jjs,js)*slater(1,is,js,ik)*wtk(ik)
-                   ! Estar = Estar + conjg(gz_neq_Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Qhop(jjs,js)*slater(2,is,js,ik)*wtk(ik)
-                   ! Estar = Estar + conjg(gz_neq_Qhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Rhop(jjs,js)*conjg(slater(2,js,is,ik))*wtk(ik)
-                   ! Estar = Estar - conjg(gz_neq_Qhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Qhop(jjs,js)*slater(1,js,is,ik)*wtk(ik)                   
-                   ! if(is.eq.js) then
-                   !    Estar = Estar + conjg(gz_neq_Qhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*gz_neq_Qhop(jjs,js)*wtk(ik)
-                   ! end if
                    !
                 end do
              end do
@@ -574,22 +553,16 @@ CONTAINS
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
     !
-
     gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
     Eloc = 0.d0
     do iphi=1,Nphi
        Eloc = Eloc + conjg(gzproj(iphi))*gztmp(iphi)
     end do
-
-    !Eloc = trace_phi_basis(gzproj,phi_traces_basis_Hloc)
     !
     gz_neq_local_angular_momenta(1) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spin2)
     gz_neq_local_angular_momenta(2) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spinZ)
     gz_neq_local_angular_momenta(3) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpin2)
     gz_neq_local_angular_momenta(4) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpinZ)
-    !
-    ! gz_neq_Rhop = hopping_renormalization_normal(gzproj,vdm_diag)   
-    ! gz_neq_Qhop = hopping_renormalization_anomalous(gzproj,vdm_diag)
     !
     write(*,*) 'measuring using spMv representation'
     gz_neq_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)   

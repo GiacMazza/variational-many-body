@@ -71,6 +71,7 @@ program GUTZ_mb
 
 
   complex(8),dimension(:,:,:),allocatable :: td_lgr
+  logical :: tdlgr
   
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
@@ -88,6 +89,7 @@ program GUTZ_mb
   call parse_input_variable(tSin_neqCF,"TSIN_NEQCF","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dCFneq,"DCFneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(cf_type,"CF_TYPE","inputGZ.conf",default=0) 
+  call parse_input_variable(tdlgr,"TDLGR","inputGZ.conf",default=.true.) 
   
   !
   call read_input("inputGZ.conf")
@@ -155,7 +157,8 @@ program GUTZ_mb
      Jht(itt) = Jh
   end do
   ! 
-  allocate(CFT(Ns,Nt_aux));allocate(s(Ns))
+  allocate(CFt(Ns,Nt_aux));allocate(s(Ns))
+  CFt=0.d0;s=0.d0
   do itt=1,Nt_aux
      t = t_grid_aux(itt) 
      !
@@ -191,8 +194,9 @@ program GUTZ_mb
            end do
         end select
      end if
-     !
+     !     
      CFt(:,itt) = CFneq0 + r*(s(:)-CFneq0)
+     !write(*,*) CFneq0,Cfneq,CFt(:,itt)
   end do
   !
   !
@@ -381,7 +385,11 @@ program GUTZ_mb
         !
      end if
      !
-     call step_dynamics_td_lagrange_superc(nDynamics,tstep,t,psi_t,td_lgr,gz_equations_of_motion_superc_lgr_sp)
+     if(tdlgr) then
+        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
+     else
+        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
+     end if
      !
   end do
   !
@@ -451,12 +459,6 @@ CONTAINS
 
   !+- STRIDES DEFINITION -+!
 
-
-
-
-
-
-
   subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
     complex(8),dimension(:)   :: Rhop_indep
     complex(8),dimension(:,:) :: Rhop_mat
@@ -468,7 +470,7 @@ CONTAINS
     do iorb=1,Norb
        do ispin=1,2
           is=index(ispin,iorb)
-          if(iorb.eq.1) then
+          if(iorb.eq.3) then
              Rhop_mat(is,is) = Rhop_indep(1)
           else
              Rhop_mat(is,is) = Rhop_indep(2)
@@ -490,7 +492,7 @@ CONTAINS
     do iorb=1,Norb
        ispin=1
        is=index(ispin,iorb)
-       if(iorb.eq.1) then
+       if(iorb.eq.3) then
           Rhop_indep(1)=Rhop_mat(is,is)
        else
           Rhop_indep(2)=Rhop_mat(is,is)
@@ -516,7 +518,7 @@ CONTAINS
              is=index(ispin,iorb)
              js=index(jspin,jorb)
              if(iorb.eq.jorb) then
-                if(iorb.eq.1) then
+                if(iorb.eq.3) then
                    Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
                 else
                    Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(2)
@@ -541,7 +543,7 @@ CONTAINS
     do iorb=1,Norb
        is=index(ispin,iorb)
        js=index(jspin,iorb)
-       if(iorb.eq.1) then
+       if(iorb.eq.3) then
           Qhop_indep(1) = Qhop_mat(is,js)
        else
           Qhop_indep(2) = Qhop_mat(is,js)
@@ -563,7 +565,7 @@ CONTAINS
     do iorb=1,Norb
        do ispin=1,2
           is=index(ispin,iorb)
-          if(iorb.eq.1) then
+          if(iorb.eq.3) then
              vdm_NC_mat(is,is) = vdm_NC_indep(1)
           else
              vdm_NC_mat(is,is) = vdm_NC_indep(2)
@@ -583,7 +585,7 @@ CONTAINS
     do iorb=1,Norb
        ispin=1
        is=index(ispin,iorb)
-       if(iorb.eq.1) then
+       if(iorb.eq.3) then
           vdm_NC_indep(1) = vdm_NC_mat(is,is)
        else
           vdm_NC_indep(2) = vdm_NC_mat(is,is)
@@ -636,7 +638,7 @@ CONTAINS
              is=index(ispin,iorb)
              js=index(jspin,jorb)
              if(iorb.eq.jorb) then
-                if(iorb.eq.1) then
+                if(iorb.eq.3) then
                    vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(1)
                 else
                    vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(2)
@@ -661,7 +663,7 @@ CONTAINS
     do iorb=1,Norb
        is=index(ispin,iorb)
        js=index(jspin,iorb)
-       if(iorb.eq.1) then
+       if(iorb.eq.3) then
           vdm_AC_indep(1) = vdm_AC_mat(is,js)
        else
           vdm_AC_indep(2) = vdm_AC_mat(is,js)
@@ -669,6 +671,11 @@ CONTAINS
     end do
     !
   end subroutine vdm_AC_mat2vec
+
+
+
+
+
 
 
   subroutine stride2reduced(x_orig,x_reduced)

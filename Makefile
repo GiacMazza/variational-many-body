@@ -54,6 +54,8 @@ EXE=gz_neq_1b_bethe_sc_tdlgr
 
 
 
+EXE=gz_1b_eom
+
 DIR=drivers
 DIREXE=$(HOME)/.project_bin
 

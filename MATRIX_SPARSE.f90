@@ -1211,7 +1211,7 @@ contains
     type(sparse_matrix_csr_z),intent(in)  :: sparse
     complex(8),dimension(Nrow),intent(in) :: vin
     integer                               :: i,pos
-    vout=0.d0
+    vout=zero
     do i=1,Nrow
        do pos=sparse%rowIndex(i),sparse%rowIndex(i+1)-1
           vout(i) = vout(i) + sparse%values(pos)*vin(sparse%columns(pos))
@@ -1277,7 +1277,8 @@ contains
   !
   function sp_scalar_matrix_csr_zz(sparse_in,x) result(sparse_out)
     complex(8) :: x
-    type(sparse_matrix_csr_z) :: sparse_in,sparse_out
+    type(sparse_matrix_csr_z),intent(in) :: sparse_in
+    type(sparse_matrix_csr_z) ::    sparse_out
     integer :: i,nnz_,nrow_
     !
     nnz_=sparse_in%nnz

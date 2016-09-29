@@ -1277,7 +1277,7 @@ function gz_eom_superc_lgr_tmp(time,y,Nsys) result(f)
   end do
   call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(2,:,:))  
   write(*,*) "GZ lgr fixed",lgr
-  stop
+  !stop
   !
   !
   f = gz_equations_of_motion_superc_lgr_sp(time,y,Nsys)
@@ -1674,7 +1674,8 @@ function gz_eom_superc_lgr_sp(time,y,Nsys) result(f)
   !
   real(8),dimension(:),allocatable            :: lgr,delta_out
   complex(8),dimension(:),allocatable :: lgr_cmplx
-  integer :: iter,Nopt
+  complex(8),dimension(Nphi) :: tmp_gzdot
+  integer :: iter,Nopt,iphi
   integer :: i,i0
   real(8) :: delta
 
@@ -1701,14 +1702,23 @@ function gz_eom_superc_lgr_sp(time,y,Nsys) result(f)
   call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(1,:,:))
 
   if(allocated(gzproj_dot0)) deallocate(gzproj_dot0)
-  allocate(gzproj_dot0(Nphi))
+  allocate(gzproj_dot0(Nphi)); gzproj_dot0=zero
   !
-  gzproj_dot0 = gzlocal_eom(time,y,Nsys)
+  tmp_gzdot = gzlocal_eom(time,y,Nsys)
+  gzproj_dot0 = tmp_gzdot
+
+  !TMP
+  ! do iphi=1,Nphi
+  !    write(566,'(10F18.10)') gzproj_dot0(iphi)
+  ! end do
+  !TMP
+
   !
   !+- compute the gz derivative such that the derivative of the gz constraint is equal to zero -+!
   lgr=0.d0
   call fsolve(fix_anomalous_vdm_gz,lgr,tol=1.d-06,info=iter)
   delta_out = fix_anomalous_vdm_gz(lgr);  write(*,*) "GZ lgr fixed",delta_out
+  !stop
   lgr_cmplx=zero
   do i=1,Nvdm_AC_opt
      lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_AC_opt)
@@ -1720,6 +1730,7 @@ function gz_eom_superc_lgr_sp(time,y,Nsys) result(f)
 contains
 
   function fix_anomalous_vdm_sl(lgr) result(delta)
+    implicit none
     real(8),dimension(:) :: lgr
     real(8),dimension(size(lgr)) :: delta
     complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
@@ -1844,6 +1855,7 @@ contains
   end function fix_anomalous_vdm_sl
   !
   function fix_anomalous_vdm_gz(lgr) result(delta)
+    implicit none
     real(8),dimension(:) :: lgr
     real(8),dimension(size(lgr)) :: delta
     complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
@@ -1877,6 +1889,14 @@ contains
     !
     call dynamicalVector_2_wfMatrix_superc(y,slater_,gzproj)
 
+    do iphi=1,Nphi
+       write(567,'(10F18.10)') gzproj(iphi),gzproj_dot0(iphi)
+    end do
+    write(567,*) '1'
+
+    !+--> THE PROBLEM IS DEFINITELY ON gzproj_dot0
+
+
     gzproj_dot=zero
     do is=1,Ns
        do js=1,Ns
@@ -1898,19 +1918,50 @@ contains
     gzproj_dot = -xi*gzproj_dot
     !
     !
+    !<TMP
+    ! do iphi=1,Nphi
+    !    write(567,'(10F18.10)') gzproj_dot(iphi),gzproj_dot0(iphi)
+    ! end do
+    ! write(567,*) '2'   
+    !TMP>
+
+
     anomalous_constrGZ_dot=zero
     do is=1,Ns
        do js=1,Ns
+          !
           gztmp = sp_matrix_vector_product_csr_z(Nphi,phi_spTraces_basis_dens_anomalous(is,js),gzproj)
+
+          !<TMP
+          ! write(567,*) is,js
+          ! do iphi=1,Nphi
+          !    write(567,'(10F18.10)') gztmp(iphi)
+          ! end do
+          !TMP>
+
           do iphi=1,Nphi
              anomalous_constrGZ_dot(is,js) = anomalous_constrGZ_dot(is,js) + conjg(gzproj_dot(iphi))*gztmp(iphi)
           end do
           gztmp = sp_matrix_vector_product_csr_z(Nphi,phi_spTraces_basis_dens_anomalous(is,js),gzproj_dot)
+
+
+          write(568,*) is,js
+          do iphi=1,Nphi
+             write(567,'(10F18.10)') gztmp(iphi)
+          end do
+
           do iphi=1,Nphi
              anomalous_constrGZ_dot(is,js) = anomalous_constrGZ_dot(is,js) + conjg(gzproj(iphi))*gztmp(iphi)
           end do
+          !<TMP
+          !write(*,*) is,js,dreal(anomalous_constrGZ_dot(is,js)),dimag(anomalous_constrGZ_dot(is,:))
+          !TMP>
+          ! SHIT--> not understaing why interorbital constraints start to appear!! (only here and not on the work station...memory leak??)
        end do
     end do
+    ! write(*,*)
+    ! write(*,*)
+    ! stop
     !
     !
     delta=0.d0
@@ -1947,6 +1998,7 @@ function gzlocal_eom(time,y,Nsys) result(gzproj_dot)
   complex(8)                       :: xtmp
   real(8)                          :: xtmp_
   integer                          :: is,js,ik,it,ks,kks,iis,jjs,iphi,jphi
+  integer :: Ntmp,itmp,jtmp
   complex(8),dimension(Ns,Ns)      :: tmpHk
   complex(8),dimension(Ns,Ns)      :: Hk
   complex(8),dimension(2*Ns,2*Ns)  :: tmp
@@ -1962,7 +2014,15 @@ function gzlocal_eom(time,y,Nsys) result(gzproj_dot)
   if(Nsys.ne.nDynamics) stop "wrong dimensions in the GZ_equations_of_motion"
   !
 
-  
+  !TMP
+  ! do is=1,Ns
+  !    do js=1,Ns
+  !       write(569,*) neq_lgr(1,is,js)
+  !    end do
+  ! end do
+  !TMP
+
+
   call dynamicalVector_2_wfMatrix_superc(y,slater_,gzproj)
   slater(1:2,:,:,:) = slater_(1:2,:,:,:)
   slater(3,:,:,:) = zero
@@ -2067,17 +2127,31 @@ function gzlocal_eom(time,y,Nsys) result(gzproj_dot)
   eLevels = eLevels_t(:,it)
   !
   gzproj_dot = zero
+  !
+
+  !+---> TOUR DE FORCE DEBUGGING
   gzproj_dot = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
   do is=1,Ns
      do js=1,Ns
-        !
+        !+---> incredibile...il problema e' nelle matrici sparse?!?!? buonanotte e a domani
+        !write(565,'(10F18.10)') dble(is),dble(js),slater_derivatives(1,is,js)
         xtmp=slater_derivatives(1,is,js)/sqrt(n0(js)*(1.d0-n0(js)))
         if(xtmp/=zero) then
+           !   write(565,*) xtmp,is,js
+           ! do iphi=1,Nphi
+           !    do jphi=1,Nphi
+           !       gzproj_dot(iphi) = gzproj_dot(iphi) + xtmp*phi_traces_basis_Rhop(is,js,iphi,jphi)*gzproj(jphi)
+           !       gzproj_dot(iphi) = gzproj_dot(iphi) + conjg(xtmp)*phi_traces_basis_Rhop_hc(is,js,iphi,jphi)*gzproj(jphi)
+           !    end do
+           ! end do
+           ! Ntmp=phi_spTraces_basis_Rhop(is,js)%Nnz  !! perche' per la madonna cambia un cazzo di valore di una cazzo di riga??
+           ! do itmp=1,Ntmp
+           !    write(499,'(20F18.10)') phi_spTraces_basis_Rhop(is,js)%values(itmp)
+           ! end do
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop(is,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
-           xtmp=conjg(slater_derivatives(1,is,js))/sqrt(n0(js)*(1.d0-n0(js)))
-           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop_hc(is,js),xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop_hc(is,js),conjg(xtmp))
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if

@@ -126,7 +126,7 @@ program GUTZ_mb
   Ngrid=.false.
   do is=1,Ns
      Rgrid(is,is)=.true.
-     Ngrid(is,js)=.true.
+     Ngrid(is,is)=.true.
   end do
   Qgrid=.false.
   do iorb=1,Norb

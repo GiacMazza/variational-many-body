@@ -180,8 +180,9 @@ CONTAINS
   end subroutine get_neq_unitary_constr
   !
   subroutine get_neq_Rhop(is,js,x)
+    implicit none
     integer :: is,js
-    complex(8) :: x
+    complex(8),intent(inout) :: x
     x=gz_neq_Rhop(is,js)
   end subroutine get_neq_Rhop
   !
@@ -531,6 +532,7 @@ CONTAINS
 
 
   subroutine gz_neq_measure_superc_sp(psi_t,time)
+    implicit none
     complex(8),dimension(nDynamics)   :: psi_t
     real(8)                           :: time
     complex(8),dimension(2,Ns,Ns,Lk)  :: slater
@@ -557,6 +559,13 @@ CONTAINS
        end do
     end do
     !
+    gz_neq_local_density_matrix=0.d0
+    gz_neq_local_dens_dens=0.d0
+    gz_neq_dens_constr_gzproj=0.d0
+    gz_neq_dens_constrA_gzproj=0.d0
+    gz_neq_local_sc_order=0.d0
+    vdm_diag=0.d0
+    !
     Estar=0.d0
     do is=1,Ns
        do js=1,Ns
@@ -574,7 +583,7 @@ CONTAINS
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
     !
-
+    gztmp=zero
     gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
     Eloc = 0.d0
     do iphi=1,Nphi
@@ -583,6 +592,7 @@ CONTAINS
 
     !Eloc = trace_phi_basis(gzproj,phi_traces_basis_Hloc)
     !
+    gz_neq_local_angular_momenta=0.d0
     gz_neq_local_angular_momenta(1) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spin2)
     gz_neq_local_angular_momenta(2) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spinZ)
     gz_neq_local_angular_momenta(3) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpin2)
@@ -592,7 +602,9 @@ CONTAINS
     ! gz_neq_Qhop = hopping_renormalization_anomalous(gzproj,vdm_diag)
     !
     write(*,*) 'measuring using spMv representation'
+    gz_neq_Rhop=zero
     gz_neq_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)   
+    gz_neq_Qhop=zero
     gz_neq_Qhop = hopping_renormalization_anomalous_sp(gzproj,vdm_diag)
     !
     !

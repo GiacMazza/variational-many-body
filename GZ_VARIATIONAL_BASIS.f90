@@ -452,7 +452,7 @@ CONTAINS
   !
   function trace_phi_basis_sp(phi_vect,sp_phi_trace) result(trace)
     complex(8),dimension(Nphi) :: phi_vect,phi_tmp
-    type(sparse_matrix_csr_z) :: sp_phi_trace
+    type(sparse_matrix_csr_z),intent(in) :: sp_phi_trace
     complex(8) :: trace
     integer :: iphi,jphi,nrow
     trace=zero
@@ -707,7 +707,7 @@ CONTAINS
     real(8)          :: x,re_x,im_x
     character(len=200) :: file_name
     character(len=200) :: read_dir
-    integer :: flen
+    integer :: flen,Ntmp,itmp,jtmp
 
     read_dir=trim(read_dir)
     !
@@ -1187,6 +1187,21 @@ CONTAINS
           call sp_load_matrix(phi_traces_basis_dens_anomalous_hc(is,js,:,:),phi_spTraces_basis_dens_anomalous_hc(is,js))
           !
           call sp_load_matrix(phi_traces_basis_Rhop(is,js,:,:),phi_spTraces_basis_Rhop(is,js))
+
+          
+          !TMP
+          if(is.eq.js) then
+             Ntmp=phi_spTraces_basis_Rhop(is,js)%nnz
+             ! write(*,*) is,js
+             ! write(*,*)
+             do itmp=1,Ntmp
+                write(480,'(10F18.10)') phi_spTraces_basis_Rhop(is,js)%values(itmp),dble(is),dble(js)
+             end do
+          end if
+          ! write(*,*)
+          ! write(*,*)
+          !TMP
+
           call sp_load_matrix(phi_traces_basis_Rhop_hc(is,js,:,:),phi_spTraces_basis_Rhop_hc(is,js))
           !
           if(gz_superc) then
@@ -1195,6 +1210,7 @@ CONTAINS
           end if
        end do
     end do
+
     do iorb=1,Norb
        do jorb=1,Norb
           call sp_load_matrix(phi_traces_basis_spin_flip(iorb,jorb,:,:),phi_spTraces_basis_spin_flip(iorb,jorb))

@@ -1693,7 +1693,7 @@ function gz_eom_superc_lgr_sp(time,y,Nsys) result(f)
   !
   !+- compute the derivative such that the derivative of the slater constraint is equal to zero -+!
   lgr=0.d0  
-  call fsolve(fix_anomalous_vdm_sl,lgr,tol=1.d-06,info=iter)
+  call fsolve(fix_anomalous_vdm_sl,lgr,tol=10.d-12,info=iter)
   delta_out = fix_anomalous_vdm_sl(lgr);  write(*,*) "SL lgr fixed",delta_out
   lgr_cmplx=zero
   do i=1,Nvdm_AC_opt
@@ -1716,7 +1716,7 @@ function gz_eom_superc_lgr_sp(time,y,Nsys) result(f)
   !
   !+- compute the gz derivative such that the derivative of the gz constraint is equal to zero -+!
   lgr=0.d0
-  call fsolve(fix_anomalous_vdm_gz,lgr,tol=1.d-06,info=iter)
+  call fsolve(fix_anomalous_vdm_gz,lgr,tol=1.d-12,info=iter)
   delta_out = fix_anomalous_vdm_gz(lgr);  write(*,*) "GZ lgr fixed",delta_out
   !stop
   lgr_cmplx=zero

@@ -1,4 +1,5 @@
 MODULE RK_IDE
+  use SF_CONSTANTS
   implicit none
   private
 
@@ -11,12 +12,16 @@ MODULE RK_IDE
   interface RK_step
      module procedure RK_IDE_step_d,RK_IDE_step_c,RK_step_z,RK_step_d
   end interface
-
   public :: RK_step
-  
+
+  interface RK4_step
+     module procedure RK4_step_d,RK4_step_z
+  end interface
+  public :: RK4_step
+
 CONTAINS
 
-  
+
   !+-------------------------+!
   !   REAL VALUED FUNCTIONS   !
   !+-------------------------+!
@@ -70,7 +75,7 @@ CONTAINS
 
     !+- RUNGE-KUTTA step -+!
     do irk=1,mRK
-       
+
        !+ Y(:,irk) +!
        do j=1,mRK
           if(A(irk,j).gt.1.d-5) then
@@ -82,12 +87,12 @@ CONTAINS
        y_new(:) = y_new(:) + h*B(irk)*funct(t+C(irk)*h,Yn(:,irk),Nsys) 
 
     end do
-    
+
     !+- deallocate -+!
     deallocate(A,B,C)
     deallocate(Yn)
     return
-    
+
   END FUNCTION RK_step_d
 
 
@@ -100,7 +105,7 @@ CONTAINS
     real(8)                                  ::  h        !time step
     real(8)                                  ::  t        !time
     complex(8),dimension(Nsys),intent(in)    ::  y_old    !y(t_n)
-    
+
     interface
        ! function f(t,y(t))
        function funct(t,y,Nsys)
@@ -140,7 +145,7 @@ CONTAINS
 
     !+- RUNGE-KUTTA step -+!
     do irk=1,mRK
-       
+
        !+ Y(:,irk) +!
        do j=1,mRK
           if(A(irk,j).gt.1.d-5) then
@@ -151,13 +156,161 @@ CONTAINS
        !+- step -+! 
        y_new(:) = y_new(:) + h*B(irk)*funct(t+C(irk)*h,Yn(:,irk),Nsys) 
     end do
-    
+
     !+- deallocate -+!
     deallocate(A,B,C)
     deallocate(Yn)
     return
-    
+
   END FUNCTION RK_step_z
+
+
+
+
+
+  FUNCTION RK4_step_d(Nsys,mRK,h,t,y_old,funct) result(y_new)
+    implicit none
+    !INPUT
+    integer                                  ::  mRK      !RK order 
+    integer                                  ::  Nsys     !Number of equations
+    real(8)                                  ::  h        !time step
+    real(8)                                  ::  t        !time
+    real(8),dimension(Nsys),intent(in)    ::  y_old    !y(t_n)
+
+    interface
+       ! function f(t,y(t))
+       function funct(t,y,Nsys)
+         implicit none
+         integer                    :: Nsys
+         real(8),dimension(Nsys) :: y
+         real(8)                    :: t
+         real(8),dimension(Nsys) :: funct
+       end function funct
+
+    end interface
+
+    !OUTPUT
+    real(8),dimension(Nsys)               ::  y_new    !(t_{n+1})
+    real(8),dimension(Nsys)               ::  y_tmp
+    !internal variables
+    integer                               :: irk
+    integer                               :: iker
+    integer                               :: j
+    real(8),dimension(:,:),allocatable    :: Fn,Yn
+    real(8),dimension(:,:),allocatable    :: dFn
+    real(8),dimension(Nsys)               :: f
+
+    if(mRK.ne.2.and.mRK.ne.4) then
+       write(*,*) mRK,'RK order set to default value 2'
+       mRK = 2
+    end if
+
+    !+- allocate and initialize stuff -+!
+    allocate(A(mRK,mRK),B(mRK),C(mRK))
+    allocate(dFn(Nsys,mRK))
+    dFn=0.d0
+    call RKcoeff(A,B,C,4)
+
+    do j = 1,Nsys
+       y_new(j) = y_old(j)
+    end do
+
+    !+- intermediate steps -+!
+    dFn(:,1) = funct(t,y_old,Nsys)
+
+    y_tmp=y_old+h*0.5d0*dFn(:,1)    
+    dFn(:,2) = funct(t+h*0.5d0,y_tmp,Nsys)
+
+    y_tmp=y_old+h*0.5d0*dFn(:,2)
+    dFn(:,3) = funct(t+h*0.5d0,y_tmp,Nsys)
+
+    y_tmp=y_old+h*dFn(:,3)
+    dFn(:,4) = funct(t+h,y_tmp,Nsys)
+    !+- RUNGE-KUTTA step -+!
+    do irk=1,mRK
+       y_new(:) = y_new(:) + h*B(irk)*dFn(:,irk)
+    end do
+
+    !+- deallocate -+!
+    deallocate(A,B,C)
+    deallocate(dFn)
+    return
+  END FUNCTION RK4_step_d
+
+
+
+
+
+
+  FUNCTION RK4_step_z(Nsys,mRK,h,t,y_old,funct) result(y_new)
+    implicit none
+    !INPUT
+    integer                                  ::  mRK      !RK order 
+    integer                                  ::  Nsys     !Number of equations
+    real(8)                                  ::  h        !time step
+    real(8)                                  ::  t        !time
+    complex(8),dimension(Nsys),intent(in)    ::  y_old    !y(t_n)
+    
+    interface
+       ! function f(t,y(t))
+       function funct(t,y,Nsys)
+         implicit none
+         integer                    :: Nsys
+         complex(8),dimension(Nsys) :: y
+         real(8)                    :: t
+         complex(8),dimension(Nsys) :: funct
+       end function funct
+
+    end interface
+
+    !OUTPUT
+    complex(8),dimension(Nsys)               ::  y_new    !(t_{n+1})
+    complex(8),dimension(Nsys)               ::  y_tmp
+    !internal variables
+    integer                               :: irk
+    integer                               :: iker
+    integer                               :: j
+    complex(8),dimension(:,:),allocatable    :: Fn,Yn
+    complex(8),dimension(:,:),allocatable    :: dFn
+    complex(8),dimension(Nsys)               :: f
+
+    if(mRK.ne.2.and.mRK.ne.4) then
+       write(*,*) mRK,'RK order set to default value 2'
+       mRK = 2
+    end if
+
+    !+- allocate and initialize stuff -+!
+    allocate(A(mRK,mRK),B(mRK),C(mRK))
+    allocate(dFn(Nsys,mRK))
+    dFn=zero
+    call RKcoeff(A,B,C,4)
+
+    do j = 1,Nsys
+       y_new(j) = y_old(j)
+    end do
+    
+    !+- intermediate steps -+!
+    dFn(:,1) = funct(t,y_old,Nsys)
+
+    y_tmp=y_old+h*0.5d0*dFn(:,1)    
+    dFn(:,2) = funct(t+h*0.5d0,y_tmp,Nsys)
+
+    y_tmp=y_old+h*0.5d0*dFn(:,2)
+    dFn(:,3) = funct(t+h*0.5d0,y_tmp,Nsys)
+
+    y_tmp=y_old+h*dFn(:,3)
+    dFn(:,4) = funct(t+h,y_tmp,Nsys)
+    !+- RUNGE-KUTTA step -+!
+    do irk=1,mRK
+       y_new(:) = y_new(:) + h*B(irk)*dFn(:,irk)
+    end do
+    
+    !+- deallocate -+!
+    deallocate(A,B,C)
+    deallocate(dFn)
+    return
+    
+  END FUNCTION RK4_step_z
 
 
 

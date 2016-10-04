@@ -60,7 +60,8 @@ program GUTZ_mb
   !
   real(8),dimension(:),allocatable      :: dump_vect
   
-  real(8) :: CFneq,CFneq0,tStart_neqCF,tRamp_neqCF,tSin_neqCF,dCFneq
+  real(8) :: CFneq0,tStart_neqCF,tRamp_neqCF,tSin_neqCF
+  real(8),dimension(3) :: CFneq,dCFneq
 
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
   complex(8),dimension(:,:),allocatable   :: R_init,Q_init
@@ -82,12 +83,12 @@ program GUTZ_mb
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
     !
-  call parse_input_variable(CFneq,"CFneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(CFneq0,"CFneq0","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(CFneq,"CFneq","inputGZ.conf",default=[0.d0,0.d0,0.d0]) 
+  call parse_input_variable(dCFneq,"DCFneq","inputGZ.conf",default=[0.d0,0.d0,0.d0]) 
   call parse_input_variable(tStart_neqCF,"TSTART_NEQCF","inputGZ.conf",default=0.d0)
   call parse_input_variable(tRamp_neqCF,"TRAMP_NEQCF","inputGZ.conf",default=0.d0)  
   call parse_input_variable(tSin_neqCF,"TSIN_NEQCF","inputGZ.conf",default=0.5d0)
-  call parse_input_variable(dCFneq,"DCFneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(cf_type,"CF_TYPE","inputGZ.conf",default=0) 
   call parse_input_variable(tdlgr,"TDLGR","inputGZ.conf",default=.true.) 
   
@@ -173,30 +174,36 @@ program GUTZ_mb
      end if
      !
      if(t.lt.tStart_neqCF+tRamp_neqCF) then
-        s = CFneq
+        !
+        do iorb=1,Norb
+           do ispin=1,2
+              is=index(ispin,iorb)
+              s(is) = CFneq(iorb)
+           end do
+        end do
+        !
      else
+        !
         select case(cf_type)
         case(0)
-           s = CFneq
-           do iorb=1,2
+           do iorb=1,Norb
               do ispin=1,2
-                 is = index(ispin,iorb)
-                 s(is) = CFneq + dCFneq*dsin(2.d0*pi*t/tSin_neqCF)
+                 is=index(ispin,iorb)
+                 s(is) = CFneq(iorb) + dCFneq(iorb)*dsin(2.d0*pi*t/tSin_neqCF)
               end do
            end do
         case(1)
-           s = 1.d0
-           do iorb=1,2
+           do iorb=1,Norb
               do ispin=1,2
-                 is = index(ispin,iorb)
-                 s(is) = CFneq + dCFneq*(1.d0-dcos(2.d0*pi*t/tSin_neqCF))
+                 is=index(ispin,iorb)
+                 s(is) = CFneq(iorb) + dCFneq(iorb)*(1.d0-dcos(2.d0*pi*t/tSin_neqCF))
               end do
            end do
         end select
      end if
      !     
      CFt(:,itt) = CFneq0 + r*(s(:)-CFneq0)
-     !write(*,*) CFneq0,Cfneq,CFt(:,itt)
+     !
   end do
   !
   !
@@ -222,6 +229,7 @@ program GUTZ_mb
   end do
   close(unit_neq_hloc)
 
+  
 
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
   nDynamics = 2*Ns*Ns*Lk + Nphi
@@ -386,9 +394,9 @@ program GUTZ_mb
      end if
      !
      if(tdlgr) then
-        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
+        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
      else
-        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
+        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
      end if
      !
   end do

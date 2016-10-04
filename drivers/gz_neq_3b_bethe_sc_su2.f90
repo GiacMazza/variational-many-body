@@ -14,11 +14,12 @@ program GUTZ_mb
   USE GZ_ENERGY_MINIMIZATION
   USE GZ_OPTIMIZED_ENERGY
   USE GZ_MATRIX_BASIS
+  USE MATRIX_SPARSE
   !
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t
-  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,ispin
+  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,ispin,unit
   integer :: nprint
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir
@@ -71,13 +72,18 @@ program GUTZ_mb
   complex(8),dimension(:,:),allocatable   :: R_init,Q_init
   integer :: Nopt
   real(8),dimension(:),allocatable :: dump_seed
-  integer :: expected_flen,flen,unit
+  integer :: expected_flen,flen
   logical :: seed_file
   logical :: tdLGR
 
   complex(8),dimension(:,:,:),allocatable :: td_lgr
-  
+
+
+  integer :: Ntmp,itmp
   !
+
+
+
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
@@ -85,8 +91,7 @@ program GUTZ_mb
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
-  
-
+  !
   call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=[0.d0,0.d0,0.d0])
   call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
   call parse_input_variable(tStart_neqU,"TSTART_NEQU","inputGZ.conf",default=0.d0)
@@ -101,8 +106,6 @@ program GUTZ_mb
   call parse_input_variable(tSin_neqJ,"TSIN_NEQJ","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default=.true.) 
-  
-  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -113,36 +116,53 @@ program GUTZ_mb
   !
   call initialize_local_fock_space
   call init_variational_matrices(wf_symmetry,read_dir_=read_dir)    
+
+  unit=free_unit()
+  open(unit,file='spTrace_start')
+  do is=1,Ns
+     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
+     do itmp=1,Ntmp
+        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
+     end do
+  end do
+  close(unit)
+  
   !
   call build_lattice_model; get_Hk_t => getHk
   allocate(eLevels(Ns)); eLevels=0.d0
-  !
+  
+  write(*,*) 'ti sto pigliando per il culo quindi! ah ah'
+
+  
+  
+
   Nsl_normal_opt=2; sl_normal_stride_v2m => sl_normal_vec2mat; sl_normal_stride_m2v => sl_normal_mat2vec
   slNi_v2m => i2m_slN
   slAi_v2m => i2m_slA
   slNi_m2v => m2i_slN
   slAi_m2v => m2i_slA
-  !
-  Nsl_anomalous_opt=2; sl_anomalous_stride_v2m => sl_anomalous_vec2mat; sl_anomalous_stride_m2v => sl_anomalous_mat2vec  
-  NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
+  !                                                                                                                                                                                  
+  Nsl_anomalous_opt=2; sl_anomalous_stride_v2m => sl_anomalous_vec2mat; sl_anomalous_stride_m2v => sl_anomalous_mat2vec
+  NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec
   NQhop_opt=2;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
   Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
-  !
+  !                                                                                                                                                                                  
   Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   Nopt = 2*Nopt
   Nopt_reduced = 2 + 2 + 2 + 2 + 2
-  !
+  !                                                                                                                                                                                 
   stride_zeros_orig2red => stride2reduced
   stride_zeros_red2orig => stride2orig
+  !                                    
   !
   allocate(Rgrid(Ns,Ns),Qgrid(Ns,Ns),Ngrid(Ns,Ns))
   Rgrid=.false.
   Ngrid=.false.
   do is=1,Ns
      Rgrid(is,is)=.true.
-     Ngrid(is,js)=.true.
+     Ngrid(is,is)=.true.  !<--- ?!?!?!
   end do
   Qgrid=.false.
   do iorb=1,Norb
@@ -152,7 +172,15 @@ program GUTZ_mb
   end do
   !
 
-
+  unit=free_unit()
+  open(unit,file='spTrace_start2')
+  do is=1,Ns
+     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
+     do itmp=1,Ntmp
+        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
+     end do
+  end do
+  close(unit)
 
 
 
@@ -228,6 +256,19 @@ program GUTZ_mb
      write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
   end do
   close(unit_neq_hloc)
+
+
+
+  unit=free_unit()
+  open(unit,file='spTrace_start3')
+  do is=1,Ns
+     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
+     do itmp=1,Ntmp
+        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
+     end do
+  end do
+  close(unit)
+
 
 
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
@@ -307,6 +348,19 @@ program GUTZ_mb
      !
   end if
   !
+
+
+  unit=free_unit()
+  open(unit,file='spTrace_start4')
+  do is=1,Ns
+     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
+     do itmp=1,Ntmp
+        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
+     end do
+  end do
+  close(unit)
+
+
   call setup_neq_dynamics_superc
   !    
   unit_neq_Rhop = free_unit()
@@ -361,11 +415,33 @@ program GUTZ_mb
      t=t_grid(it)
      !
      if(mod(it-1,nprint).eq.0) then        
+
+
+  unit=free_unit()
+  open(unit,file='spTrace_start5')
+  do is=1,Ns
+     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
+     do itmp=1,Ntmp
+        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
+     end do
+  end do
+  close(unit)
+
+
         !
         call gz_neq_measure_superc_sp(psi_t,t)
         !
+
+        ! do is=1,Ns
+        !    Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
+        !    do itmp=1,Ntmp
+        !       write(803,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
+        !    end do
+        ! end do
+
+        !stop
+
         do is=1,Ns
-           call get_neq_Rhop(is,is,Rhop(is))
            do js=1,Ns
               call get_neq_Rhop(is,js,Rhop_matrix(is,js))              
               call get_neq_Qhop(is,js,Qhop_matrix(is,js))              
@@ -392,7 +468,6 @@ program GUTZ_mb
         call write_hermitean_matrix(dens_constrGZ(1,:,:),unit_neq_dens_constrGZ,t)
         call write_hermitean_matrix(dens_constrSL(2,:,:),unit_neq_dens_constrSLa,t)
         call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_neq_dens_constrGZa,t)
-        call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
         call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies
@@ -400,13 +475,51 @@ program GUTZ_mb
         !
      end if
      !
-     !stop
-     psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
+     if(tdlgr) then
+        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
+     else
+        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
+     end if
      !
   end do
   !
 CONTAINS
   !
+
+  function setup_pointers(NRhop,NQhop,NvdmNC,NvdmNCo,NvdmAC) result(Nopt)
+    implicit none
+    integer :: Nrhop,NQhop,NvdmNC,NvdmNCo,NvdmAC
+    integer :: Nopt
+    !
+    NRhop_opt=NRhop
+    Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
+    !
+    NQhop_opt=NQhop
+    Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
+    !
+    Nvdm_NC_opt=NvdmNC
+    vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
+    !
+    Nvdm_NCoff_opt=NvdmNCo 
+    vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
+    !
+    Nvdm_AC_opt=NvdmAC
+    vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+    !    
+    Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+    Nopt = 2*Nopt
+    !
+    Nopt_reduced = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
+    !
+    stride_zeros_orig2red => stride2reduced
+    stride_zeros_red2orig => stride2orig
+    !
+  end function setup_pointers
+  
+
+
+
+
   subroutine build_lattice_model  
     implicit none
     !
@@ -455,6 +568,7 @@ CONTAINS
 
 
   subroutine getHk(Hk,ik,time)
+    implicit none
     complex(8),dimension(:,:) :: Hk
     integer                   :: ik
     real(8)                   :: time
@@ -471,6 +585,7 @@ CONTAINS
 
   !+- STRIDES DEFINITION -+!
   subroutine i2m_slN(iv,imI,imJ)
+    implicit none
     integer :: iv
     integer :: imI,imJ
     integer :: iorb,jorb
@@ -487,6 +602,7 @@ CONTAINS
     end select
   end subroutine i2m_slN
   subroutine i2m_slA(iv,imI,imJ)
+    implicit none
     integer :: iv
     integer :: imI,imJ
     integer :: iorb,jorb
@@ -505,6 +621,7 @@ CONTAINS
   end subroutine i2m_slA
   !
   subroutine m2i_slN(imI,imJ,iv)
+    implicit none
     integer:: iv,imI,imJ
     integer :: iorb,jorb,ispin,jspin
     if(imI.gt.Ns.or.imJ.gt.Ns) stop "wrong stride!!"
@@ -531,6 +648,7 @@ CONTAINS
     end if
   end subroutine m2i_slN
   subroutine m2i_slA(iv,imI,imJ)
+    implicit none
     integer:: iv,imI,imJ
     integer :: iorb,jorb,ispin,jspin
     if(imI.gt.Ns.or.imJ.gt.Ns) stop "wrong stride!!"
@@ -558,6 +676,7 @@ CONTAINS
   end subroutine m2i_slA
 
   subroutine sl_normal_vec2mat(slater_indep,slater_mat)
+    implicit none
     complex(8),dimension(:)   :: slater_indep
     complex(8),dimension(:,:) :: slater_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -578,6 +697,7 @@ CONTAINS
     !
   end subroutine sl_normal_vec2mat
   subroutine sl_normal_mat2vec(slater_mat,slater_indep)
+    implicit none
     complex(8),dimension(:,:) :: slater_mat
     complex(8),dimension(:)   :: slater_indep
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -600,6 +720,7 @@ CONTAINS
   end subroutine sl_normal_mat2vec
   !
   subroutine sl_anomalous_vec2mat(slater_indep,slater_mat)
+    implicit none
     complex(8),dimension(:)   :: slater_indep
     complex(8),dimension(:,:) :: slater_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -627,6 +748,7 @@ CONTAINS
     end do
   end subroutine sl_anomalous_vec2mat
   subroutine sl_anomalous_mat2vec(slater_mat,slater_indep)
+    implicit none
     complex(8),dimension(:)   :: slater_indep
     complex(8),dimension(:,:) :: slater_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -651,6 +773,7 @@ CONTAINS
 
 
   subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
+    implicit none
     complex(8),dimension(:)   :: Rhop_indep
     complex(8),dimension(:,:) :: Rhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -671,6 +794,7 @@ CONTAINS
     !
   end subroutine Rhop_vec2mat
   subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
+    implicit none
     complex(8),dimension(:,:) :: Rhop_mat
     complex(8),dimension(:)   :: Rhop_indep
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -695,6 +819,7 @@ CONTAINS
 
 
   subroutine Qhop_vec2mat(Qhop_indep,Qhop_mat)
+    implicit none
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -722,6 +847,7 @@ CONTAINS
     end do
   end subroutine Qhop_vec2mat
   subroutine Qhop_mat2vec(Qhop_mat,Qhop_indep)
+    implicit none
     complex(8),dimension(:)   :: Qhop_indep
     complex(8),dimension(:,:) :: Qhop_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -745,6 +871,7 @@ CONTAINS
 
 
   subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
+    implicit none
     complex(8),dimension(:)   :: vdm_NC_indep
     complex(8),dimension(:,:) :: vdm_NC_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -766,6 +893,7 @@ CONTAINS
     !
   end subroutine vdm_NC_vec2mat
   subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
+    implicit none
     complex(8),dimension(:)   :: vdm_NC_indep
     complex(8),dimension(:,:) :: vdm_NC_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -788,6 +916,7 @@ CONTAINS
 
 
   subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
+    implicit none
     complex(8),dimension(:)   :: vdm_NC_indep
     complex(8),dimension(:,:) :: vdm_NC_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -799,6 +928,7 @@ CONTAINS
     !
   end subroutine vdm_NCoff_vec2mat
   subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
+    implicit none
     complex(8),dimension(:)   :: vdm_NC_indep
     complex(8),dimension(:,:) :: vdm_NC_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -814,6 +944,7 @@ CONTAINS
 
   !
   subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
+    implicit none
     complex(8),dimension(:)   :: vdm_AC_indep
     complex(8),dimension(:,:) :: vdm_AC_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -843,6 +974,7 @@ CONTAINS
     !
   end subroutine vdm_AC_vec2mat
   subroutine vdm_AC_mat2vec(vdm_AC_mat,vdm_AC_indep)
+    implicit none
     complex(8),dimension(:)   :: vdm_AC_indep
     complex(8),dimension(:,:) :: vdm_AC_mat
     integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
@@ -865,6 +997,7 @@ CONTAINS
 
 
   subroutine stride2reduced(x_orig,x_reduced)
+    implicit none
     real(8),dimension(:) :: x_orig
     real(8),dimension(:) :: x_reduced
     if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"
@@ -887,6 +1020,7 @@ CONTAINS
     !
   end subroutine stride2reduced
   subroutine stride2orig(x_reduced,x_orig)
+    implicit none
     real(8),dimension(:) :: x_orig
     real(8),dimension(:) :: x_reduced
     if(size(x_orig).ne.Nopt) stop "error orig @ stride2reduced"

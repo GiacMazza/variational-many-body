@@ -185,7 +185,7 @@ MODULE GZ_VARS_GLOBAL
      end subroutine opt_stride_mat2vec
   end interface
   !
-  procedure (opt_stride_vec2mat),pointer :: sl_normal_stride_v2m => null ()
+  procedure (opt_stride_vec2mat),pointer :: sl_normal_stride_v2m => null()
   procedure (opt_stride_vec2mat),pointer :: sl_anomalous_stride_v2m => null ()
   procedure (opt_stride_vec2mat),pointer :: Rhop_stride_v2m => null ()
   procedure (opt_stride_vec2mat),pointer :: Qhop_stride_v2m => null ()  

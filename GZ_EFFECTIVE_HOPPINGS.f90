@@ -34,11 +34,36 @@ CONTAINS
     real(8) :: a
     complex(8) :: b
     integer :: is,js,iphi,jphi
+    !TMP
+    !integer :: Ntmp,itmp,jtmp
+    !TMP
     !
+
+    ! do is=1,Ns
+    !    do js=1,Ns
+    !       !TMP
+    !       if(is.eq.js) then
+    !          Ntmp = phi_spTraces_basis_Rhop(is,js)%nnz
+    !          do itmp=1,Ntmp
+    !             write(481,'(10F18.10)') phi_spTraces_basis_Rhop(is,js)%values(itmp),dble(is),dble(js)
+    !          end do
+    !       end if
+    !       !TMP
+    !    end do
+    ! end do
+
     do is=1,Ns
        do js=1,Ns
           a = sqrt(vdm_natural(js)*(1.d0-vdm_natural(js)))
-          b = trace_phi_basis_sp(phi,phi_spTraces_basis_Rhop(is,js))
+          b = trace_phi_basis_sp(phi,phi_spTraces_basis_Rhop(is,js))          
+          ! !TMP
+          ! if(is.eq.js) then
+          !    Ntmp = phi_spTraces_basis_Rhop(is,js)%nnz
+          !    do itmp=1,Ntmp
+          !       write(482,'(10F18.10)') phi_spTraces_basis_Rhop(is,js)%values(itmp),dble(is),dble(js)
+          !    end do
+          ! end if
+          ! !TMP
           Rhop(is,js) = b/a
        end do
     end do

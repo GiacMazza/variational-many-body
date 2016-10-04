@@ -1277,7 +1277,8 @@ contains
   !
   function sp_scalar_matrix_csr_zz(sparse_in,x) result(sparse_out)
     complex(8) :: x
-    type(sparse_matrix_csr_z) :: sparse_in,sparse_out
+    type(sparse_matrix_csr_z),intent(in) :: sparse_in
+    type(sparse_matrix_csr_z) ::    sparse_out
     integer :: i,nnz_,nrow_
     !
     nnz_=sparse_in%nnz

@@ -32,7 +32,6 @@ CONTAINS
     atomic_energy_levels=0.d0;if(present(atomic_energy_levels_)) atomic_energy_levels=atomic_energy_levels_
     !
     !
-    write(*,*) 'local_hamiltonian',Uloc,Ust,Jh,Jsf,Jph,atomic_energy_levels
     !+- FREE PART OF THE LOCAL HAMILTONIAN -+!
     do istate=1,Ns
        phi_traces_basis_free_Hloc = phi_traces_basis_free_Hloc + (atomic_energy_levels(istate)-xmu)*phi_traces_basis_local_dens(istate,istate,:,:)

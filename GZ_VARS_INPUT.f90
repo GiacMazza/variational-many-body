@@ -34,6 +34,15 @@ MODULE GZ_VARS_INPUT
   real(8)              :: tstart
   real(8)              :: tstep
   logical              :: GZneq_verbose
+  !# Electric field #!
+  character(len=16)    :: field_type    !choose the profile of the electric field
+  real(8)              :: Dpulse
+  real(8)              :: Efield        !Electric field strength
+  real(8),dimension(3) :: Evect         !Electric field vectors as input
+  real(8)              :: Ton,Toff      !turn on/off time, t0 also center of the pulse
+  integer              :: Ncycles       !Number of cycles in pulsed light packet
+  real(8)              :: omega0        !parameter for the Oscilatting field and Pulsed light
+  real(8)              :: E1            !Electric field strenght for the AC+DC case (tune to resonate)
   
 
 contains
@@ -69,6 +78,15 @@ contains
     call parse_input_variable(tstart,"TSTART",INPUTunit,default=0.d0)
     call parse_input_variable(tstep,"TSTEP",INPUTunit,default=1.d-2)
     call parse_input_variable(GZneq_verbose,"GZNEQ_VERBOSE",INPUTunit,default=.false.)
+    !
+    !ELECTRIC FIELD VARIABLES
+    call parse_input_variable(field_type,"FIELD_TYPE",INPUTunit,default ='pulse',comment="profile type of the electric field ")
+    call parse_input_variable(Efield,"EFIELD",INPUTunit,default=0d0,comment="electric field strength")
+    call parse_input_variable(Evect,"EVECT",INPUTunit,default=[1d0,0d0,0d0],comment="electric field direction (normalized)")
+    call parse_input_variable(ton,"TON",INPUTunit,default=0d0,comment="turn on time or center of the pulse")
+    call parse_input_variable(toff,"TOFF",INPUTunit,default=10000d0,comment="turn off time")
+    call parse_input_variable(Dpulse,"DPULSE",INPUTunit,default=10.d0,comment="time width of the field pulse")
+    call parse_input_variable(omega0,"OMEGA0",INPUTunit,default=acos(-1d0) , comment="parameter for the Oscilatting field and Pulsed light")
     !
   end subroutine read_input
 

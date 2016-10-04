@@ -22,12 +22,13 @@ EXE=gz_generate_phi_traces
 
 
 #EXE=gz_1b_bethe_sc_nRQ
-EXE=gz_1b_cubic_sc_nRQ
+#EXE=gz_1b_cubic_sc_nRQ
 #EXE=gz_1b_bethe_sc
 #EXE=gz_1b_eom
 
 
 #EXE=gz_neq_1b_bethe_sc
+EXE=gz_neq_1b_cubic_sc
 #EXE=gz_neq_1b_bethe_sc_tdlgr
 
 
@@ -49,7 +50,7 @@ EXE=gz_1b_cubic_sc_nRQ
 
 #EXE=gz_neq_sc
 #EXE=gz_neq_3b_bethe_sc
-EXE=gz_neq_3b_bethe_sc_su2
+#EXE=gz_neq_3b_bethe_sc_su2
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
 
@@ -63,10 +64,9 @@ DIREXE=$(HOME)/.project_bin
 #REVISION SOFTWARE GIT:
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
-
-#OBJS=MATRIX_SPARSE.o ARPACK_LANCZOS.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY_MINIMIZATION.o GZ_OPTIMIZED_ENERGY.o
-
-OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o
+#
+OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o
+#
 
 
 #FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90

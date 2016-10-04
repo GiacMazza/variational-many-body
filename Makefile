@@ -22,12 +22,13 @@ EXE=gz_generate_phi_traces
 
 
 #EXE=gz_1b_bethe_sc_nRQ
-#EXE=gz_1b_cubic_sc_nRQ
+EXE=gz_1b_cubic_sc_nRQ
 #EXE=gz_1b_bethe_sc
+#EXE=gz_1b_eom
 
 
 #EXE=gz_neq_1b_bethe_sc
-EXE=gz_neq_1b_bethe_sc_tdlgr
+#EXE=gz_neq_1b_bethe_sc_tdlgr
 
 
 #EXE=gz_2b_bethe_sc
@@ -48,13 +49,13 @@ EXE=gz_neq_1b_bethe_sc_tdlgr
 
 #EXE=gz_neq_sc
 #EXE=gz_neq_3b_bethe_sc
-#EXE=gz_neq_3b_bethe_sc_su2
+EXE=gz_neq_3b_bethe_sc_su2
 
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
 
 
-#EXE=gz_1b_eom
+
 
 DIR=drivers
 DIREXE=$(HOME)/.project_bin

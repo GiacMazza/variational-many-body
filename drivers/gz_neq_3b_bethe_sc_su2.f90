@@ -400,6 +400,7 @@ program GUTZ_mb
         !
      end if
      !
+     !stop
      psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
      !
   end do

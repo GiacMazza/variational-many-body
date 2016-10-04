@@ -1211,7 +1211,7 @@ contains
     type(sparse_matrix_csr_z),intent(in)  :: sparse
     complex(8),dimension(Nrow),intent(in) :: vin
     integer                               :: i,pos
-    vout=0.d0
+    vout=zero
     do i=1,Nrow
        do pos=sparse%rowIndex(i),sparse%rowIndex(i+1)-1
           vout(i) = vout(i) + sparse%values(pos)*vin(sparse%columns(pos))

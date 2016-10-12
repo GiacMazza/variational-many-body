@@ -1882,12 +1882,7 @@ contains
     call vdm_AC_stride_v2m(lgr_cmplx,lgrGZ)
     !
     call dynamicalVector_2_wfMatrix_superc(y,slater_,gzproj)
-
-    do iphi=1,Nphi
-       write(567,'(10F18.10)') gzproj(iphi),gzproj_dot0(iphi)
-    end do
-    write(567,*) '1'
-
+    !
     gzproj_dot=zero
     do is=1,Ns
        do js=1,Ns
@@ -1919,12 +1914,6 @@ contains
              anomalous_constrGZ_dot(is,js) = anomalous_constrGZ_dot(is,js) + conjg(gzproj_dot(iphi))*gztmp(iphi)
           end do
           gztmp = sp_matrix_vector_product_csr_z(Nphi,phi_spTraces_basis_dens_anomalous(is,js),gzproj_dot)
-
-
-          write(568,*) is,js
-          do iphi=1,Nphi
-             write(567,'(10F18.10)') gztmp(iphi)
-          end do
 
           do iphi=1,Nphi
              anomalous_constrGZ_dot(is,js) = anomalous_constrGZ_dot(is,js) + conjg(gzproj(iphi))*gztmp(iphi)

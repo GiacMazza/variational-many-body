@@ -1188,19 +1188,6 @@ CONTAINS
           !
           call sp_load_matrix(phi_traces_basis_Rhop(is,js,:,:),phi_spTraces_basis_Rhop(is,js))
 
-          
-          !TMP
-          if(is.eq.js) then
-             Ntmp=phi_spTraces_basis_Rhop(is,js)%nnz
-             ! write(*,*) is,js
-             ! write(*,*)
-             do itmp=1,Ntmp
-                write(480,'(10F18.10)') phi_spTraces_basis_Rhop(is,js)%values(itmp),dble(is),dble(js)
-             end do
-          end if
-          ! write(*,*)
-          ! write(*,*)
-          !TMP
 
           call sp_load_matrix(phi_traces_basis_Rhop_hc(is,js,:,:),phi_spTraces_basis_Rhop_hc(is,js))
           !

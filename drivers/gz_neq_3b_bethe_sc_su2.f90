@@ -29,10 +29,11 @@ program GUTZ_mb
   complex(8),dimension(:),allocatable     :: gz_proj_init
   !
   complex(8),dimension(:),allocatable     :: psi_t
-  real(8),dimension(:,:),allocatable      :: Ut 
+  real(8),dimension(:,:),allocatable      :: Ut,CFt
   real(8),dimension(:),allocatable      :: Jht
   real(8) :: r,s,tmpU
   real(8),dimension(3) :: s_orb
+  real(8),dimension(:),allocatable :: scf
   !
   integer :: unit_neq_hloc
   integer :: unit_neq_local_dens
@@ -66,13 +67,15 @@ program GUTZ_mb
   real(8),dimension(3) :: Uneq,dUneq
   real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
 
+  real(8) :: CFneq0,tStart_neqCF,tRamp_neqCF,tSin_neqCF
+  real(8),dimension(3) :: CFneq,dCFneq
 
 
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
   complex(8),dimension(:,:),allocatable   :: R_init,Q_init
   integer :: Nopt
   real(8),dimension(:),allocatable :: dump_seed
-  integer :: expected_flen,flen
+  integer :: expected_flen,flen,cf_type
   logical :: seed_file
   logical :: tdLGR
 
@@ -98,6 +101,14 @@ program GUTZ_mb
   call parse_input_variable(tRamp_neqU,"TRAMP_NEQU","inputGZ.conf",default=0.d0)  
   call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=[0.d0,0.d0,0.d0]) 
+  !
+  call parse_input_variable(CFneq0,"CFneq0","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(CFneq,"CFneq","inputGZ.conf",default=[0.d0,0.d0,0.d0]) 
+  call parse_input_variable(dCFneq,"DCFneq","inputGZ.conf",default=[0.d0,0.d0,0.d0]) 
+  call parse_input_variable(tStart_neqCF,"TSTART_NEQCF","inputGZ.conf",default=0.d0)
+  call parse_input_variable(tRamp_neqCF,"TRAMP_NEQCF","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(tSin_neqCF,"TSIN_NEQCF","inputGZ.conf",default=0.5d0)
+  call parse_input_variable(cf_type,"CF_TYPE","inputGZ.conf",default=0) 
   !
   call parse_input_variable(Jhneq,"Jhneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(Jhneq0,"Jhneq0","inputGZ.conf",default=0.d0) 
@@ -238,8 +249,63 @@ program GUTZ_mb
      !
      Jht(itt) = Jhneq0 + r*(Jhneq*s-Jhneq0)
   end do
+
+
+
+  allocate(CFt(Ns,Nt_aux));allocate(scf(Ns))
+  CFt=0.d0;scf=0.d0
+  do itt=1,Nt_aux
+     t = t_grid_aux(itt) 
+     !
+     if(t.lt.tStart_neqCF) then
+        r=0.d0
+     else
+        if(t.lt.tStart_neqCF+tRamp_neqCF) then
+           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqCF)/tRamp_neqCF) + 0.5d0*(cos(pi*(t-tStart_neqCF)/tRamp_neqCF))**3)*0.5d0
+        else
+           r = 1.d0 
+        end if
+     end if
+     !
+     if(t.lt.tStart_neqCF+tRamp_neqCF) then
+        !
+        do iorb=1,Norb
+           do ispin=1,2
+              is=index(ispin,iorb)
+              scf(is) = CFneq(iorb)
+           end do
+        end do
+        !
+     else
+        !
+        select case(cf_type)
+        case(0)
+           do iorb=1,Norb
+              do ispin=1,2
+                 is=index(ispin,iorb)
+                 scf(is) = CFneq(iorb) + dCFneq(iorb)*dsin(2.d0*pi*t/tSin_neqCF)
+              end do
+           end do
+        case(1)
+           do iorb=1,Norb
+              do ispin=1,2
+                 is=index(ispin,iorb)
+                 scf(is) = CFneq(iorb) + dCFneq(iorb)*(1.d0-dcos(2.d0*pi*t/tSin_neqCF))
+              end do
+           end do
+        end select
+     end if
+     !     
+     CFt(:,itt) = CFneq0 + r*(scf(:)-CFneq0)
+     !
+  end do
+
+
+
+
+
   !
-  call setup_neq_hamiltonian(Uloc_t_=Ut,Jh_t_=Jht)
+  call setup_neq_hamiltonian(Uloc_t_=Ut,Jh_t_=Jht,eLevels_t_=CFt)
   !+- IMPOSE RELATIONS BETWEEN LOCAL INTERACTION PARAMETERS -+!
   !       NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
@@ -253,7 +319,7 @@ program GUTZ_mb
   open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
   !
   do itt=1,Nt_aux
-     write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
+     write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt),CFt(:,itt)
   end do
   close(unit_neq_hloc)
 

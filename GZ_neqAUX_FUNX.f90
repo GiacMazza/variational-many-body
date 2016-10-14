@@ -5,7 +5,12 @@ MODULE GZ_neqAUX_FUNX
   implicit none
   private
   !
-  public :: read_optimized_variational_wf,read_optimized_variational_wf_superc
+
+  interface read_optimized_variational_wf
+     module procedure read_optimized_variational_wf_normal,read_optimized_variational_wf_normal_,read_optimized_variational_wf_superc,read_optimized_variational_wf_superc_
+  end interface read_optimized_variational_wf
+
+  public :: read_optimized_variational_wf!,read_optimized_variational_wf_superc
   public :: wfMatrix_2_dynamicalVector,dynamicalVector_2_wfMatrix
   public :: wfMatrix_superc_2_dynamicalVector,dynamicalVector_2_wfMatrix_superc
   public :: wfMatrix_superc_2_dynamicalVector_,dynamicalVector_2_wfMatrix_superc_
@@ -15,7 +20,7 @@ MODULE GZ_neqAUX_FUNX
   !
 CONTAINS
   !
-  subroutine read_optimized_variational_wf(read_dir,slater_determinant,phi_vector)
+  subroutine read_optimized_variational_wf_normal(read_dir,slater_determinant,phi_vector)
     character(len=200)             :: read_dir
     complex(8),dimension(Nphi)     :: phi_vector
     complex(8),dimension(Ns,Ns,Lk) :: slater_determinant    
@@ -77,7 +82,76 @@ CONTAINS
     else
        write(*,*) 'FILE',file_name,'does not exist!!!'
     end if
-  end subroutine read_optimized_variational_wf
+  end subroutine read_optimized_variational_wf_normal
+
+
+
+  subroutine read_optimized_variational_wf_normal_(read_dir,slater_determinant,phi_matrix)
+    character(len=200)             :: read_dir
+    complex(8),dimension(nFock,nFock)     :: phi_matrix
+    complex(8),dimension(Ns,Ns,Lk) :: slater_determinant    
+    real(8)                        :: tmp_re,tmp_im,x
+    integer :: is,js,read_unit,flen,ios,i,tmp_if,tmp_jf
+    character(len=200) :: file_name
+    logical :: check_file
+    !
+    read_dir=trim(read_dir)
+    do is=1,Ns
+       do js=1,Ns
+
+          file_name=reg(read_dir)//'optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+          inquire(file=file_name,exist=check_file)
+          if(check_file) then
+             read_unit = free_unit()
+             open(read_unit,file=file_name,status='old')
+             flen=0
+             do
+                read (read_unit,*,iostat=ios) x
+                if (ios/=0) exit     
+                flen=flen+1
+             end do
+             close(read_unit)                    
+             if(flen.ne.Lk) stop "READING OPTIMIZED SLATER DETRMINANT: number of lines /= Lk"
+             open(read_unit,file=file_name,status='old')
+             write(*,*) "Reading from file",file_name
+             do i=1,flen
+                read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                slater_determinant(is,js,i) = tmp_re + xi*tmp_im
+             end do
+             close(read_unit)
+          else
+             write(*,*) "FILE",file_name,"does not exist!!!"
+             stop 
+          end if
+       end do
+    end do
+    !
+    file_name=reg(read_dir)//'optimized_phi_matrix.data'
+    inquire(file=file_name,exist=check_file)
+    if(check_file) then
+       read_unit=free_unit()
+       open(read_unit,file=file_name,status='old')
+       flen=0
+       do
+          read (read_unit,*,iostat=ios) tmp_re
+          if (ios/=0) exit     
+          flen=flen+1
+       end do
+       close(read_unit)                    
+       if(flen.ne.nFock*nFock) stop "READING OPTIMIZED GZ PHI-PROJECTORS: number of lines /= nFock*nFock"
+       open(read_unit,file=file_name,status='old')
+       phi_matrix=zero
+       do i=1,flen
+          read(read_unit,'(F18.10,2I2)') tmp_re,tmp_if,tmp_jf
+          tmp_im=0.d0
+          phi_matrix(tmp_if,tmp_jf) = tmp_re + xi*tmp_im
+       end do
+       close(read_unit)
+    else
+       write(*,*) 'FILE',file_name,'does not exist!!!'
+    end if
+  end subroutine read_optimized_variational_wf_normal_
+
 
 
 
@@ -91,8 +165,6 @@ CONTAINS
     character(len=200) :: file_name
     logical :: check_file
     !
-
-
     read_dir=trim(read_dir)
     do is=1,Ns
        do js=1,Ns
@@ -157,6 +229,7 @@ CONTAINS
     if(check_file) then
        read_unit=free_unit()
        open(read_unit,file=file_name,status='old')
+       write(*,*) "Reading from file",file_name
        flen=0
        do
           read (read_unit,*,iostat=ios) tmp_re
@@ -242,6 +315,175 @@ CONTAINS
     end if
 
   end subroutine read_optimized_variational_wf_superc
+
+
+
+
+
+
+  subroutine read_optimized_variational_wf_superc_(read_dir,slater_determinant,phi_matrix,slater_lgr_A,proj_lgr_A)
+    character(len=200)             :: read_dir
+    complex(8),dimension(nFock,nFock)     :: phi_matrix
+    complex(8),dimension(2,Ns,Ns,Lk) :: slater_determinant    
+    complex(8),dimension(Ns,Ns),optional :: slater_lgr_A,proj_lgr_A
+    real(8)                        :: tmp_re,tmp_im,x
+    integer :: is,js,read_unit,flen,ios,i,tmp_if,tmp_jf
+    character(len=200) :: file_name
+    logical :: check_file
+    !
+    read_dir=trim(read_dir)
+    do is=1,Ns
+       do js=1,Ns
+          file_name=reg(read_dir)//'optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+          inquire(file=file_name,exist=check_file)
+          if(check_file) then
+             read_unit = free_unit()
+             open(read_unit,file=file_name,status='old')
+             flen=0
+             do
+                read (read_unit,*,iostat=ios) x
+                if (ios/=0) exit     
+                flen=flen+1
+             end do
+             close(read_unit)                    
+             if(flen.ne.Lk) stop "READING OPTIMIZED SLATER DETRMINANT NORMAL: number of lines /= Lk"
+             open(read_unit,file=file_name,status='old')
+             write(*,*) "Reading from file",file_name
+             do i=1,flen
+                read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                slater_determinant(1,is,js,i) = tmp_re + xi*tmp_im
+             end do
+             close(read_unit)
+          else
+             write(*,*) "FILE",file_name,"does not exist!!!"
+             stop 
+          end if
+       end do
+    end do
+    !
+    do is=1,Ns
+       do js=1,Ns
+          file_name=reg(read_dir)//'optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+          inquire(file=file_name,exist=check_file)
+          if(check_file) then
+             read_unit = free_unit()
+             open(read_unit,file=file_name,status='old')
+             flen=0
+             do
+                read (read_unit,*,iostat=ios) x
+                if (ios/=0) exit     
+                flen=flen+1
+             end do
+             close(read_unit)                    
+             if(flen.ne.Lk) stop "READING OPTIMIZED SLATER DETRMINANT ANOMALOUS: number of lines /= Lk"
+             open(read_unit,file=file_name,status='old')
+             write(*,*) "Reading from file",file_name
+             do i=1,flen
+                read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                slater_determinant(2,is,js,i) = tmp_re + xi*tmp_im
+             end do
+             close(read_unit)
+          else
+             write(*,*) "FILE",file_name,"does not exist!!!"
+             stop 
+          end if
+       end do
+    end do
+    !
+    file_name=reg(read_dir)//'optimized_phi_matrix.data'
+    inquire(file=file_name,exist=check_file)
+    if(check_file) then
+       read_unit=free_unit()
+       open(read_unit,file=file_name,status='old')
+       flen=0
+       do
+          read (read_unit,*,iostat=ios) tmp_re
+          if (ios/=0) exit     
+          flen=flen+1
+       end do
+       close(read_unit)                    
+       if(flen.ne.nFock*nFock) stop "READING OPTIMIZED GZ PHI MATRIX: number of lines /= nFock*nFock"
+       open(read_unit,file=file_name,status='old')
+       write(*,*) "Reading from file",file_name
+       phi_matrix=zero
+       do i=1,flen
+          read(read_unit,*) tmp_re,tmp_if,tmp_jf
+          tmp_im=zero
+          phi_matrix(tmp_if,tmp_jf) = tmp_re + xi*tmp_im
+       end do
+       close(read_unit)
+    else
+       write(*,*) 'FILE',file_name,'does not exist!!!'
+    end if
+
+
+    if(present(slater_lgr_A)) then
+       !
+       do is=1,Ns
+          do js=1,Ns
+             file_name=reg(read_dir)//'optimized_slaterLGR_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+             inquire(file=file_name,exist=check_file)
+             if(check_file) then
+                read_unit = free_unit()
+                open(read_unit,file=file_name,status='old')
+                flen=0
+                do
+                   read (read_unit,*,iostat=ios) x
+                   if (ios/=0) exit     
+                   flen=flen+1
+                end do
+                close(read_unit)                    
+                if(flen.ne.1) stop "READING OPTIMIZED SLATER DETRMINANT LGR ANOMALOUS: number of lines /= 1"
+                open(read_unit,file=file_name,status='old')
+                write(*,*) "Reading from file",file_name
+                do i=1,flen
+                   read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                   slater_lgr_A(is,js) = tmp_re + xi*tmp_im
+                end do
+                close(read_unit)
+             else
+                write(*,*) "FILE",file_name,"does not exist!!!"
+                stop 
+             end if
+          end do
+       end do
+    end if
+
+
+    if(present(proj_lgr_A)) then
+       !
+       do is=1,Ns
+          do js=1,Ns
+             file_name=reg(read_dir)//'optimized_gzprojLGR_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+             inquire(file=file_name,exist=check_file)
+             if(check_file) then
+                read_unit = free_unit()
+                open(read_unit,file=file_name,status='old')
+                flen=0
+                do
+                   read (read_unit,*,iostat=ios) x
+                   if (ios/=0) exit     
+                   flen=flen+1
+                end do
+                close(read_unit)                    
+                if(flen.ne.1) stop "READING OPTIMIZED GZ PROJ DETRMINANT LGR ANOMALOUS: number of lines /= 1"
+                open(read_unit,file=file_name,status='old')
+                write(*,*) "Reading from file",file_name
+                do i=1,flen
+                   read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                   proj_lgr_A(is,js) = tmp_re + xi*tmp_im
+                end do
+                close(read_unit)
+             else
+                write(*,*) "FILE",file_name,"does not exist!!!"
+                stop 
+             end if
+          end do
+       end do
+    end if
+
+  end subroutine read_optimized_variational_wf_superc_
+
 
 
 

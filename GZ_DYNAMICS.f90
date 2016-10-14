@@ -510,10 +510,12 @@ CONTAINS
 
 
 
-  subroutine gz_neq_measure_superc_sp(psi_t,time)
+  subroutine gz_neq_measure_superc_sp(psi_t,time,read_slater,read_gzproj)
     implicit none
     complex(8),dimension(nDynamics)   :: psi_t
     real(8)                           :: time
+    complex(8),dimension(Nphi),optional   :: read_gzproj
+    complex(8),dimension(2,Ns,Ns,Lk),optional  :: read_slater
     complex(8),dimension(2,Ns,Ns,Lk)  :: slater
     complex(8),dimension(3,Ns,Ns,Lk)  :: slater_
     complex(8),dimension(Ns,Ns)     :: Hk,Hk_tmp
@@ -528,7 +530,9 @@ CONTAINS
     !
     it=t2it(time,tstep)
     !
-    call dynamicalVector_2_wfMatrix_superc(psi_t,slater,gzproj)  
+    call dynamicalVector_2_wfMatrix_superc(psi_t,slater,gzproj)
+    if(present(read_slater)) read_slater=slater
+    if(present(read_gzproj)) read_gzproj=gzproj
     slater_(1:2,:,:,:) = slater
     slater_(3,:,:,:) = zero
     do is=1,Ns

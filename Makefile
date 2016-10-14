@@ -45,14 +45,15 @@ EXE=gz_generate_phi_traces
 #EXE=gz_3b_bethe_sc
 #EXE=gz_3b_bethe_sc_sweep
 #EXE=gz_3b_bethe_sweep
-#EXE=gz_3b_bethe_sc_nRQ
-EXE=gz_3b_bethe_sc_su2
+EXE=gz_3b_bethe_sc_nRQ
+#EXE=gz_3b_bethe_sc_su2
 #EXE=gz_3b_bethe_sc_su2isoTz
 
 
 #EXE=gz_neq_sc
 #EXE=gz_neq_3b_bethe_sc
 #EXE=gz_neq_3b_bethe_sc_su2
+EXE=gz_neq_3b_bethe_sc_su2_read
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
 
@@ -72,14 +73,14 @@ OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRI
 
 
 #FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
-LIBDIR=$(HOME)/opt_local
-#LIBDIR=/opt/
+#LIBDIR=$(HOME)/opt_local
+LIBDIR=/opt/
 
 
-#GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
-#GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
-GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
-GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
+GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
+GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
+#GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
+#GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
 
 
 GALLIBS1   = -lgalahad -lgalahad_hsl 

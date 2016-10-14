@@ -14,7 +14,7 @@ CONTAINS
   include 'local_fock_space_observables.f90'
   !
   subroutine initialize_local_fock_space
-    integer :: iorb,jorb,ispin,jspin,ifock
+    integer :: iorb,jorb,ispin,jspin,ifock,jfock
     integer,dimension(:),allocatable   :: Fock,ivec
     !
     Ns = 2*Norb        
@@ -25,10 +25,11 @@ CONTAINS
     do ifock=1,NFock
        Fock(ifock)=ifock
        call bdecomp(Fock(ifock),ivec)
-       write(*,'(10I3)') ivec(:),ifock
+       call get_state_number(ivec,jfock)
+       write(*,'(10I3)') ivec(:),ifock,jfock
     end do
     !
-    !+- allocate and initialize stride -+! 
+    !+- Allocate and initialize stride -+! 
     allocate(index(2,Norb))
     do ispin=1,2
        do iorb=1,Norb

@@ -6,6 +6,7 @@ MODULE GZ_AUX_FUNX
   private
   !
   public :: bdecomp
+  public :: get_state_number
   public :: vec2mat_stride,mat2vec_stride
   public :: initialize_variational_density_simplex
   public :: initialize_variational_density  
@@ -43,6 +44,22 @@ CONTAINS
        if(busy)ivec(l+1)=1
     enddo
   end subroutine bdecomp
+  !
+  !
+  !+- get the number state starting from the configuration vector
+  !
+  !
+  subroutine get_state_number(ivec,i)
+    integer :: ivec(:)         
+    integer :: l,i,Ntot
+    logical :: busy
+    Ntot=size(ivec)
+    i=1
+    do l=1,Ntot
+       i=i+2**(l-1)*ivec(l)
+    end do
+  end subroutine get_state_number
+  !
   !
   subroutine mat2vec_stride(mat,vec)
     real(8) :: mat(:,:)

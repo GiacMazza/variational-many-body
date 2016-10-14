@@ -33,6 +33,9 @@ MODULE GZ_VARS_GLOBAL
   !+- PHI BASIS -+!
   integer                            :: Nphi                
   complex(8),dimension(:,:,:),allocatable :: phi_basis,phi_basis_dag
+  type(sparse_matrix_csr_z),allocatable :: phi_basis_sp(:),phi_basis_dag_sp(:)
+
+  
   !# Gutzwiller Traces Matrices #!
   ! hopping renormalization
   complex(8),allocatable :: phi_traces_basis_Rhop(:,:,:,:) ! Ns X Ns matrices of dimension (nPhi X nPhi) 

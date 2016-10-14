@@ -4,16 +4,15 @@ MODULE GZ_MATRIX_BASIS
   USE GZ_AUX_FUNX
   USE SF_LINALG
   USE SF_IOTOOLS
+  USE MATRIX_SPARSE
   implicit none
   private
   !
   public :: init_variational_matrices
   public :: trace_phi_basis,trace_phi_basis_sp
-  !
+  public :: get_phi_basis_decomposition
+  public :: weight_local_fock_states
   public :: get_traces_basis_phiOphi
-  !
-  public :: symmetry_stride_vec_mat,symmetry_stride_mat_vec
-  public :: symmetry_stride_vec_mat_,symmetry_stride_mat_vec_
   !
   type intarray
      private
@@ -113,153 +112,60 @@ CONTAINS
           end if
        end do
     end do
+    close(unitSC)
+    close(unitQ)
+    close(unitR)
   end subroutine init_variational_matrices
-
-
-
-  !< VERY VERY TEMPORARAY ROUTINES
-  function symmetry_stride_vec_mat(lgr) result(lgr_matrix)
-    real(8),dimension(:) :: lgr
-    complex(8),dimension(:),allocatable ::  lgr_cmplx
-    integer :: dim
-    complex(8),dimension(Ns,Ns) :: lgr_matrix
-
-    integer :: i,ilgr,iorb,jorb,ispin,istate,jstate
-
-    dim = Norb*(Norb+1)/2
-    if(size(lgr).ne.2*dim) stop "what the fuck vec_mat!"
-    allocate(lgr_cmplx(dim))
-    do i=1,dim
-       lgr_cmplx(i) = lgr(i) + xi*lgr(i+dim)
-    end do
-    !
-    lgr_matrix=zero
-    ilgr=0
-    do iorb=1,Norb
-       do jorb=1,iorb
-          ilgr = ilgr + 1
-          do ispin=1,2
-             !
-             istate=index(ispin,iorb)
-             jstate=index(ispin,jorb)
-             !
-             lgr_matrix(istate,jstate) = lgr_cmplx(ilgr) 
-             if(iorb.ne.jorb) lgr_matrix(jstate,istate) = conjg(lgr_matrix(istate,jstate))
-             !
-          end do
-       end do
-    end do
-    !
-    ! dim = Norb*(Norb+1)/2
-    ! if(size(lgr).ne.2*dim) stop "what the fuck vec_mat!"
-    ! allocate(lgr_cmplx(dim))
-    ! do i=1,dim
-    !    lgr_cmplx(i) = lgr(i) + xi*lgr(i+dim)
-    ! end do
-    !
-  end function symmetry_stride_vec_mat
-
-
-
-
-  subroutine symmetry_stride_mat_vec(mat,vec) 
-    complex(8),dimension(Ns,Ns) :: mat
-    real(8),dimension(:) :: vec
-    integer :: dim
-    integer ::i,ilgr,iorb,jorb,ispin,istate,jstate
-    !
-    dim = Norb*(Norb+1)/2
-    if(size(vec).ne.2*dim) stop "what the fuck mat_vec!"
-    !
-    ilgr=0
-    do iorb=1,Norb
-       do jorb=1,iorb
-          ilgr = ilgr + 1
-          do ispin=1,2
-             !
-             istate=index(ispin,iorb)
-             jstate=index(ispin,jorb)
-             !
-             vec(ilgr) = dreal(mat(istate,jstate))
-             vec(ilgr+dim) = dimag(mat(istate,jstate))
-             !
-          end do
-       end do
-    end do
-    !
-  end subroutine symmetry_stride_mat_vec
-
-
-
-  !+- anomalous spin-singlet channel -+! 
-  function symmetry_stride_vec_mat_(lgr) result(lgr_matrix)
-    real(8),dimension(:) :: lgr
-    complex(8),dimension(:),allocatable ::  lgr_cmplx
-    integer :: dim
-    complex(8),dimension(Ns,Ns) :: lgr_matrix
-
-    integer ::i,ilgr,iorb,jorb,ispin,jspin,istate,jstate
-
-    dim = Norb*(Norb+1)/2
-    if(size(lgr).ne.2*dim) stop "what the fuck vec_mat_!"
-    allocate(lgr_cmplx(dim))
-    do i=1,dim
-       lgr_cmplx(i) = lgr(i) + xi*lgr(i+dim)
-    end do
-    !
-    ilgr=0
-    lgr_matrix=zero
-    do iorb=1,Norb
-       do jorb=1,iorb
-          ilgr = ilgr + 1
-          !
-          do ispin=1,2
-             do jspin=ispin+1,2
-                istate=index(ispin,iorb)
-                jstate=index(jspin,jorb)
-                write(*,*) istate,jstate
-                lgr_matrix(istate,jstate) =  lgr_cmplx(ilgr) 
-                lgr_matrix(jstate,istate) = -lgr_cmplx(ilgr) 
-             end do
-          end do
-       end do
-    end do
-    !
-  end function symmetry_stride_vec_mat_
-
-
-
-
-  subroutine symmetry_stride_mat_vec_(mat,vec) 
-    complex(8),dimension(Ns,Ns) :: mat
-    real(8),dimension(:) :: vec
-    integer :: dim
-    integer ::i,ilgr,iorb,jorb,ispin,jspin,istate,jstate
-    !
-    dim = Norb*(Norb+1)/2
-    if(size(vec).ne.2*dim) stop "what the fuck mat_vec_!"
-
-    ilgr=0
-    do iorb=1,Norb
-       do jorb=1,iorb
-          ilgr = ilgr + 1
-          !
-          do ispin=1,2
-             do jspin=ispin+1,2
-                istate=index(ispin,iorb)
-                jstate=index(jspin,jorb)
-
-                vec(ilgr) = dreal(mat(istate,jstate)) 
-                vec(ilgr+dim) = dimag(mat(istate,jstate))
-             end do
-          end do
-          !          
-       end do
-    end do
-    !
-  end subroutine symmetry_stride_mat_vec_
   !
-  !< VERY VERY TEMPORARY ROUTINES
+  !
+  !
+  subroutine get_phi_basis_decomposition(phi_matrix,phi_vector)
+    complex(8),dimension(nFock,nFock) :: phi_matrix
+    complex(8),dimension(Nphi) :: phi_vector
+    complex(8),allocatable,dimension(:,:) :: test_trace
+    complex(8),dimension(nFock) :: phiv,tmp_phi
+    type(sparse_matrix_csr_z)  :: phik_tmp
+    integer :: iphi,ifock,jfock,jphi,i
+    real(8),dimension(Nphi) :: traces
+    do iphi=1,Nphi
+       traces(iphi)=zero       
+       call sp_load_matrix(phi_basis(iphi,:,:),phik_tmp)
+       do i=1,phik_tmp%Nnz
+          traces(iphi) = traces(iphi) + conjg(phik_tmp%values(i))*phik_tmp%values(i)
+       end do
+       call sp_delete_matrix(phik_tmp)
+    end do
+    !
+    !
+    !+-> normalize basis matrices <-+!
+    allocate(phi_basis_sp(Nphi),phi_basis_dag_sp(Nphi))
+    do iphi=1,Nphi
+       phi_basis(iphi,:,:) = phi_basis(iphi,:,:)/sqrt(traces(iphi))
+       call sp_load_matrix(phi_basis(iphi,:,:),phi_basis_sp(iphi))
+       phi_basis_dag(iphi,:,:) = phi_basis_dag(iphi,:,:)/sqrt(traces(iphi))
+       call sp_load_matrix(phi_basis_dag(iphi,:,:),phi_basis_dag_sp(iphi))
+    end do
+    !
+    !
+    do iphi=1,Nphi
+       phi_vector(iphi)=zero       
+       !call sp_load_matrix(phi_basis_dag(iphi,:,:),phik_tmp)
+       do ifock=1,nFock
+          phiv=phi_matrix(:,ifock)          
+          tmp_phi = sp_matrix_vector_product_csr_z(nFock,phi_basis_dag_sp(iphi),phiv)
+          phi_vector(iphi) = phi_vector(iphi) + tmp_phi(ifock)
+       end do
+       !call sp_delete_matrix(phik_tmp)
+    end do
+    !
+    
+    !
+  end subroutine get_phi_basis_decomposition
+  !
+  !
+  !
+  !
+  !
   !
   function get_dimension_phi_basis(symm_index,trace_flag) result(dim_phi)
     integer                                         :: symm_index
@@ -463,7 +369,23 @@ CONTAINS
   end function trace_phi_basis_sp
 
   
-
+  function weight_local_fock_states(ifock,gzproj) result(weight)
+    integer :: ifock
+    complex(8),dimension(Nphi) :: gzproj
+    real(8) :: weight
+    integer :: iphi,jphi
+    complex(8),dimension(nFock) :: vtmp,Mvtmp
+    if(ifock.gt.nFock) stop "get state weight: istate > nFock"
+    weight=0.d0
+    do iphi=1,Nphi
+       vtmp = phi_basis_dag(iphi,:,ifock)       
+       do jphi=1,Nphi
+          Mvtmp=zero
+          Mvtmp = sp_matrix_vector_product_csr_z(nFock,phi_basis_sp(jphi),vtmp)
+          weight = weight + conjg(gzproj(iphi))*gzproj(jphi)*Mvtmp(ifock)
+       end do
+    end do
+  end function weight_local_fock_states
 
 
 

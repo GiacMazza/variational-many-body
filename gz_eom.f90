@@ -103,10 +103,7 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
   call wfMatrix_2_dynamicalVector(slater_dot,gzproj_dot,f)
   !
 end function gz_equations_of_motion
-
-
-
-
+!
 function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   implicit none
   !inputs
@@ -275,11 +272,132 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   call wfMatrix_superc_2_dynamicalVector(slater_dot,gzproj_dot,f)
   !
 end function gz_equations_of_motion_superc
+!
 
 
 
+!+- sparse matrix representation of the equations of motions -+!
+
+function gz_equations_of_motion_sp(time,y,Nsys) result(f)
+  implicit none
+  !inputs                                                                                                                                                        
+  integer                                     :: Nsys ! nr of equations
+  real(8)                                     :: time ! time variable
+  complex(8),dimension(Nsys)                  :: y    ! argument array
+  complex(8),dimension(Nsys)                  :: f    ! result 
+  !
+  complex(8),dimension(Ns,Ns,Lk)              :: slater,slater_dot
+  complex(8),dimension(Ns,Ns)                 :: Hk,tRR
+  complex(8),dimension(Nphi)                  :: gzproj,gzproj_dot
+  complex(8),dimension(Nphi,Nphi)             :: Hproj
+  integer                                     :: is,js,ik,it,ks,kks,iis,jjs,iphi,jphi
+  complex(8),dimension(Ns,Ns)                 :: tmpHk,Rhop,slater_derivatives,Rhop_hc
+  complex(8),dimension(Ns,Ns)                 :: vdm_natural
+  real(8),dimension(Ns)                       :: vdm_diag,n0
+  !
+  type(sparse_matrix_csr_z)        :: htmp
+  complex(8)                       :: xtmp
+  real(8)                          :: xtmp_
+ 
+
+  
+  !HERE write the GZ EQUATIONS OF MOTION
+  if(Nsys.ne.nDynamics) stop "wrong dimensions in the GZ_equations_of_motion"
+  !
+  call dynamicalVector_2_wfMatrix(y,slater,gzproj)
+  do is=1,Ns
+     do js=1,Ns
+        vdm_natural(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens(is,js,:,:))
+     end do
+     vdm_diag(is) = dreal(vdm_natural(is,is))
+  end do
+  Rhop = hopping_renormalization_normal(gzproj,vdm_diag)
+  n0=vdm_diag
+  do is=1,Ns
+     do js=1,Ns
+        Rhop_hc(is,js) = conjg(Rhop(js,is))
+     end do
+  end do
+  !
+  slater_dot=zero
+  gzproj_dot=zero
+  !
+  it = t2it(time,tstep*0.5d0)
+  !
+  slater_derivatives=zero
+  do ik=1,Lk
+     call get_Hk_t(Hk,ik,time)
+     !
+     tRR = matmul(Hk,Rhop)
+     tRR = matmul(Rhop_hc,tRR)
+     !
+     do is=1,Ns
+        do js=1,Ns
+           slater_dot(is,js,ik) = zero
+           do ks=1,Ns
+              slater_dot(is,js,ik) = slater_dot(is,js,ik) + tRR(js,ks)*slater(is,ks,ik)
+              slater_dot(is,js,ik) = slater_dot(is,js,ik) - tRR(ks,is)*slater(ks,js,ik)
+           end do
+        end do
+     end do
+     !     
+     do is=1,Ns
+        do js=1,Ns
+           do ks=1,Ns
+              do kks=1,Ns
+                 slater_derivatives(is,js) = slater_derivatives(is,js) + conjg(Rhop(kks,ks))*Hk(kks,is)*slater(ks,js,ik)*wtk(ik)
+              end do
+           end do
+        end do
+     end do
+     !
+  end do
+  slater_dot = -xi*slater_dot
+  !+- create HLOC
+  Uloc=Uloc_t(:,it)
+  Ust =Ust_t(it)
+  Jh=Jh_t(it)
+  Jsf=Jsf_t(it)
+  Jph=Jph_t(it)
+  eLevels = eLevels_t(:,it)
 
 
+  gzproj_dot = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
+  do is=1,Ns
+     do js=1,Ns
+        !
+        xtmp=slater_derivatives(is,js)/sqrt(n0(js)*(1.d0-n0(js)))
+        xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
+        if(xtmp/=zero) then
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+           xtmp=conjg(slater_derivatives(is,js))/sqrt(n0(js)*(1.d0-n0(js)))
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop_hc(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+        end if
+        xtmp=slater_derivatives(is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
+        xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
+        if(xtmp/=zero) then           
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)        
+           xtmp=conjg(slater_derivatives(is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(js,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+        end if
+     end do
+  end do
+  !  
+  gzproj_dot = -xi*gzproj_dot  
+  !
+  call wfMatrix_2_dynamicalVector(slater_dot,gzproj_dot,f)
+  !
+end function gz_equations_of_motion_sp
+!
+!
 function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
   implicit none
   !inputs
@@ -438,15 +556,6 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
   Jsf=Jsf_t(it)
   Jph=Jph_t(it)
   eLevels = eLevels_t(:,it)
-  ! call get_local_hamiltonian_trace(eLevels)  
-  ! call build_neqH_GZproj_superc(Hproj,slater_derivatives,Rhop,Qhop,vdm_diag)
-  ! !
-  ! do iphi=1,Nphi
-  !    gzproj_dot(iphi) = zero
-  !    do jphi=1,Nphi
-  !       gzproj_dot(iphi) = gzproj_dot(iphi) - xi * Hproj(iphi,jphi)*gzproj(jphi)
-  !    end do
-  ! end do
   !
   gzproj_dot = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
   do is=1,Ns
@@ -463,8 +572,6 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if
-        !htmp = htmp + slater_derivatives(1,is,js)*phi_traces_basis_Rhop(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
-        !htmp = htmp + conjg(slater_derivatives(1,is,js))*phi_traces_basis_Rhop_hc(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp=slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
         if(xtmp/=zero) then           
@@ -476,8 +583,6 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if
-        !htmp = htmp + slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi)
-        !htmp = htmp + conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi) !hc conjgate capra!        
         xtmp=slater_derivatives(2,is,js)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
         if(xtmp/=zero) then           
@@ -489,8 +594,6 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if
-        !htmp = htmp + slater_derivatives(2,is,js)*phi_traces_basis_Qhop(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
-        !htmp = htmp + conjg(slater_derivatives(2,is,js))*phi_traces_basis_Qhop_hc(is,js,iphi,jphi)/sqrt(n0(js)*(1.d0-n0(js)))
         xtmp=slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
         if(xtmp/=zero) then           
@@ -502,17 +605,23 @@ function gz_equations_of_motion_superc_sp(time,y,Nsys) result(f)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if
-        !htmp = htmp + slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi)
-        !htmp = htmp + conjg(slater_derivatives(2,is,js)*Qhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))*phi_traces_basis_dens(js,js,iphi,jphi) !+-> capra!
      end do
   end do
   !  
-  gzproj_dot = -xi*gzproj_dot
-
-  
+  gzproj_dot = -xi*gzproj_dot  
   call wfMatrix_superc_2_dynamicalVector(slater_dot,gzproj_dot,f)
   !
 end function gz_equations_of_motion_superc_sp
+
+
+
+
+
+
+
+
+
+!+--> temporary routine to-be-eliminated <--+!
 function gz_equations_of_motion_superc_sp_(time,y,Nsys) result(f)
   implicit none
   !inputs

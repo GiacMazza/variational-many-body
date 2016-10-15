@@ -17,7 +17,7 @@ program GUTZ_mb
   implicit none
   !
   !+- hamiltonian details -+!
-  integer                            :: ispin,jspin,iorb,i,j,istate,jstate,ifock,jorb
+  integer                            :: ispin,jspin,iorb,i,j,istate,jstate,ifock,jorb,iiter
   integer,dimension(:),allocatable   :: fock_vec
   complex(8),dimension(:),allocatable               :: init_vec
   real(8),dimension(:),allocatable   :: variational_density_natural
@@ -152,7 +152,7 @@ program GUTZ_mb
      !+- sweep JHund -+!
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
      Jiter = sweep_start
-     do i=1,Nsweep
+     do iiter=1,Nsweep
         !
         Jh = Jiter
         Jsf = Jh
@@ -186,7 +186,8 @@ program GUTZ_mb
   case('sweepU')
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
      Uiter=sweep_start
-     do i=1,Nsweep
+     do iiter=1,Nsweep
+        
         do iorb=1,Norb
            Uloc(iorb) = Uiter
         end do

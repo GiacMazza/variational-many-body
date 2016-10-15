@@ -53,7 +53,7 @@ EXE=gz_3b_bethe_sc_nRQ
 #EXE=gz_neq_sc
 #EXE=gz_neq_3b_bethe_sc
 #EXE=gz_neq_3b_bethe_sc_su2
-EXE=gz_neq_3b_bethe_sc_su2_read
+#EXE=gz_neq_3b_bethe_sc_su2_read
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
 

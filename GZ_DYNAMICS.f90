@@ -14,16 +14,16 @@ MODULE GZ_DYNAMICS
   private
   !
   public :: gz_equations_of_motion
+  public :: gz_equations_of_motion_sp
   !
   public :: gz_equations_of_motion_superc
   public :: gz_equations_of_motion_superc_sp
   !
+  public :: gz_eom_superc_lgr_sp
+  !
   !+- kind of bsolete routines -+!
   public :: gz_equations_of_motion_superc_lgr
   public :: gz_equations_of_motion_superc_lgr_sp  
-  !
-  public :: gz_eom_superc_lgr_sp
-
   !
   public :: step_dynamics_td_lagrange_superc
   public :: step_dynamics_td_lagrange_superc_
@@ -303,9 +303,11 @@ CONTAINS
   end subroutine gz_neq_measure
 
 
-  subroutine gz_neq_measure_sp(psi_t,time)
+  subroutine gz_neq_measure_sp(psi_t,time,read_slater,read_gzproj)
     complex(8),dimension(nDynamics) :: psi_t
     real(8)                         :: time
+    complex(8),dimension(Nphi),optional   :: read_gzproj
+    complex(8),dimension(Ns,Ns,Lk),optional  :: read_slater
     complex(8),dimension(Ns,Ns,Lk)  :: slater
     complex(8),dimension(Ns,Ns)     :: Hk,Hk_tmp
     complex(8),dimension(Nphi)      :: gzproj,gztmp
@@ -316,7 +318,9 @@ CONTAINS
 
     it=t2it(time,tstep)
     !
-    call dynamicalVector_2_wfMatrix(psi_t,slater,gzproj)  
+    call dynamicalVector_2_wfMatrix(psi_t,slater,gzproj)
+    if(present(read_slater)) read_slater=slater
+    if(present(read_gzproj)) read_gzproj=gzproj
     !
     Estar=0.d0
     do is=1,Ns

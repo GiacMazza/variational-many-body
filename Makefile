@@ -40,12 +40,13 @@ EXE=gz_generate_phi_traces
 #EXE=gz_2b_bethe_sc_pair_hopping_nRQ
 
 #EXE=gz_3b_bethe
+EXE=gz_3b_bethe_nR
 #EXE=gz_neq_3b_bethe
 
 #EXE=gz_3b_bethe_sc
 #EXE=gz_3b_bethe_sc_sweep
 #EXE=gz_3b_bethe_sweep
-EXE=gz_3b_bethe_sc_nRQ
+#EXE=gz_3b_bethe_sc_nRQ
 #EXE=gz_3b_bethe_sc_su2
 #EXE=gz_3b_bethe_sc_su2isoTz
 
@@ -54,6 +55,7 @@ EXE=gz_3b_bethe_sc_nRQ
 #EXE=gz_neq_3b_bethe_sc
 #EXE=gz_neq_3b_bethe_sc_su2
 #EXE=gz_neq_3b_bethe_sc_su2_read
+EXE=gz_neq_3b_bethe_u1su2
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
 

@@ -60,7 +60,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: energy_levels
 
   logical :: converged_mu
-  integer :: iloop
+  integer :: iloop,iiter
   real(8) :: ndelta,ndelta_,nerr,nread,Ntest
   !
 
@@ -77,11 +77,6 @@ program GUTZ_mb
   call parse_input_variable(nread,"NREAD","inputGZ.conf",default=0.d0)
   call parse_input_variable(nerr,"NERR","inputGZ.conf",default=1.d-7)
   call parse_input_variable(ndelta,"NDELTA","inputGZ.conf",default=1.d-4)
-<<<<<<< HEAD
-  
-=======
-  call parse_input_variable(Jh_ratio,"Jh_ratio","inputGZ.conf",default=.true.)  
->>>>>>> 451949d31894d15abff78ed96436d7428f0780a1
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -94,11 +89,6 @@ program GUTZ_mb
   !NOTE: ON HUNDS COUPLINGS:
   !NORB=3 RATATIONAL INVARIANT HAMILTONIAN       :: Jsf=Jh, Jph=U-Ust-J   (NO relation between Ust and U)
   !       FULLY ROTATIONAL INVARIANT HAMILTONIAN :: Jsf=Jh, Jph=J, Ust = U - 2J   
-<<<<<<< HEAD
-  Jh_ratio = Jh
-=======
-  Jh_ = Jh
->>>>>>> 451949d31894d15abff78ed96436d7428f0780a1
   Jsf = Jh
   Jph = Jh
   Ust = Uloc(1)-2.d0*Jh
@@ -165,7 +155,7 @@ program GUTZ_mb
      !+- sweep JHund -+!
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
      Jiter = sweep_start
-     do i=1,Nsweep
+     do iiter=1,Nsweep
         !
         Jh = Jiter
         Jsf = Jh
@@ -204,7 +194,7 @@ program GUTZ_mb
      !
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
      Uiter=sweep_start
-     do i=1,Nsweep
+     do iiter=1,Nsweep
         do iorb=1,Norb
            Uloc(iorb) = Uiter
         end do
@@ -213,11 +203,6 @@ program GUTZ_mb
         dir_iter="U"//trim(dir_suffix)
         call system('mkdir -v '//dir_iter)     
         !
-<<<<<<< HEAD
-        Jh = Jh_ratio*Uiter
-=======
-        if(Jh_ratio) Jh = Jh_*Uiter
->>>>>>> 451949d31894d15abff78ed96436d7428f0780a1
         Jsf = Jh
         Jph = Jh
         Ust = Uloc(1)-2.d0*Jh
@@ -301,29 +286,9 @@ CONTAINS
        write(77,*) epsik(ix),wtk(ix)
     end do
     hybik=0.d0
-    !write(*,*) test_n1,test_n2,Cfield; stop
-
-
-    ! allocate(kx(Nx))
-    ! kx = linspace(0.d0,pi,Nx,.true.,.true.)
-    ! Lk=Nx*Nx*Nx
-    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    ! ik=0
-    ! do ix=1,Nx
-    !    do iy=1,Nx
-    !       do iz=1,Nx
-    !          ik=ik+1
-    !          !kx_=dble(ix)/dble(Nx)*pi
-    !          epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
-    !          hybik(ik) = 0.d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
-    !          wtk(ik) = 1.d0/dble(Lk)
-    !       end do
-    !    end do
-    ! end do
-
+    !
     call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
-    !stop
-
+    !
     allocate(Hk_tb(Ns,Ns,Lk))    
     Hk_tb=0.d0
     do ik=1,Lk
@@ -342,12 +307,6 @@ CONTAINS
           end do
        end do
     end do
-    !<EXTREMA RATIO TEST
-    ! e0test=0.d0
-    ! do ik=1,Lk
-    !    e0test = e0test + fermi_zero(epsik(ik),0.d0)*epsik(ik)*wtk(ik)
-    ! end do
-    !EXTREMA RATIO TEST>
   end subroutine build_lattice_model
 
 
@@ -363,12 +322,25 @@ CONTAINS
 
     real(8),dimension(nFock,nFock) :: test_full_phi
 
+    type(sparse_matrix_csr_z)  :: phik_tmp
+    real(8),dimension(Nphi) :: traces
+
+    do iphi=1,Nphi
+       traces(iphi)=zero       
+       call sp_load_matrix(phi_basis(iphi,:,:),phik_tmp)
+       do i=1,phik_tmp%Nnz
+          traces(iphi) = traces(iphi) + conjg(phik_tmp%values(i))*phik_tmp%values(i)
+       end do
+       call sp_delete_matrix(phik_tmp)
+    end do
+
+    
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
     test_full_phi=0.d0
     do iphi=1,Nphi
        !
-       test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
+       test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)/sqrt(traces(iphi))
        write(out_unit,'(2F18.10)') GZ_vector(iphi)
     end do
     close(out_unit)    

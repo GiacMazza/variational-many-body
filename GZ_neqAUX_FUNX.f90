@@ -142,7 +142,7 @@ CONTAINS
        open(read_unit,file=file_name,status='old')
        phi_matrix=zero
        do i=1,flen
-          read(read_unit,'(F18.10,2I2)') tmp_re,tmp_if,tmp_jf
+          read(read_unit,*) tmp_re,tmp_if,tmp_jf
           tmp_im=0.d0
           phi_matrix(tmp_if,tmp_jf) = tmp_re + xi*tmp_im
        end do

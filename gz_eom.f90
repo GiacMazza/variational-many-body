@@ -46,16 +46,6 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      tRR = matmul(Hk,Rhop)
      tRR = matmul(Rhop_hc,tRR)
      !
-     ! do is=1,Ns
-     !    do js=1,Ns
-     !       tmpHk(is,js)=zero           
-     !       do iis=1,Ns
-     !          do jjs=1,Ns                 
-     !             tmpHk(is,js) = tmpHk(is,js) + conjg(Rhop(iis,is))*Hk_tb_t(iis,jjs,ik,it)*Rhop(jjs,js)
-     !          end do
-     !       end do
-     !    end do
-     ! end do
      !
      do is=1,Ns
         do js=1,Ns
@@ -1787,21 +1777,23 @@ function gz_eom_superc_lgr_sp(time,y,Nsys) result(f)
   integer :: iter,Nopt,iphi
   integer :: i,i0
   real(8) :: delta
-
   !
   if(allocated(neq_lgr)) deallocate(neq_lgr)
   allocate(neq_lgr(2,Ns,Ns)); neq_lgr=zero
-
+  !
   !HERE write the GZ EQUATIONS OF MOTION
   if(Nsys.ne.nDynamics) stop "wrong dimensions in the GZ_equations_of_motion"
   !
-
   Nopt=Nvdm_AC_opt
   allocate(lgr_cmplx(Nopt))
   allocate(lgr(2*Nopt));allocate(delta_out(2*Nopt))
   !
   !+- compute the derivative such that the derivative of the slater constraint is equal to zero -+!
-  lgr=0.d0  
+  call vdm_AC_stride_m2v(gz_neq_dens_lgrA_slater,lgr_cmplx)
+  do i=1,Nvdm_AC_opt
+     lgr(i) = dreal(lgr_cmplx(i))
+     lgr(i+Nvdm_AC_opt) = dimag(lgr_cmplx(i))
+  end do
   call fsolve(fix_anomalous_vdm_sl,lgr,tol=10.d-12,info=iter)
   delta_out = fix_anomalous_vdm_sl(lgr);  write(*,*) "SL lgr fixed",delta_out
   lgr_cmplx=zero
@@ -1809,7 +1801,8 @@ function gz_eom_superc_lgr_sp(time,y,Nsys) result(f)
      lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_AC_opt)
   end do
   call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(1,:,:))
-
+  gz_neq_dens_lgrA_slater = neq_lgr(1,:,:)
+  !
   if(allocated(gzproj_dot0)) deallocate(gzproj_dot0)
   allocate(gzproj_dot0(Nphi)); gzproj_dot0=zero
   !
@@ -1818,15 +1811,19 @@ function gz_eom_superc_lgr_sp(time,y,Nsys) result(f)
 
   !
   !+- compute the gz derivative such that the derivative of the gz constraint is equal to zero -+!
-  lgr=0.d0
-  call fsolve(fix_anomalous_vdm_gz,lgr,tol=1.d-12,info=iter)
+  call vdm_AC_stride_m2v(gz_neq_dens_lgrA_gzproj,lgr_cmplx)
+  do i=1,Nvdm_AC_opt
+     lgr(i) = dreal(lgr_cmplx(i))
+     lgr(i+Nvdm_AC_opt) = dimag(lgr_cmplx(i))
+  end do
+  call fsolve(fix_anomalous_vdm_gz,lgr,tol=1.d-16,info=iter)
   delta_out = fix_anomalous_vdm_gz(lgr);  write(*,*) "GZ lgr fixed",delta_out
-  !stop
   lgr_cmplx=zero
   do i=1,Nvdm_AC_opt
      lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_AC_opt)
   end do
   call vdm_AC_stride_v2m(lgr_cmplx,neq_lgr(2,:,:))  
+  gz_neq_dens_lgrA_gzproj = neq_lgr(2,:,:)
   !
   f = gz_equations_of_motion_superc_lgr_sp(time,y,Nsys)
   !

@@ -59,6 +59,8 @@ MODULE GZ_DYNAMICS
   complex(8),dimension(:,:),allocatable :: gz_neq_dens_constr_gzproj
   complex(8),dimension(:,:),allocatable :: gz_neq_dens_constrA_slater
   complex(8),dimension(:,:),allocatable :: gz_neq_dens_constrA_gzproj
+  complex(8),dimension(:,:),allocatable :: gz_neq_dens_lgrA_slater
+  complex(8),dimension(:,:),allocatable :: gz_neq_dens_lgrA_gzproj
   real(8)                               :: gz_neq_unitary_constr
   complex(8),dimension(:,:),allocatable :: gz_neq_Rhop         
   complex(8),dimension(:,:),allocatable :: gz_neq_Qhop         
@@ -96,6 +98,8 @@ CONTAINS
     !
     allocate(gz_neq_dens_constrA_slater(Ns,Ns)); gz_neq_dens_constrA_slater = 0.d0
     allocate(gz_neq_dens_constrA_gzproj(Ns,Ns)); gz_neq_dens_constrA_gzproj = 0.d0
+    allocate(gz_neq_dens_lgrA_slater(Ns,Ns)); gz_neq_dens_lgrA_slater = 0.d0
+    allocate(gz_neq_dens_lgrA_gzproj(Ns,Ns)); gz_neq_dens_lgrA_gzproj = 0.d0
     !
     gz_neq_unitary_constr = 0.d0
     allocate(gz_neq_Rhop(Ns,Ns)); gz_neq_Rhop = 0.d0

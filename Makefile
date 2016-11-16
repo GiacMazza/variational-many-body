@@ -43,7 +43,8 @@ EXE=gz_generate_phi_traces
 EXE=gz_3b_bethe_nR
 #EXE=gz_neq_3b_bethe
 
-#EXE=gz_3b_bethe_sc
+EXE=gz_3b_bethe_sc
+EXE=gz_3b_bethe_sc_su2nlep
 #EXE=gz_3b_bethe_sc_sweep
 #EXE=gz_3b_bethe_sweep
 #EXE=gz_3b_bethe_sc_nRQ
@@ -55,10 +56,10 @@ EXE=gz_3b_bethe_nR
 #EXE=gz_neq_3b_bethe_sc
 #EXE=gz_neq_3b_bethe_sc_su2
 #EXE=gz_neq_3b_bethe_sc_su2_read
-EXE=gz_neq_3b_bethe_u1su2
+#EXE=gz_neq_3b_bethe_u1su2
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
-
+EXE=gz_GF_pp_sc
 
 
 DIR=drivers
@@ -70,7 +71,7 @@ DIREXE=$(HOME)/.project_bin
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 #
-OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o
+OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o GZ_GREENS_FUNCTIONS.o
 #
 
 

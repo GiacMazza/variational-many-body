@@ -138,6 +138,7 @@ MODULE GZ_VARS_GLOBAL
   !
   !# time grids
   integer                                :: Nt_aux
+  integer                                :: Ntgf
   real(8),dimension(:),allocatable       :: t_grid
   real(8),dimension(:),allocatable       :: t_grid_aux
   !# time dependent hamiltonian parameters 

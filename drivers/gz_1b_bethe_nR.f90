@@ -262,10 +262,10 @@ CONTAINS
 
     Lk=Nx
     allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    ! wini=-Wband/2.d0
-    ! wfin= Wband/2.d0
-    wini = -5.d0
-    wfin =5.d0
+    wini=-Wband/2.d0
+    wfin= Wband/2.d0
+    ! wini = -5.d0
+    ! wfin =5.d0
     epsik=linspace(wini,wfin,Lk,mesh=de)
     !
     test_k=0.d0
@@ -274,7 +274,7 @@ CONTAINS
        ! wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
        ! !wtk(ix) = 1.d0/Wband*de
        ! if(ix==1.or.ix==Lk) wtk(ix)=0.d0
-       if(epsik(ix).gt.-Wband/2.d0.and.epsik(ix).lt.Wband/2) then
+       if(epsik(ix).ge.-Wband/2.d0.and.epsik(ix).le.Wband/2) then
           wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
        else
           wtk(ix) = 0.d0
@@ -339,34 +339,43 @@ CONTAINS
 
   subroutine print_output(vdm_simplex)
     real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
-    integer :: out_unit,istate,iorb,iphi,ifock,jfock
+    integer :: out_unit,istate,iorb,iphi,ifock,jfock,ik
     integer,dimension(Ns) :: fock_state
     real(8),dimension(Ns) :: tmp
     real(8) :: deltani,delta_tmp,vdm_tmp
 
-    real(8),dimension(nFock,nFock) :: test_full_phi
+    complex(8),dimension(nFock,nFock) :: test_full_phi
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
-
-    !+- CHANGE THE NAME OF GZ_opt_projector_diag -+!
     test_full_phi=0.d0
     do iphi=1,Nphi
        !
        test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
-       write(out_unit,*) GZ_vector(iphi)
+       write(out_unit,'(2F18.10)') GZ_vector(iphi)
     end do
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
+    close(out_unit)    
+    open(out_unit,file='optimized_phi_matrix.data')    
     do ifock=1,nFock
        do jfock=1,nFock
-          write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
+          write(out_unit,'(2F18.10,2I2)') test_full_phi(ifock,jfock),ifock,jfock
        end do
     end do
     close(out_unit)    
-
     !
+    do is=1,Ns
+       do js=1,Ns
+          out_unit=free_unit()
+          open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+          do ik=1,Lk
+             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater(is,js,ik)),dimag(GZ_opt_slater(is,js,ik))
+          end do
+          close(out_unit)
+       end do
+    end do
+
+
+    
     out_unit=free_unit()
     open(out_unit,file='optimized_internal_energy.data')
     write(out_unit,'(5F18.10)') GZ_opt_energy,GZ_opt_kinetic,GZ_opt_Eloc

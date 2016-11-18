@@ -542,6 +542,7 @@ program GUTZ_mb
         !
      end if
      !
+     if(it.eq.2) stop
      if(tdlgr) then
         psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
      else

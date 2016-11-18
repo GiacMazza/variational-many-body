@@ -217,14 +217,14 @@ CONTAINS
 
     !+- intermediate steps -+!
     dFn(:,1) = funct(t,y_old,Nsys)
-
-    y_tmp=y_old+h*0.5d0*dFn(:,1)    
+    y_tmp=y_old+h*0.5d0*dFn(:,1) 
+    !
     dFn(:,2) = funct(t+h*0.5d0,y_tmp,Nsys)
-
     y_tmp=y_old+h*0.5d0*dFn(:,2)
+    !
     dFn(:,3) = funct(t+h*0.5d0,y_tmp,Nsys)
-
     y_tmp=y_old+h*dFn(:,3)
+    !
     dFn(:,4) = funct(t+h,y_tmp,Nsys)
     !+- RUNGE-KUTTA step -+!
     do irk=1,mRK

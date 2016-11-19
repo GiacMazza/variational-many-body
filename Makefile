@@ -44,7 +44,8 @@ EXE=gz_neq_1b_bethe_sc
 #EXE=gz_3b_bethe_nR
 #EXE=gz_neq_3b_bethe
 
-#EXE=gz_3b_bethe_sc
+EXE=gz_3b_bethe_sc
+EXE=gz_3b_bethe_sc_su2nlep
 #EXE=gz_3b_bethe_sc_sweep
 #EXE=gz_3b_bethe_sweep
 #EXE=gz_3b_bethe_sc_nRQ
@@ -59,7 +60,6 @@ EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_3b_bethe_u1su2
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
-#EXE=gz_GF_pp
 EXE=gz_GF_pp_sc
 
 

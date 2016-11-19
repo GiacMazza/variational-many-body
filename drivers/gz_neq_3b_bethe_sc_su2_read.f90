@@ -19,8 +19,8 @@ program GUTZ_mb
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t
-  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,ispin,unit,ifock,jfock,iphi
-  integer :: nprint
+  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,ispin,unit,ifock,jfock,iphi,idyn
+  integer :: nprint,nsave
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir
   complex(8),dimension(:,:,:,:),allocatable :: slater_init,slater_t
@@ -50,6 +50,7 @@ program GUTZ_mb
   integer :: unit_neq_AngMom
   integer :: unit_neq_sc_order
   integer :: unit_neq_weights
+  integer :: unit_save
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -79,7 +80,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: dump_seed
   integer :: expected_flen,flen,cf_type
   logical :: seed_file
-  logical :: tdLGR
+  logical :: tdLGR,read_full_phi
 
   complex(8),dimension(:,:,:),allocatable :: td_lgr
 
@@ -102,6 +103,7 @@ program GUTZ_mb
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
+  call parse_input_variable(nsave,"NSAVE","inputGZ.conf",default=2000)  
   !
   call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=[0.d0,0.d0,0.d0])
   call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
@@ -125,6 +127,7 @@ program GUTZ_mb
   call parse_input_variable(tSin_neqJ,"TSIN_NEQJ","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default=.true.) 
+  call parse_input_variable(read_full_phi,"read_phi","inputGZ.conf",default=.false.)
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -335,7 +338,6 @@ program GUTZ_mb
   close(unit_neq_hloc)
 
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  !nDynamics = Nsl_normal_opt*Lk + Nsl_anomalous_opt*Lk + Nphi
   nDynamics = 2*Ns*Ns*Lk + Nphi
   allocate(psi_t(nDynamics))
   allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi),gz_proj_matrix_init(nFock,nFock))
@@ -394,9 +396,16 @@ program GUTZ_mb
   else
      !
      allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
-     call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
-     call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
-     !PUZZLING: not working the change of base...mumble mumble mumble...
+
+     if(read_full_phi) then
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+     else
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
+     end if
+
 
      out_unit=free_unit()
      open(out_unit,file='optimized_phi_matrix.data')
@@ -518,6 +527,7 @@ program GUTZ_mb
         call get_neq_unitary_constr(unitary_constr)
         !
         !-> here it's useless to write all the matrix (only stride allowed one!!)
+        !
         call write_complex_matrix_grid(Rhop_matrix,unit_neq_Rhop,print_grid_Rhop,t)
         call write_complex_matrix_grid(Qhop_matrix,unit_neq_Qhop,print_grid_Qhop,t)
         call write_complex_matrix_grid(sc_order,unit_neq_sc_order,print_grid_SC,t)
@@ -537,8 +547,7 @@ program GUTZ_mb
            weights_fock(ifock)=weight_local_fock_states(states210(ifock),gz_proj_t)
         end do        
         write(unit_neq_weights,'(20F18.10)') t,weights_fock(1:count_states)
-        
-        
+                
         !
      end if
      !
@@ -547,6 +556,18 @@ program GUTZ_mb
         psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
      else
         psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
+     end if
+     !
+     if(mod(it-1,nsave).eq.0) then
+        unit_save=free_unit()
+        open(unit_save,file='save_dynamics.data')
+        do idyn=1,nDynamics
+           write(unit_save,'(2F18.10)') psi_t(idyn)
+        end do
+        close(unit_save)
+        open(unit_save,file='save_dynamics.info')
+        write(unit_save,*) 'dynamics saved at time',t_grid(it)
+        close(unit_save)
      end if
      !
   end do

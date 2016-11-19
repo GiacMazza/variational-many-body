@@ -24,6 +24,7 @@ program GUTZ_mb
   character(len=200) :: store_dir,read_dir,read_optWF_dir
   complex(8),dimension(:,:,:,:),allocatable :: slater_init
   complex(8),dimension(:),allocatable     :: gz_proj_init
+  complex(8),dimension(:,:),allocatable     :: gz_proj_matrix_init
   !
   complex(8),dimension(:),allocatable     :: psi_t
   real(8),dimension(:,:),allocatable      :: Ut,CFt
@@ -68,7 +69,7 @@ program GUTZ_mb
   integer :: Nopt
   real(8),dimension(:),allocatable :: dump_seed
   integer :: expected_flen,flen,unit,cf_type
-  logical :: seed_file
+  logical :: seed_file,read_full_phi
 
 
   complex(8),dimension(:,:,:),allocatable :: td_lgr
@@ -91,7 +92,7 @@ program GUTZ_mb
   call parse_input_variable(tSin_neqCF,"TSIN_NEQCF","inputGZ.conf",default=0.5d0)
   call parse_input_variable(cf_type,"CF_TYPE","inputGZ.conf",default=0) 
   call parse_input_variable(tdlgr,"TDLGR","inputGZ.conf",default=.true.) 
-  
+  call parse_input_variable(read_full_phi,"read_phi","inputGZ.conf",default=.false.)
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -234,7 +235,7 @@ program GUTZ_mb
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
   nDynamics = 2*Ns*Ns*Lk + Nphi
   allocate(psi_t(nDynamics))
-  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))  
+  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi),gz_proj_matrix_init(nFock,nFock))  
   !
   expected_flen=Nopt
   inquire(file="RQn0_root_seed.conf",exist=seed_file)
@@ -285,7 +286,16 @@ program GUTZ_mb
   else
      !
      allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
-     call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init,td_lgr(1,:,:),td_lgr(2,:,:))
+     !
+     if(read_full_phi) then
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+     else
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
+     end if
+     !
      call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
      it=1
      Uloc=Uloc_t(:,it)

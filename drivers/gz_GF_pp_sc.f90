@@ -24,7 +24,7 @@ program GZ_GF
   real(8) :: gap0
   integer :: it,jt,unit,iw,iti,jtj,uwrite
   integer :: is,iorb
-  logical :: read_gloc
+  logical :: read_gloc,no_dynamics
   real(8) :: ti,tf,dt_tmp
   complex(8),dimension(:),allocatable :: dumpGloc,dumpGloc_
 
@@ -40,6 +40,7 @@ program GZ_GF
   call parse_input_variable(tstep,"TSTEP","inputGZgz.conf",default=1.d-2)
   call parse_input_variable(gap0,"gap0","inputGZgz.conf",default=0.d0)
   call parse_input_variable(read_gloc,"READ_GLOC","inputGZgz.conf",default=.false.)
+  call parse_input_variable(no_dynamics,"NO_DYN","inputGZgz.conf",default=.false.)
   call save_input_file("inputGZgz.conf")
 
   call initialize_local_fock_space    
@@ -57,16 +58,19 @@ program GZ_GF
   write(*,*) t_grid(1),t_grid(Nt0),t_grid(Nttgf)
   call read_neq_Rhop_Qhop(read_neq_dir,neq_Rhop,neq_Qhop)
   !
-  ! do it=1,Nttgf
-  !    neq_Rhop(it,:,:) = neq_Rhop(Nt0,:,:)*(cos(gap0*t_grid(it))-xi*sin(gap0*t_grid(it)))
-  !    neq_Qhop(it,:,:) = neq_Qhop(Nt0,:,:)*(cos(gap0*t_grid(it))+xi*sin(gap0*t_grid(it)))
-  ! end do
+  if(no_dynamics) then
+     do it=1,Nttgf
+        neq_Rhop(it,:,:) = neq_Rhop(Nt0,:,:)*(cos(gap0*t_grid(it))-xi*sin(gap0*t_grid(it)))
+        neq_Qhop(it,:,:) = neq_Qhop(Nt0,:,:)*(cos(gap0*t_grid(it))+xi*sin(gap0*t_grid(it)))
+     end do
+  end if
   !
   allocate(Gloc_ret_tt(Ntgf,Ntgf,Ns,Ns),Gloc_ret_tt_(Ntgf,Ntgf,2*Ns,2*Ns)) 
   if(read_gloc) then
      call read_gloc_tt(read_neq_dir,Gloc_ret_tt)             
   else  
-     call gz_get_Gloc_ret_superc(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
+     call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
+     !call gz_get_Gloc_ret_superc(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
      Gloc_ret_tt=Gloc_ret_tt_(:,:,1:Ns,1:Ns) 
   end if
   !
@@ -99,7 +103,7 @@ program GZ_GF
         do is=1,Ns
            dumpGloc(is)=Gloc_ret_tt(it,jt,is,is)
         end do
-        write(unit,'(20F18.10)') t_grid(iti),t_grid(jtj),dumpGloc(1:Ns)
+        write(unit,'(20F18.10)') t_grid(iti),t_grid(jtj),Gloc_ret_tt(it,jt,1,1)!dumpGloc(1:Ns)
      end do
      write(unit,'(6F18.10)')
      write(unit,'(6F18.10)')
@@ -137,7 +141,7 @@ program GZ_GF
            dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
            dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
         end do
-        write(unit,'(20F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
+        write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
 !        write(unit,'(20F18.10)') t_grid(it+Nt0-1),wre(iw),Gloc_ret_tw(it,iw,1,1),Gloc_ret_tw_(it,iw,1,1),Gloc_ret_tw(it,iw,2,2),Gloc_ret_tw_(it,iw,2,2)          
      end do
      write(unit,'(20F18.10)')
@@ -151,7 +155,7 @@ program GZ_GF
            dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
            dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
         end do
-        write(unit,'(20F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
+        write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
      end do
      write(unit,'(6F18.10)')
      write(unit,'(6F18.10)')

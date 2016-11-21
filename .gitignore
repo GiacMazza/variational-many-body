@@ -8,4 +8,5 @@ mc_EDsc/
 .bash_completion.d
 .repo
 .dropbox*
+.*
 README

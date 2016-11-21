@@ -175,7 +175,7 @@ contains
              !
           end do          
        end do
-       if(mod(ik,Lk/10).eq.0) write(*,'(F5.1)') dble(ik)/dble(Lk)*100       
+       write(*,*) ik,Lk
     end do
   end subroutine gz_get_Gloc_ret_superc
 
@@ -252,8 +252,12 @@ contains
      !
      do it=1,Nttgf
         !
-        Rhop_dag(it,:,:) = conjg(transpose(Rhop(it,:,:)))
-        Qhop_dag(it,:,:) = conjg(transpose(Qhop(it,:,:)))        
+        do is=1,Ns
+           do js=1,Ns
+              Rhop_dag(it,is,js) = conjg(Rhop(it,js,is))
+              Qhop_dag(it,is,js) = conjg(Qhop(it,js,is))        
+           end do
+        end do
         !
         intHt(it,:,:) = expHt
         

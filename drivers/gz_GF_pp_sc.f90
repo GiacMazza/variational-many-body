@@ -137,7 +137,7 @@ program GZ_GF
            dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
            dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
         end do
-        write(unit,'(20F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
+        write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
 !        write(unit,'(20F18.10)') t_grid(it+Nt0-1),wre(iw),Gloc_ret_tw(it,iw,1,1),Gloc_ret_tw_(it,iw,1,1),Gloc_ret_tw(it,iw,2,2),Gloc_ret_tw_(it,iw,2,2)          
      end do
      write(unit,'(20F18.10)')
@@ -151,7 +151,7 @@ program GZ_GF
            dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
            dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
         end do
-        write(unit,'(20F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
+        write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
      end do
      write(unit,'(6F18.10)')
      write(unit,'(6F18.10)')
@@ -217,6 +217,7 @@ contains
     real(8),dimension(:),allocatable :: dump_vect
     real(8) :: t,tt
     !
+    write(*,*) "reading GLOC"
     read_neq_dir=trim(read_neq_dir)   
     file_name=reg(read_neq_dir)//"Gloc_ret_tt.data"
     inquire(file=file_name,exist=read_check)
@@ -225,16 +226,18 @@ contains
        open(unit,file=file_name,status='old')
        !
        ios=0
-       allocate(dump_vect(4))     
+       allocate(dump_vect(2*Ns))     
        do it=1,Ntgf
           do jt=1,Ntgf              
-             read(unit,*,iostat=ios) t,tt,dump_vect(1:4)
-             neq_gloc(it,jt,1,1) = dump_vect(1)+xi*dump_vect(2)
-             neq_gloc(it,jt,2,2) = dump_vect(3)+xi*dump_vect(4)
-             neq_gloc(it,jt,3,3) = dump_vect(3)+xi*dump_vect(4)
-             neq_gloc(it,jt,4,4) = dump_vect(1)+xi*dump_vect(2)
-             neq_gloc(it,jt,5,5) = dump_vect(3)+xi*dump_vect(4)
-             neq_gloc(it,jt,6,6) = dump_vect(3)+xi*dump_vect(4)
+             read(unit,*,iostat=ios) t,tt,dump_vect(1:2*Ns)
+             do is=1,Ns
+                neq_gloc(it,jt,is,is) = dump_vect(2*is-1)+xi*dump_vect(2*is)
+             end do
+             ! neq_gloc(it,jt,2,2) = dump_vect(3)+xi*dump_vect(4)
+             ! neq_gloc(it,jt,3,3) = dump_vect(3)+xi*dump_vect(4)
+             ! neq_gloc(it,jt,4,4) = dump_vect(1)+xi*dump_vect(2)
+             ! neq_gloc(it,jt,5,5) = dump_vect(3)+xi*dump_vect(4)
+             ! neq_gloc(it,jt,6,6) = dump_vect(3)+xi*dump_vect(4)
           end do
        end do
        close(unit)

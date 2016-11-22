@@ -21,6 +21,7 @@ MODULE GZ_DYNAMICS
   !
   public :: gz_eom_superc_lgr_sp
   !
+  public :: gz_eom_slater_superc_lgr
   !+- kind of bsolete routines -+!
   public :: gz_equations_of_motion_superc_lgr
   public :: gz_equations_of_motion_superc_lgr_sp  
@@ -33,6 +34,7 @@ MODULE GZ_DYNAMICS
   !
   public :: setup_neq_dynamics
   public :: setup_neq_dynamics_superc
+  public :: setup_neq_slater_dynamics_superc
   !
   public :: gz_neq_measure,gz_neq_measure_sp
   public :: gz_neq_measure_superc,gz_neq_measure_superc_sp,gz_neq_measure_superc_sp_
@@ -44,6 +46,8 @@ MODULE GZ_DYNAMICS
   public :: get_neq_dens_constr_gzproj
   public :: get_neq_dens_constrA_slater
   public :: get_neq_dens_constrA_gzproj
+  public :: get_neq_lgrA_slater
+  public :: get_neq_lgrA_gzproj
   public :: get_neq_unitary_constr
   public :: get_neq_Rhop
   public :: get_neq_Qhop
@@ -68,9 +72,13 @@ MODULE GZ_DYNAMICS
   real(8),dimension(:,:),allocatable    :: gz_neq_nqp        
   !
   complex(8),dimension(:,:,:),allocatable,public :: neq_lgr
-
+  !
   complex(8),dimension(:,:,:),allocatable :: neq_lgr_
   complex(8),dimension(:),allocatable     :: gzproj_dot0
+  !
+  complex(8),dimension(:,:,:),allocatable :: neq_Rhop_ext
+  complex(8),dimension(:,:,:),allocatable :: neq_Qhop_ext
+  !
 
 CONTAINS
   !
@@ -108,6 +116,21 @@ CONTAINS
     allocate(gz_neq_nqp(Ns,Lk)); gz_neq_nqp = 0.d0
   end subroutine setup_neq_dynamics_superc
 
+
+  subroutine setup_neq_slater_dynamics_superc(Rhop,Qhop)
+    complex(8),dimension(Nt_aux,Ns,Ns) :: Rhop,Qhop
+    !
+    allocate(neq_Rhop_ext(Nt_aux,Ns,Ns),neq_Qhop_ext(Nt_aux,Ns,Ns))
+    neq_Rhop_ext=Rhop
+    neq_Qhop_ext=Qhop
+    !
+    allocate(gz_neq_dens_lgrA_slater(Ns,Ns))
+    gz_neq_dens_lgrA_slater = 0.d0
+    !
+    gz_neq_energies = 0.d0
+  end subroutine setup_neq_slater_dynamics_superc
+
+  
 
   subroutine get_neq_local_dens(is,js,x)
     integer :: is,js
@@ -168,11 +191,29 @@ CONTAINS
   subroutine get_neq_dens_constrA_gzproj(is,js,x)
     integer :: is,js
     complex(8) :: x
-    if(is.gt.Ns.or.js.gt.Ns) stop 'get_neq_dens_constr_slater wrong indeces'
-    if(is.lt.1.or.js.lt.1) stop 'get_neq_dens_constr_slater wrong indeces'
+    if(is.gt.Ns.or.js.gt.Ns) stop 'get_neq_dens_constr_gzproj wrong indeces'
+    if(is.lt.1.or.js.lt.1) stop 'get_neq_dens_constr_gzproj wrong indeces'
     x = gz_neq_dens_constrA_gzproj(is,js)    
   end subroutine get_neq_dens_constrA_gzproj
   !
+  
+  subroutine get_neq_lgrA_slater(is,js,x)
+    integer :: is,js
+    complex(8) :: x
+    if(is.gt.Ns.or.js.gt.Ns) stop 'get_neq_dens_lgrA_sl wrong indeces'
+    if(is.lt.1.or.js.lt.1) stop 'get_neq_dens_lgrA_sl wrong indeces'
+    x = gz_neq_dens_lgrA_slater(is,js)
+  end subroutine get_neq_lgrA_slater
+  !
+  subroutine get_neq_lgrA_gzproj(is,js,x)
+    integer :: is,js
+    complex(8) :: x
+    if(is.gt.Ns.or.js.gt.Ns) stop 'get_neq_dens_lgrA_GZ wrong indeces'
+    if(is.lt.1.or.js.lt.1) stop 'get_neq_dens_lgrA_GZ wrong indeces'
+    x = gz_neq_dens_lgrA_gzproj(is,js)    
+  end subroutine get_neq_lgrA_gzproj
+  !
+
   subroutine get_neq_unitary_constr(x)
     real(8) :: x
     x =gz_neq_unitary_constr

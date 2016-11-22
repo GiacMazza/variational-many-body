@@ -51,6 +51,8 @@ program GUTZ_mb
   integer :: unit_neq_sc_order
   integer :: unit_neq_weights
   integer :: unit_save
+  integer :: unit_lgrA_sl
+  integer :: unit_lgrA_gz
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -59,6 +61,8 @@ program GUTZ_mb
   real(8),dimension(:,:),allocatable    :: local_dens_dens
   complex(8),dimension(:,:,:),allocatable :: dens_constrSL
   complex(8),dimension(:,:,:),allocatable :: dens_constrGZ
+  complex(8),dimension(:,:),allocatable :: lgrA_constrSL
+  complex(8),dimension(:,:),allocatable :: lgrA_constrGZ
   real(8)                               :: unitary_constr
   real(8),dimension(4)                  :: local_angular_momenta
   real(8),dimension(3)                  :: energies
@@ -385,7 +389,6 @@ program GUTZ_mb
         td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
         td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
         !
-        !call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
         call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
         !
      else
@@ -470,6 +473,12 @@ program GUTZ_mb
   unit_neq_dens_constrGZa = free_unit()
   open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data')
   !
+  unit_lgrA_sl = free_unit()
+  open(unit_lgrA_sl,file='neq_lgrA_constrSL.data')
+  !
+  unit_lgrA_gz = free_unit()
+  open(unit_lgrA_gs,file='neq_lgrA_constrGZ.data')
+  !
   unit_neq_constrU = free_unit()
   open(unit_neq_constrU,file='neq_constrU.data')
   !
@@ -487,7 +496,9 @@ program GUTZ_mb
   allocate(local_density_matrix(Ns,Ns))
   allocate(local_dens_dens(Ns,Ns))
   allocate(dens_constrSL(2,Ns,Ns))
-  allocate(dens_constrGZ(2,Ns,Ns))  
+  allocate(dens_constrGZ(2,Ns,Ns))
+  allocate(lgrA_constrSL(Ns,Ns))
+  allocate(lgrA_constrGZ(Ns,Ns))
   allocate(sc_order(Ns,Ns))
   allocate(dump_vect(Ns*Ns))
 
@@ -519,6 +530,8 @@ program GUTZ_mb
               call get_neq_dens_constr_gzproj(is,js,dens_constrGZ(1,is,js))
               call get_neq_dens_constrA_slater(is,js,dens_constrSL(2,is,js))
               call get_neq_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))
+              call get_neq_lgrA_slater(is,js,lgrA_constrSL(is,js))
+              call get_neq_lgrA_gzproj(is,js,lgrA_constrGZ(is,js))
               call get_neq_local_sc(is,js,sc_order(is,js))
            end do
         end do
@@ -537,6 +550,8 @@ program GUTZ_mb
         call write_hermitean_matrix(dens_constrGZ(1,:,:),unit_neq_dens_constrGZ,t)
         call write_hermitean_matrix(dens_constrSL(2,:,:),unit_neq_dens_constrSLa,t)
         call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_neq_dens_constrGZa,t)
+        call write_hermitean_matrix(lgrA_constrSL,unit_lgrA_sl,t)
+        call write_hermitean_matrix(lgrA_constrGZ,unit_lgrA_gz,t)
         call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies

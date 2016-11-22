@@ -180,9 +180,11 @@ contains
   end subroutine gz_get_Gloc_ret_superc
 
 
-  subroutine gz_get_Gloc_ret_superc_diag_hk(Rhop,Qhop,Gloc_ret)
+  subroutine gz_get_Gloc_ret_superc_diag_hk(Rhop,Qhop,Gloc_ret,sl_lgr_)
     implicit none
     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop
+    complex(8),dimension(Nttgf,Ns,Ns),optional :: sl_lgr_
+    complex(8),dimension(Nttgf,Ns,Ns) :: sl_lgr
     complex(8),dimension(Ntgf,Ntgf,2*Ns,2*Ns) :: Gloc_ret
     !
     complex(8),dimension(2*Ns,2*Ns) :: Gk_ret_00,tmpGk
@@ -204,8 +206,10 @@ contains
     sqZt=zero
     sqZtt=zero
     Rt=zero;Rtt=zero;Qt=zero;Qtt=zero
+    sl_lgr = zero
+    if(present(sl_lgr_)) sl_lgr = sl_lgr_
     !
-    call get_hamiltonian_time_int_superc_(intHt,Rhop,Qhop)
+    call get_hamiltonian_time_int_superc_(intHt,Rhop,Qhop,sl_lgr)
     !
     write(*,*) "diagonalizing t,t' evolution operators"
     !
@@ -422,10 +426,10 @@ contains
      !
    end subroutine get_hamiltonian_time_int_superc
    !
-   subroutine get_hamiltonian_time_int_superc_(intHt,Rhop,Qhop)
+   subroutine get_hamiltonian_time_int_superc_(intHt,Rhop,Qhop,sl_lgr)
      implicit none
      complex(8),dimension(Nttgf,2*Ns,2*Ns) :: intHt
-     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop
+     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop,sl_lgr
      complex(8),dimension(Nttgf,Ns,Ns) :: Rhop_dag,Qhop_dag
      integer :: ik,is,js,iis,it,iit
      complex(8),dimension(Ns,Ns) :: Hk,expHt_tmp
@@ -451,18 +455,20 @@ contains
            end do
         end do
         !
+        !
         intHt(it,:,:) = expHt
-        !        
+        !
+        !
         if(it.gt.1) then
            !
            expHt_tmp = matmul(Rhop_dag(it,:,:),Rhop(it,:,:))
            Ht(1:Ns,1:Ns) = expHt_tmp
            !
            expHt_tmp = matmul(Rhop_dag(it,:,:),Qhop(it,:,:))
-           Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp
+           Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it,:,:)
            !
            expHt_tmp = matmul(Qhop_dag(it,:,:),Rhop(it,:,:))  
-           Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp
+           Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it,:,:)))
            !
            expHt_tmp = matmul(Qhop_dag(it,:,:),Qhop(it,:,:))
            Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
@@ -475,10 +481,10 @@ contains
            Ht(1:Ns,1:Ns) = expHt_tmp
            !
            expHt_tmp = matmul(Rhop_dag(it-1,:,:),Qhop(it-1,:,:))
-           Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp
+           Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it-1,:,:)
            !
            expHt_tmp = matmul(Qhop_dag(it-1,:,:),Rhop(it-1,:,:))
-           Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp
+           Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it-1,:,:)))
            !
            expHt_tmp = matmul(Qhop_dag(it-1,:,:),Qhop(it-1,:,:))
            Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp

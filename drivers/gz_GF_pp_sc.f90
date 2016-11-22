@@ -191,21 +191,29 @@ contains
     complex(8),dimension(:),allocatable :: psi_t,psi_tmp
     complex(8),dimension(:,:,:),allocatable :: slater_lgrA
     complex(8),dimension(:),allocatable :: lgr_cmplx
-    real(8) :: t
+    real(8) :: t,ti,tf
     integer :: it,is,js,unit
     !
     Nt_aux=2*Nttgf-1
     allocate(neq_Rhop_(Nt_aux,Ns,Ns),neq_Qhop_(Nt_aux,Ns,Ns))
-    allocate(t_grid_aux(Nt_aux)); t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
+    allocate(t_grid_aux(Nt_aux));
+    ti=t_grid(1); tf=t_grid(Nttgf)
+    t_grid_aux=linspace(ti,tf,Nt_aux,istart=.true.,iend=.true.)
+    !t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
+    
     allocate(slater_lgrA(Nttgf,Ns,Ns))
     
-    do it=1,Nttgf-1
+    do it=0,Nttgf-1
        !
-       neq_Rhop_(2*(it-1)+1,:,:) = neq_Rhop(it,:,:)
-       neq_Rhop_(2*it,:,:) = neq_Rhop(it,:,:)*0.5d0+neq_Rhop(it+1,:,:)*0.5d0
+       neq_Rhop_(2*it+1,:,:) = neq_Rhop(it+1,:,:)
+       if(it.lt.Nttgf-1) then
+          neq_Rhop_(2*it+2,:,:) = neq_Rhop(it+1,:,:)*0.5d0+neq_Rhop(it+2,:,:)*0.5d0
+       end if
        !
-       neq_Qhop_(2*(it-1)+1,:,:) = neq_Qhop(it,:,:)
-       neq_Qhop_(2*it,:,:) = neq_Qhop(it,:,:)*0.5d0+neq_Qhop(it+1,:,:)*0.5d0
+       neq_Qhop_(2*it+1,:,:) = neq_Qhop(it+1,:,:)
+       if(it.lt.Nttgf-1) then
+          neq_Qhop_(2*it+2,:,:) = neq_Qhop(it+1,:,:)*0.5d0+neq_Qhop(it+2,:,:)*0.5d0
+       end if
        !
     end do
     !
@@ -213,24 +221,17 @@ contains
     allocate(psi_t(nDynamics),psi_tmp(nDynamics))
     !
     call read_optimized_variational_wf_slater_superc(read_dir,slater_init)
-    write(*,*) 'flag1'
     call wfMatrix_superc_2_dynamicalSlater(slater_init,psi_t)
-    write(*,*) 'flag2'
-    !
     call setup_neq_slater_dynamics_superc(neq_Rhop_,neq_Qhop_)
-    write(*,*) 'flag3'
     !
-
     Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
     allocate(lgr_cmplx(Nvdm_AC_opt))
-
+    !
     unit=free_unit()
     open(unit,file='neq_lgrA.data')
-    slater_lgrA(1,:,:)=zero
-    do it=1,Nttgf-1
+    do it=1,Nttgf
        t=t_grid(it)
        write(*,*) it,t
-       !psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_slater_superc_lgr)
        psi_tmp = gz_eom_slater_superc_lgr(t,psi_t,nDynamics)
        do is=1,Ns
           do js=1,Ns
@@ -242,7 +243,7 @@ contains
        write(unit,'(10F18.10)')  t_grid(it),lgr_cmplx
        !
     end do
-    
+    close(unit)
   end subroutine get_neq_lgrAC
 
   

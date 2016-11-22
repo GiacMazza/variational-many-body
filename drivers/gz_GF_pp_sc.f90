@@ -5,6 +5,10 @@ program GZ_GF
   USE SF_PARSE_INPUT
   !
   USE GZ_AUX_FUNX
+  USE GZ_neqAUX_FUNX
+  USE GZ_DYNAMICS
+  USE RK_IDE
+  !
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
   USE GZ_neqGREENS_FUNCTIONS
@@ -24,9 +28,10 @@ program GZ_GF
   real(8) :: gap0
   integer :: it,jt,unit,iw,iti,jtj,uwrite
   integer :: is,iorb
-  logical :: read_gloc,no_dynamics
+  logical :: read_gloc,no_dynamics,add_lgrA  
   real(8) :: ti,tf,dt_tmp
   complex(8),dimension(:),allocatable :: dumpGloc,dumpGloc_
+  complex(8),dimension(:,:,:),allocatable :: slater_lgrA
 
   
   call parse_input_variable(Wband,"WBAND","inputGZgz.conf",default=2.d0)
@@ -41,13 +46,14 @@ program GZ_GF
   call parse_input_variable(gap0,"gap0","inputGZgz.conf",default=0.d0)
   call parse_input_variable(read_gloc,"READ_GLOC","inputGZgz.conf",default=.false.)
   call parse_input_variable(no_dynamics,"NO_DYN","inputGZgz.conf",default=.false.)
+  call parse_input_variable(add_lgrA,"ADD_LGR","inputGZgz.conf",default=.false.)
   call save_input_file("inputGZgz.conf")
-
+  
   call initialize_local_fock_space    
   call build_lattice_model; get_Hk_t => getHk
-
-  Nttgf = Nt0+Ntgf-1
   
+  Nttgf = Nt0+Ntgf-1
+
   allocate(neq_rhop(Nttgf,Ns,Ns),neq_qhop(Nttgf,Ns,Ns),t_grid(Nttgf))
   ti=-tstep*Nt0; tf=tstep*Ntgf
   t_grid=linspace(ti,tf,Nttgf,istart=.false.,iend=.false.,mesh=dt_tmp)
@@ -65,14 +71,25 @@ program GZ_GF
      end do
   end if
   !
+  !
+  !
+
+  !
+  !
+  !
   allocate(Gloc_ret_tt(Ntgf,Ntgf,Ns,Ns),Gloc_ret_tt_(Ntgf,Ntgf,2*Ns,2*Ns)) 
   if(read_gloc) then
      call read_gloc_tt(read_neq_dir,Gloc_ret_tt)             
-  else  
-     call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
-     !call gz_get_Gloc_ret_superc(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
+  else
+     if(add_lgrA) then
+        call get_neq_lgrAC(read_neq_dir,neq_Rhop,neq_Qhop,slater_lgrA)
+        call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_,slater_lgrA)
+     else
+        call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
+     end if
      Gloc_ret_tt=Gloc_ret_tt_(:,:,1:Ns,1:Ns) 
   end if
+  !
   !
   !
   allocate(dumpGloc(Ns),dumpGloc_(Ns))
@@ -163,6 +180,72 @@ program GZ_GF
   close(unit)
 
 contains
+
+
+  subroutine get_neq_lgrAC(read_dir,neq_Rhop,neq_Qhop,slater_lgrA)
+    implicit none
+    character(len=200)  :: read_dir
+    complex(8),dimension(2,Ns,Ns,Lk) :: slater_init
+    complex(8),dimension(Nttgf,Ns,Ns) :: neq_Rhop,neq_Qhop
+    complex(8),dimension(:,:,:),allocatable :: neq_Rhop_,neq_Qhop_
+    complex(8),dimension(:),allocatable :: psi_t,psi_tmp
+    complex(8),dimension(:,:,:),allocatable :: slater_lgrA
+    complex(8),dimension(:),allocatable :: lgr_cmplx
+    real(8) :: t
+    integer :: it,is,js,unit
+    !
+    Nt_aux=2*Nttgf-1
+    allocate(neq_Rhop_(Nt_aux,Ns,Ns),neq_Qhop_(Nt_aux,Ns,Ns))
+    allocate(t_grid_aux(Nt_aux)); t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
+    allocate(slater_lgrA(Nttgf,Ns,Ns))
+    
+    do it=1,Nttgf-1
+       !
+       neq_Rhop_(2*(it-1)+1,:,:) = neq_Rhop(it,:,:)
+       neq_Rhop_(2*it,:,:) = neq_Rhop(it,:,:)*0.5d0+neq_Rhop(it+1,:,:)*0.5d0
+       !
+       neq_Qhop_(2*(it-1)+1,:,:) = neq_Qhop(it,:,:)
+       neq_Qhop_(2*it,:,:) = neq_Qhop(it,:,:)*0.5d0+neq_Qhop(it+1,:,:)*0.5d0
+       !
+    end do
+    !
+    nDynamics = 2*Ns*Ns*Lk 
+    allocate(psi_t(nDynamics),psi_tmp(nDynamics))
+    !
+    call read_optimized_variational_wf_slater_superc(read_dir,slater_init)
+    write(*,*) 'flag1'
+    call wfMatrix_superc_2_dynamicalSlater(slater_init,psi_t)
+    write(*,*) 'flag2'
+    !
+    call setup_neq_slater_dynamics_superc(neq_Rhop_,neq_Qhop_)
+    write(*,*) 'flag3'
+    !
+
+    Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+    allocate(lgr_cmplx(Nvdm_AC_opt))
+
+    unit=free_unit()
+    open(unit,file='neq_lgrA.data')
+    slater_lgrA(1,:,:)=zero
+    do it=1,Nttgf-1
+       t=t_grid(it)
+       write(*,*) it,t
+       !psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_slater_superc_lgr)
+       psi_tmp = gz_eom_slater_superc_lgr(t,psi_t,nDynamics)
+       do is=1,Ns
+          do js=1,Ns
+             call get_neq_lgrA_slater(is,js,slater_lgrA(it,is,js))
+          end do
+       end do
+       !
+       call vdm_AC_stride_m2v(slater_lgrA(it,:,:),lgr_cmplx)
+       write(unit,'(10F18.10)')  t_grid(it),lgr_cmplx
+       !
+    end do
+    
+  end subroutine get_neq_lgrAC
+
+  
 
   subroutine read_neq_VDM(read_neq_dir,neq_vdm)
     implicit none
@@ -516,6 +599,58 @@ contains
 
 
 
+
+    subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
+    implicit none
+    complex(8),dimension(:)   :: vdm_AC_indep
+    complex(8),dimension(:,:) :: vdm_AC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
+    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+    !
+    vdm_AC_mat = zero
+    do iorb=1,Norb
+       do jorb=1,Norb
+          do ispin=1,2
+             jspin=3-ispin
+             is=index(ispin,iorb)
+             js=index(jspin,jorb)
+             if(iorb.eq.jorb) then
+                if(iorb.eq.1) then
+                   vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(1)
+                else
+                   vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(2)
+                end if
+             else
+                vdm_AC_mat(is,js) = zero
+             end if
+          end do
+       end do
+    end do
+    !
+  end subroutine vdm_AC_vec2mat
+  subroutine vdm_AC_mat2vec(vdm_AC_mat,vdm_AC_indep)
+    implicit none
+    complex(8),dimension(:)   :: vdm_AC_indep
+    complex(8),dimension(:,:) :: vdm_AC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
+    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+    !
+    iorb=1;jorb=1;ispin=1;jspin=2
+    do iorb=1,Norb
+       is=index(ispin,iorb)
+       js=index(jspin,iorb)
+       if(iorb.eq.1) then
+          vdm_AC_indep(1) = vdm_AC_mat(is,js)
+       else
+          vdm_AC_indep(2) = vdm_AC_mat(is,js)
+       end if
+    end do
+    !
+  end subroutine vdm_AC_mat2vec
 
 
   

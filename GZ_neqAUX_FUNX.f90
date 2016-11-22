@@ -11,8 +11,11 @@ MODULE GZ_neqAUX_FUNX
   end interface read_optimized_variational_wf
 
   public :: read_optimized_variational_wf!,read_optimized_variational_wf_superc
+  public :: read_optimized_variational_wf_slater_superc
   public :: wfMatrix_2_dynamicalVector,dynamicalVector_2_wfMatrix
   public :: wfMatrix_superc_2_dynamicalVector,dynamicalVector_2_wfMatrix_superc
+  public :: wfMatrix_superc_2_dynamicalSlater,dynamicalSlater_2_wfMatrix_superc
+  !
   public :: wfMatrix_superc_2_dynamicalVector_,dynamicalVector_2_wfMatrix_superc_
   public :: slater_full2reduced
   public :: BCSwf_2_dynamicalVector,dynamicalVector_2_BCSwf
@@ -486,6 +489,78 @@ CONTAINS
 
 
 
+  subroutine read_optimized_variational_wf_slater_superc(read_dir,slater_determinant)
+    character(len=200)             :: read_dir
+    complex(8),dimension(Nphi)     :: phi_vector
+    complex(8),dimension(2,Ns,Ns,Lk) :: slater_determinant    
+        real(8)                        :: tmp_re,tmp_im,x
+    integer :: is,js,read_unit,flen,ios,i
+    character(len=200) :: file_name
+    logical :: check_file
+    !
+    read_dir=trim(read_dir)
+    do is=1,Ns
+       do js=1,Ns
+          file_name=reg(read_dir)//'optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+          inquire(file=file_name,exist=check_file)
+          if(check_file) then
+             read_unit = free_unit()
+             open(read_unit,file=file_name,status='old')
+             flen=0
+             do
+                read (read_unit,*,iostat=ios) x
+                if (ios/=0) exit     
+                flen=flen+1
+             end do
+             close(read_unit)                    
+             if(flen.ne.Lk) stop "READING OPTIMIZED SLATER DETRMINANT NORMAL: number of lines /= Lk"
+             open(read_unit,file=file_name,status='old')
+             write(*,*) "Reading from file",file_name
+             do i=1,flen
+                read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                slater_determinant(1,is,js,i) = tmp_re + xi*tmp_im
+             end do
+             close(read_unit)
+          else
+             write(*,*) "FILE",file_name,"does not exist!!!"
+             stop 
+          end if
+       end do
+    end do
+    !
+    do is=1,Ns
+       do js=1,Ns
+          file_name=reg(read_dir)//'optimized_slater_anomalous_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data'
+          inquire(file=file_name,exist=check_file)
+          if(check_file) then
+             read_unit = free_unit()
+             open(read_unit,file=file_name,status='old')
+             flen=0
+             do
+                read (read_unit,*,iostat=ios) x
+                if (ios/=0) exit     
+                flen=flen+1
+             end do
+             close(read_unit)                    
+             if(flen.ne.Lk) stop "READING OPTIMIZED SLATER DETRMINANT ANOMALOUS: number of lines /= Lk"
+             open(read_unit,file=file_name,status='old')
+             write(*,*) "Reading from file",file_name
+             do i=1,flen
+                read(read_unit,'(2F18.10)') tmp_re,tmp_im
+                slater_determinant(2,is,js,i) = tmp_re + xi*tmp_im
+             end do
+             close(read_unit)
+          else
+             write(*,*) "FILE",file_name,"does not exist!!!"
+             stop 
+          end if
+       end do
+    end do
+    !
+  end subroutine read_optimized_variational_wf_slater_superc
+
+
+
 
 
   subroutine wfMatrix_2_dynamicalVector(slater,gzproj,dynVect)
@@ -559,6 +634,30 @@ CONTAINS
     end do
     if(idyn.ne.nDynamics) stop 'dimension problems wfMatrix_superc_2_dynamicalVector'
   end subroutine wfMatrix_superc_2_dynamicalVector
+  subroutine wfMatrix_superc_2_dynamicalSlater(slater,dynVect)
+    complex(8),dimension(2,Ns,Ns,Lk) :: slater
+    complex(8),dimension(nDynamics):: dynVect
+    integer :: i,j,is,js,iphi,idyn,ik    
+    idyn=0
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             dynVect(idyn) = slater(1,is,js,ik)
+          end do
+       end do
+    end do
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             dynVect(idyn) = slater(2,is,js,ik)
+          end do
+       end do
+    end do
+    if(idyn.ne.nDynamics) stop 'dimension problems wfMatrix_superc_2_dynamicalSlater'
+  end subroutine wfMatrix_superc_2_dynamicalSlater
+
   subroutine wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gzproj,dynVect)
     complex(8),dimension(Nsl_normal_opt,Lk) :: slater_normal
     complex(8),dimension(Nsl_anomalous_opt,Lk) :: slater_anomalous
@@ -618,6 +717,31 @@ CONTAINS
     end do
     if(idyn.ne.nDynamics) stop 'dimension problems dynamicalVector_2_wfMatrix_superc'
   end subroutine dynamicalVector_2_wfMatrix_superc
+  subroutine dynamicalSlater_2_wfMatrix_superc(dynVect,slater)
+    complex(8),dimension(2,Ns,Ns,Lk) :: slater
+    complex(8),dimension(nDynamics):: dynVect
+    integer :: i,j,is,js,iphi,idyn,ik  
+    idyn=0
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             slater(1,is,js,ik) = dynVect(idyn)
+          end do
+       end do
+    end do
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             slater(2,is,js,ik) = dynVect(idyn)
+          end do
+       end do
+    end do
+    if(idyn.ne.nDynamics) stop 'dimension problems dynamicalSlater_2_wfMatrix_superc'
+  end subroutine dynamicalSlater_2_wfMatrix_superc
+
+  
   subroutine dynamicalVector_2_wfMatrix_superc_(dynVect,slater_normal,slater_anomalous,gzproj)
     complex(8),dimension(Nsl_normal_opt,Lk) :: slater_normal
     complex(8),dimension(Nsl_anomalous_opt,Lk) :: slater_anomalous
@@ -703,11 +827,15 @@ CONTAINS
 
 
 
-  function t2it(time,delta_t) result(it)
+  function t2it(time,delta_t,t0_) result(it)
     real(8) :: time,delta_t
+    real(8),optional :: t0_
+    real(8) :: t0
     integer :: it
-    real(8) :: eps=1.d-8    
-    it = (time+eps)/delta_t + 1
+    real(8) :: eps=1.d-8
+    t0=0.d0
+    if(present(t0_)) t0=t0_
+    it = (time-t0_+eps)/delta_t + 1
   end function t2it
 
 

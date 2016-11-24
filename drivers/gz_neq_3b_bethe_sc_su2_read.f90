@@ -477,7 +477,7 @@ program GUTZ_mb
   open(unit_lgrA_sl,file='neq_lgrA_constrSL.data')
   !
   unit_lgrA_gz = free_unit()
-  open(unit_lgrA_gs,file='neq_lgrA_constrGZ.data')
+  open(unit_lgrA_gz,file='neq_lgrA_constrGZ.data')
   !
   unit_neq_constrU = free_unit()
   open(unit_neq_constrU,file='neq_constrU.data')

@@ -835,7 +835,7 @@ CONTAINS
     real(8) :: eps=1.d-8
     t0=0.d0
     if(present(t0_)) t0=t0_
-    it = (time-t0_+eps)/delta_t + 1
+    it = (time-t0+eps)/delta_t + 1
   end function t2it
 
 

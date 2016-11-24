@@ -32,7 +32,7 @@ program GZ_GF
   real(8) :: ti,tf,dt_tmp
   complex(8),dimension(:),allocatable :: dumpGloc,dumpGloc_
   complex(8),dimension(:,:,:),allocatable :: slater_lgrA
-
+  real(8) :: deps
   
   call parse_input_variable(Wband,"WBAND","inputGZgz.conf",default=2.d0)
   call parse_input_variable(Nx,"Nx","inputGZgz.conf",default=1000)
@@ -47,6 +47,7 @@ program GZ_GF
   call parse_input_variable(read_gloc,"READ_GLOC","inputGZgz.conf",default=.false.)
   call parse_input_variable(no_dynamics,"NO_DYN","inputGZgz.conf",default=.false.)
   call parse_input_variable(add_lgrA,"ADD_LGR","inputGZgz.conf",default=.false.)
+  call parse_input_variable(deps,"DEPS","inputGZgz.conf",default=0.01d0)
   call save_input_file("inputGZgz.conf")
   
   call initialize_local_fock_space    
@@ -83,7 +84,7 @@ program GZ_GF
   else
      if(add_lgrA) then
         call get_neq_lgrAC(read_neq_dir,neq_Rhop,neq_Qhop,slater_lgrA)
-        call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_,slater_lgrA)
+        call gz_get_Gloc_ret_superc(neq_Rhop,neq_Qhop,Gloc_ret_tt_,slater_lgrA)
      else
         call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
      end if
@@ -134,7 +135,7 @@ program GZ_GF
   allocate(Gloc_ret_tw(Ntgf,Nw,Ns,Ns)); Gloc_ret_tw=zero
   allocate(Gloc_ret_tw_(Ntgf,Nw,Ns,Ns)); Gloc_ret_tw_=zero
   do is=1,Ns
-     call get_relative_time_FT(Gloc_ret_tt(:,:,is,is),Gloc_ret_tw(:,:,is,is),wre)
+     call get_relative_time_FT(Gloc_ret_tt(:,:,is,is),Gloc_ret_tw(:,:,is,is),wre,deps)
   end do
   !
   allocate(tmpG(Ns,Ns))

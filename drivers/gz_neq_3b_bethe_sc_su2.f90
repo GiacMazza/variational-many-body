@@ -19,14 +19,15 @@ program GUTZ_mb
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t
-  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,ispin,unit
-  integer :: nprint
+  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,ispin,unit,ifock,jfock,iphi,idyn
+  integer :: nprint,nsave
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir
-  complex(8),dimension(:,:,:,:),allocatable :: slater_init
+  complex(8),dimension(:,:,:,:),allocatable :: slater_init,slater_t
   complex(8),dimension(:,:),allocatable :: slater_normal
   complex(8),dimension(:,:),allocatable :: slater_anomalous
-  complex(8),dimension(:),allocatable     :: gz_proj_init
+  complex(8),dimension(:),allocatable     :: gz_proj_init,gz_proj_t
+  complex(8),dimension(:,:),allocatable     :: gz_proj_matrix_init
   !
   complex(8),dimension(:),allocatable     :: psi_t
   real(8),dimension(:,:),allocatable      :: Ut,CFt
@@ -48,6 +49,10 @@ program GUTZ_mb
   integer :: unit_neq_Qhop
   integer :: unit_neq_AngMom
   integer :: unit_neq_sc_order
+  integer :: unit_neq_weights
+  integer :: unit_save
+  integer :: unit_lgrA_sl
+  integer :: unit_lgrA_gz
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -56,6 +61,8 @@ program GUTZ_mb
   real(8),dimension(:,:),allocatable    :: local_dens_dens
   complex(8),dimension(:,:,:),allocatable :: dens_constrSL
   complex(8),dimension(:,:,:),allocatable :: dens_constrGZ
+  complex(8),dimension(:,:),allocatable :: lgrA_constrSL
+  complex(8),dimension(:,:),allocatable :: lgrA_constrGZ
   real(8)                               :: unitary_constr
   real(8),dimension(4)                  :: local_angular_momenta
   real(8),dimension(3)                  :: energies
@@ -77,11 +84,17 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: dump_seed
   integer :: expected_flen,flen,cf_type
   logical :: seed_file
-  logical :: tdLGR
+  logical :: tdLGR,read_full_phi
 
   complex(8),dimension(:,:,:),allocatable :: td_lgr
 
+  integer,allocatable,dimension(:,:) :: fock_states
+  real(8),dimension(:),allocatable :: weights_fock
 
+
+  integer,dimension(:),allocatable :: tmp_states,states210,ivec
+  integer :: count_states,itest,nstate
+  
   integer :: Ntmp,itmp
   !
 
@@ -94,6 +107,7 @@ program GUTZ_mb
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
+  call parse_input_variable(nsave,"NSAVE","inputGZ.conf",default=2000)  
   !
   call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=[0.d0,0.d0,0.d0])
   call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
@@ -117,6 +131,7 @@ program GUTZ_mb
   call parse_input_variable(tSin_neqJ,"TSIN_NEQJ","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default=.true.) 
+  call parse_input_variable(read_full_phi,"read_phi","inputGZ.conf",default=.false.)
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -126,33 +141,49 @@ program GUTZ_mb
   end if
   !
   call initialize_local_fock_space
-  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)    
-
-  unit=free_unit()
-  open(unit,file='spTrace_start')
-  do is=1,Ns
-     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
-     do itmp=1,Ntmp
-        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
-     end do
-  end do
-  close(unit)
   
+  allocate(tmp_states(nFock),ivec(Ns))
+  count_states=0
+  do ifock=1,NFock
+     call bdecomp(ifock,ivec)
+     nstate=sum(ivec)
+     if(nstate.eq.Norb) then
+        itest=0
+        do iorb=1,Norb
+           itest = itest + ivec(iorb)*ivec(iorb+Norb)
+        end do
+        if(itest.ne.0) then
+           count_states = count_states + 1
+           tmp_states(count_states) = ifock
+        end if
+     end if
+  end do
+  allocate(states210(count_states))
+  states210=tmp_states(1:count_states)
+  out_unit=free_unit()
+  open(out_unit,file='210_states.info')
+  do i=1,count_states
+     call bdecomp(states210(i),ivec)
+     write(out_unit,*) ivec,'   ',states210(i)
+  end do
+  !
+  !
+  !
+  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)    
+  !
+  !
   !
   call build_lattice_model; get_Hk_t => getHk
   allocate(eLevels(Ns)); eLevels=0.d0
-  
-  write(*,*) 'ti sto pigliando per il culo quindi! ah ah'
-
-  
-  
-
+  !
+  !
+  !
   Nsl_normal_opt=2; sl_normal_stride_v2m => sl_normal_vec2mat; sl_normal_stride_m2v => sl_normal_mat2vec
   slNi_v2m => i2m_slN
   slAi_v2m => i2m_slA
   slNi_m2v => m2i_slN
   slAi_m2v => m2i_slA
-  !                                                                                                                                                                                  
+  !
   Nsl_anomalous_opt=2; sl_anomalous_stride_v2m => sl_anomalous_vec2mat; sl_anomalous_stride_m2v => sl_anomalous_mat2vec
   NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec
   NQhop_opt=2;   Qhop_stride_v2m => Qhop_vec2mat; Qhop_stride_m2v => Qhop_mat2vec
@@ -173,7 +204,7 @@ program GUTZ_mb
   Ngrid=.false.
   do is=1,Ns
      Rgrid(is,is)=.true.
-     Ngrid(is,is)=.true.  !<--- ?!?!?!
+     Ngrid(is,is)=.true.  
   end do
   Qgrid=.false.
   do iorb=1,Norb
@@ -182,19 +213,6 @@ program GUTZ_mb
      Qgrid(is,js) = .true.
   end do
   !
-
-  unit=free_unit()
-  open(unit,file='spTrace_start2')
-  do is=1,Ns
-     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
-     do itmp=1,Ntmp
-        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
-     end do
-  end do
-  close(unit)
-
-
-
   !+- INITIALIZE TIME GRIDS -+!
   Nt_aux=2*Nt+1
   allocate(t_grid(Nt),t_grid_aux(Nt_aux))
@@ -323,25 +341,10 @@ program GUTZ_mb
   end do
   close(unit_neq_hloc)
 
-
-
-  unit=free_unit()
-  open(unit,file='spTrace_start3')
-  do is=1,Ns
-     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
-     do itmp=1,Ntmp
-        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
-     end do
-  end do
-  close(unit)
-
-
-
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  !nDynamics = Nsl_normal_opt*Lk + Nsl_anomalous_opt*Lk + Nphi
   nDynamics = 2*Ns*Ns*Lk + Nphi
   allocate(psi_t(nDynamics))
-  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))
+  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi),gz_proj_matrix_init(nFock,nFock))
   allocate(slater_normal(Nsl_normal_opt,Lk),slater_anomalous(Nsl_anomalous_opt,Lk))  
   !
   expected_flen=Nopt
@@ -386,7 +389,6 @@ program GUTZ_mb
         td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
         td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
         !
-        !call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
         call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
         !
      else
@@ -397,11 +399,39 @@ program GUTZ_mb
   else
      !
      allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
-     call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init,td_lgr(1,:,:),td_lgr(2,:,:))
-     td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
-     td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
+
+     if(read_full_phi) then
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+     else
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
+     end if
+
+
+     out_unit=free_unit()
+     open(out_unit,file='optimized_phi_matrix.data')
+     do ifock=1,nFock
+        do jfock=1,nFock
+           write(out_unit,*) dreal(gz_proj_matrix_init(ifock,jfock)),dimag(gz_proj_matrix_init(ifock,jfock)),ifock,jfock
+       end do
+    end do
+    close(out_unit)
+
+    open(out_unit,file='optimized_projectors.data')
+    do iphi=1,Nphi
+       write(out_unit,'(2F18.10)') gz_proj_init(iphi)
+    end do
+    close(out_unit)
+    !re-test the projector matrix !?!
+
+    
+    
+
+     ! td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
+     ! td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
      call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
-     !call wfMatrix_superc_2_dynamicalVector_(slater_normal,slater_anomalous,gz_proj_init,psi_t)
      call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
      it=1
      Uloc=Uloc_t(:,it)
@@ -414,19 +444,6 @@ program GUTZ_mb
      !
   end if
   !
-
-
-  unit=free_unit()
-  open(unit,file='spTrace_start4')
-  do is=1,Ns
-     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
-     do itmp=1,Ntmp
-        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
-     end do
-  end do
-  close(unit)
-
-
   call setup_neq_dynamics_superc
   !    
   unit_neq_Rhop = free_unit()
@@ -456,6 +473,12 @@ program GUTZ_mb
   unit_neq_dens_constrGZa = free_unit()
   open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data')
   !
+  unit_lgrA_sl = free_unit()
+  open(unit_lgrA_sl,file='neq_lgrA_constrSL.data')
+  !
+  unit_lgrA_gz = free_unit()
+  open(unit_lgrA_gz,file='neq_lgrA_constrGZ.data')
+  !
   unit_neq_constrU = free_unit()
   open(unit_neq_constrU,file='neq_constrU.data')
   !
@@ -464,16 +487,29 @@ program GUTZ_mb
   !
   unit_neq_sc_order = free_unit()
   open(unit_neq_sc_order,file='neq_sc_order.data')
-
+  !
+  unit_neq_weights = free_unit()
+  open(unit_neq_weights,file='neq_weights.data')
+  !
   allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
   allocate(Qhop_matrix(Ns,Ns))
   allocate(local_density_matrix(Ns,Ns))
   allocate(local_dens_dens(Ns,Ns))
   allocate(dens_constrSL(2,Ns,Ns))
-  allocate(dens_constrGZ(2,Ns,Ns))  
+  allocate(dens_constrGZ(2,Ns,Ns))
+  allocate(lgrA_constrSL(Ns,Ns))
+  allocate(lgrA_constrGZ(Ns,Ns))
   allocate(sc_order(Ns,Ns))
   allocate(dump_vect(Ns*Ns))
 
+  allocate(gz_proj_t(Nphi))
+
+
+  !+- local fock weights -+!
+  allocate(weights_fock(count_states))
+  
+  
+  
   !*) ACTUAL DYNAMICS 
   do it=1,Nt
      write(*,*) it,Nt
@@ -481,32 +517,9 @@ program GUTZ_mb
      t=t_grid(it)
      !
      if(mod(it-1,nprint).eq.0) then        
-
-
-  unit=free_unit()
-  open(unit,file='spTrace_start5')
-  do is=1,Ns
-     Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
-     do itmp=1,Ntmp
-        write(unit,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
-     end do
-  end do
-  close(unit)
-
-
         !
-        call gz_neq_measure_superc_sp(psi_t,t)
+        call gz_neq_measure_superc_sp(psi_t,t,read_gzproj=gz_proj_t)
         !
-
-        ! do is=1,Ns
-        !    Ntmp=phi_spTraces_basis_Rhop(is,is)%nnz
-        !    do itmp=1,Ntmp
-        !       write(803,'(10F18.10)') phi_spTraces_basis_Rhop(is,is)%values(itmp)
-        !    end do
-        ! end do
-
-        !stop
-
         do is=1,Ns
            do js=1,Ns
               call get_neq_Rhop(is,js,Rhop_matrix(is,js))              
@@ -517,6 +530,8 @@ program GUTZ_mb
               call get_neq_dens_constr_gzproj(is,js,dens_constrGZ(1,is,js))
               call get_neq_dens_constrA_slater(is,js,dens_constrSL(2,is,js))
               call get_neq_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))
+              call get_neq_lgrA_slater(is,js,lgrA_constrSL(is,js))
+              call get_neq_lgrA_gzproj(is,js,lgrA_constrGZ(is,js))
               call get_neq_local_sc(is,js,sc_order(is,js))
            end do
         end do
@@ -525,6 +540,7 @@ program GUTZ_mb
         call get_neq_unitary_constr(unitary_constr)
         !
         !-> here it's useless to write all the matrix (only stride allowed one!!)
+        !
         call write_complex_matrix_grid(Rhop_matrix,unit_neq_Rhop,print_grid_Rhop,t)
         call write_complex_matrix_grid(Qhop_matrix,unit_neq_Qhop,print_grid_Qhop,t)
         call write_complex_matrix_grid(sc_order,unit_neq_sc_order,print_grid_SC,t)
@@ -534,17 +550,38 @@ program GUTZ_mb
         call write_hermitean_matrix(dens_constrGZ(1,:,:),unit_neq_dens_constrGZ,t)
         call write_hermitean_matrix(dens_constrSL(2,:,:),unit_neq_dens_constrSLa,t)
         call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_neq_dens_constrGZa,t)
+        call write_hermitean_matrix(lgrA_constrSL,unit_lgrA_sl,t)
+        call write_hermitean_matrix(lgrA_constrGZ,unit_lgrA_gz,t)
         call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies
         write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
+
+        !
+        do ifock=1,count_states
+           weights_fock(ifock)=weight_local_fock_states(states210(ifock),gz_proj_t)
+        end do        
+        write(unit_neq_weights,'(20F18.10)') t,weights_fock(1:count_states)
+                
         !
      end if
      !
      if(tdlgr) then
-        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp)
+        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSL_fast)
      else
         psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
+     end if
+     !
+     if(mod(it-1,nsave).eq.0) then
+        unit_save=free_unit()
+        open(unit_save,file='save_dynamics.data')
+        do idyn=1,nDynamics
+           write(unit_save,'(2F18.10)') psi_t(idyn)
+        end do
+        close(unit_save)
+        open(unit_save,file='save_dynamics.info')
+        write(unit_save,*) 'dynamics saved at time',t_grid(it)
+        close(unit_save)
      end if
      !
   end do
@@ -1060,6 +1097,11 @@ CONTAINS
     end do
     !
   end subroutine vdm_AC_mat2vec
+
+  
+
+
+
 
 
   subroutine stride2reduced(x_orig,x_reduced)

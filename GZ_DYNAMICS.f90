@@ -20,6 +20,8 @@ MODULE GZ_DYNAMICS
   public :: gz_equations_of_motion_superc_sp
   !
   public :: gz_eom_superc_lgr_sp
+  public :: gz_eom_superc_lgr_sp_fsolveSL
+  public :: gz_eom_superc_lgr_sp_fsolveSL_fast
   !
   public :: gz_eom_slater_superc_lgr
   !+- kind of bsolete routines -+!

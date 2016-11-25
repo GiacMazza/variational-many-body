@@ -22,6 +22,7 @@ MODULE GZ_DYNAMICS
   public :: gz_eom_superc_lgr_sp
   public :: gz_eom_superc_lgr_sp_fsolveSL
   public :: gz_eom_superc_lgr_sp_fsolveSL_fast
+  public :: gz_eom_superc_lgr_sp_fsolveSLGZ_fast
   !
   public :: gz_eom_slater_superc_lgr
   !+- kind of bsolete routines -+!

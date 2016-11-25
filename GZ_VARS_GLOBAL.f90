@@ -206,7 +206,7 @@ MODULE GZ_VARS_GLOBAL
   procedure (opt_stride_mat2vec),pointer :: vdm_NCoff_stride_m2v => null ()
   procedure (opt_stride_mat2vec),pointer :: vdm_AC_stride_m2v => null ()
   !
-
+  integer,dimension(:),allocatable :: IS_vdmAC,JS_vdmAC
 
   abstract interface
      subroutine opt_stride_iv2im(iv,imI,imJ)

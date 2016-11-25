@@ -84,7 +84,8 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: dump_seed
   integer :: expected_flen,flen,cf_type
   logical :: seed_file
-  logical :: tdLGR,read_full_phi
+  logical :: read_full_phi
+  character(len=2) :: tdLGR
 
   complex(8),dimension(:,:,:),allocatable :: td_lgr
 
@@ -130,7 +131,7 @@ program GUTZ_mb
   call parse_input_variable(tRamp_neqJ,"TRAMP_NEQJ","inputGZ.conf",default=0.d0)  
   call parse_input_variable(tSin_neqJ,"TSIN_NEQJ","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
-  call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default=.true.) 
+  call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default='sl')  !possibilitie sl/sg/no
   call parse_input_variable(read_full_phi,"read_phi","inputGZ.conf",default=.false.)
   !
   call read_input("inputGZ.conf")
@@ -190,6 +191,7 @@ program GUTZ_mb
   Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+  call get_vdm_AC_mat_index
   !                                                                                                                                                                                  
   Nopt = NRhop_opt + NQhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt + 2*Nvdm_AC_opt
   Nopt = 2*Nopt
@@ -566,11 +568,21 @@ program GUTZ_mb
         !
      end if
      !
-     if(tdlgr) then
+     select case(tdlgr)
+     case('sl')
         psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSL_fast)
-     else
+     case('sg')
+        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSLGZ_fast)
+     case('no')
         psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
-     end if
+     end select
+        
+     ! if(tdlgr) then
+     !    psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSL_fast)
+     ! else
+     !    psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSLGZ_fast)
+     !    !psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
+     ! end if
      !
      if(mod(it-1,nsave).eq.0) then
         unit_save=free_unit()
@@ -1098,9 +1110,54 @@ CONTAINS
     !
   end subroutine vdm_AC_mat2vec
 
+
+
+  subroutine get_vdm_AC_mat_index
+    integer :: iorb,jorb,ispin,jspin
+    
+    allocate(IS_vdmAC(Nvdm_AC_opt),JS_vdmAC(Nvdm_AC_opt))
+    !
+    !
+    iorb=1;ispin=1
+    jorb=1;jspin=2
+    IS_vdmAC(1)=index(ispin,iorb)
+    JS_vdmAC(1)=index(jspin,jorb)
+    !
+    !
+    iorb=2;ispin=1
+    jorb=2;jspin=2
+    IS_vdmAC(2)=index(ispin,iorb)
+    JS_vdmAC(2)=index(jspin,jorb)
+    !
+  end subroutine get_vdm_AC_mat_index
   
-
-
+  
+  ! subroutine get_vdm_AC_vec_index
+  !   integer :: iorb,jorb,ispin,jspin
+    
+  !   allocate(I_vdmAC(Ns,Ns)); I_vdmAC=0    
+  !   do iorb=1,Norb
+  !      do jorb=1,Norb
+  !         do ispin=1,2
+  !            jspin=3-ispin
+  !            is=index(ispin,iorb)
+  !            js=index(jspin,jorb)
+  !            if(iorb.eq.jorb) then
+  !               if(iorb.eq.1) then
+  !                  I_vdmAC(is,js) = 1
+  !               else
+  !                  I_vdmAC(is,js) = 1                   vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(2)
+  !               end if
+  !            else
+  !               vdm_AC_mat(is,js) = zero
+  !            end if
+  !         end do
+  !      end do
+  !   end do
+  !   !
+  ! end subroutine get_vdm_AC_vec_index
+  
+  
 
 
 

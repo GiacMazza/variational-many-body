@@ -32,7 +32,7 @@ program GUTZ_mb
   complex(8),dimension(:),allocatable     :: psi_t
   real(8),dimension(:,:),allocatable      :: Ut,CFt
   real(8),dimension(:),allocatable      :: Jht
-  real(8) :: r,s,tmpU
+  real(8) :: r,s,tmpU,rs !+- time_envelope
   real(8),dimension(3) :: s_orb
   real(8),dimension(:),allocatable :: scf
   !
@@ -69,10 +69,13 @@ program GUTZ_mb
   complex(8),dimension(:,:),allocatable             :: sc_order
   !
   real(8),dimension(:),allocatable      :: dump_vect
-  
+
   real(8) :: Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU
+  real(8) :: tenv,dU_tstop,dU_tcenter
+  character(len=3) :: dUenv
   real(8),dimension(3) :: Uneq,dUneq
   real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
+  
 
   real(8) :: CFneq0,tStart_neqCF,tRamp_neqCF,tSin_neqCF
   real(8),dimension(3) :: CFneq,dCFneq
@@ -95,7 +98,7 @@ program GUTZ_mb
 
   integer,dimension(:),allocatable :: tmp_states,states210,ivec
   integer :: count_states,itest,nstate
-  
+
   integer :: Ntmp,itmp
   !
 
@@ -114,6 +117,11 @@ program GUTZ_mb
   call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
   call parse_input_variable(tStart_neqU,"TSTART_NEQU","inputGZ.conf",default=0.d0)
   call parse_input_variable(tRamp_neqU,"TRAMP_NEQU","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(tenv,"TENV","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(dU_tstop,"TSTOP","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(dU_tcenter,"TCENTER","inputGZ.conf",default=0.d0)  
+  
+  call parse_input_variable(dUenv,"DUENV","inputGZ.conf",default='box')  
   call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=[0.d0,0.d0,0.d0]) 
   !
@@ -142,7 +150,7 @@ program GUTZ_mb
   end if
   !
   call initialize_local_fock_space
-  
+
   allocate(tmp_states(nFock),ivec(Ns))
   count_states=0
   do ifock=1,NFock
@@ -222,6 +230,8 @@ program GUTZ_mb
   t_grid = linspace(tstart,tstep*real(Nt-1,8),Nt)
   t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
   !
+  if(du_tstop==0.d0) dU_tstop = t_grid_aux(NT_aux) - tenv
+  if(du_tcenter==0.d0) dU_tcenter = t_grid(NT/2) 
 
   allocate(Ut(3,Nt_aux))  
   do itt=1,Nt_aux
@@ -237,16 +247,40 @@ program GUTZ_mb
         end if
      end if
      !
-!     if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
-     if(t.lt.tStart_neqU+tRamp_neqU) then
-        s_orb = 1.d0
-     else
-        !      s_orb(:) = 1.d0 + dUneq(:)*dsin(2.d0*pi*t/tSin_neqU)
-        s_orb(:) = 1.d0 + dUneq(:)*(1.d0-dcos(2.d0*pi*t/tSin_neqU))/2.d0
-     end if
-     !
+
+     select case(dUenv)
+     case('box')
+        if(t.lt.tStart_neqU+tRamp_neqU) then
+           s_orb = 1.d0
+        else                   
+           if(t.ge.tenv) then
+              !
+              if(t.le.dU_tstop) then
+                 rs = 1.d0
+              else
+                 if(t.le.dU_tstop+tenv) then
+                    !+- ramp down
+                    rs = (1.d0 - 1.5d0*cos(pi*(t-dU_tstop)/tenv) + &
+                         0.5d0*(cos(pi*(t-dU_tstop)/tenv)**3))*0.5d0
+                    rs = 1.d0 - rs
+                 else
+                    rs=0.d0
+                 end if
+              end if
+              !
+           else
+              !
+              rs = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tenv) + 0.5d0*(cos(pi*(t-tStart_neqU)/tenv))**3)*0.5d0
+              !
+           end if
+        end if
+     case('exp')
+        rs = exp(-(t-dU_tcenter)**2.d0/(2.d0*tenv**2.0))
+     end select
+     s_orb(:) = 1.d0 + dUneq(:)*rs*(1.d0-dcos(2.d0*pi*t/tSin_neqU))/2.d0             
      Ut(:,itt) = Uneq0 + r*(Uneq(:)*s_orb(:)-Uneq0)
   end do
+
   allocate(Jht(Nt_aux))  
   do itt=1,Nt_aux
      t = t_grid_aux(itt) 
@@ -319,11 +353,7 @@ program GUTZ_mb
      CFt(:,itt) = CFneq0 + r*(scf(:)-CFneq0)
      !
   end do
-
-
-
-
-
+  !
   !
   call setup_neq_hamiltonian(Uloc_t_=Ut,Jh_t_=Jht,eLevels_t_=CFt)
   !+- IMPOSE RELATIONS BETWEEN LOCAL INTERACTION PARAMETERS -+!
@@ -342,7 +372,7 @@ program GUTZ_mb
      write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt),CFt(:,itt)
   end do
   close(unit_neq_hloc)
-
+  
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
   nDynamics = 2*Ns*Ns*Lk + Nphi
   allocate(psi_t(nDynamics))
@@ -417,19 +447,19 @@ program GUTZ_mb
      do ifock=1,nFock
         do jfock=1,nFock
            write(out_unit,*) dreal(gz_proj_matrix_init(ifock,jfock)),dimag(gz_proj_matrix_init(ifock,jfock)),ifock,jfock
-       end do
-    end do
-    close(out_unit)
+        end do
+     end do
+     close(out_unit)
 
-    open(out_unit,file='optimized_projectors.data')
-    do iphi=1,Nphi
-       write(out_unit,'(2F18.10)') gz_proj_init(iphi)
-    end do
-    close(out_unit)
-    !re-test the projector matrix !?!
+     open(out_unit,file='optimized_projectors.data')
+     do iphi=1,Nphi
+        write(out_unit,'(2F18.10)') gz_proj_init(iphi)
+     end do
+     close(out_unit)
+     !re-test the projector matrix !?!
 
-    
-    
+
+
 
      ! td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
      ! td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
@@ -503,15 +533,9 @@ program GUTZ_mb
   allocate(lgrA_constrGZ(Ns,Ns))
   allocate(sc_order(Ns,Ns))
   allocate(dump_vect(Ns*Ns))
-
   allocate(gz_proj_t(Nphi))
-
-
   !+- local fock weights -+!
-  allocate(weights_fock(count_states))
-  
-  
-  
+  allocate(weights_fock(count_states))  
   !*) ACTUAL DYNAMICS 
   do it=1,Nt
      write(*,*) it,Nt
@@ -562,27 +586,20 @@ program GUTZ_mb
         !
         do ifock=1,count_states
            weights_fock(ifock)=weight_local_fock_states(states210(ifock),gz_proj_t)
-        end do        
+        end do
         write(unit_neq_weights,'(20F18.10)') t,weights_fock(1:count_states)
-                
+
         !
      end if
      !
      select case(tdlgr)
      case('sl')
-        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSL_fast)
+        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgrSL)
      case('sg')
-        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSLGZ_fast)
+        psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgrSLGZ)
      case('no')
         psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
      end select
-        
-     ! if(tdlgr) then
-     !    psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSL_fast)
-     ! else
-     !    psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_eom_superc_lgr_sp_fsolveSLGZ_fast)
-     !    !psi_t = RK4_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc_sp)
-     ! end if
      !
      if(mod(it-1,nsave).eq.0) then
         unit_save=free_unit()
@@ -630,7 +647,7 @@ CONTAINS
     stride_zeros_red2orig => stride2orig
     !
   end function setup_pointers
-  
+
 
 
 
@@ -1114,7 +1131,7 @@ CONTAINS
 
   subroutine get_vdm_AC_mat_index
     integer :: iorb,jorb,ispin,jspin
-    
+
     allocate(IS_vdmAC(Nvdm_AC_opt),JS_vdmAC(Nvdm_AC_opt))
     !
     !
@@ -1130,11 +1147,11 @@ CONTAINS
     JS_vdmAC(2)=index(jspin,jorb)
     !
   end subroutine get_vdm_AC_mat_index
-  
-  
+
+
   ! subroutine get_vdm_AC_vec_index
   !   integer :: iorb,jorb,ispin,jspin
-    
+
   !   allocate(I_vdmAC(Ns,Ns)); I_vdmAC=0    
   !   do iorb=1,Norb
   !      do jorb=1,Norb
@@ -1156,8 +1173,8 @@ CONTAINS
   !   end do
   !   !
   ! end subroutine get_vdm_AC_vec_index
-  
-  
+
+
 
 
 
@@ -1209,7 +1226,7 @@ CONTAINS
   end subroutine stride2orig
 
 
-  
+
 end program GUTZ_mb
 
 

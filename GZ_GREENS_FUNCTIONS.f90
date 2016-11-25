@@ -1,36 +1,21 @@
 MODULE GZ_neqGREENS_FUNCTIONS
   USE GZ_VARS_GLOBAL
   USE SF_LINALG
+  USE MPI
   implicit none  
   private
-
-
   
-  !   parameters given by the driver:
-  !   Hk_bare (use the same pointer_functions of the usual drivers)
-  !   Rhop,Qhop
-  !   initial_slater
-  
-  !   the main idea:
-  !   computing the G_local
-  ! 1 ) build up the time evolution operators Vt(Ntgf,Ns,Ns)
-  !   !+----
-  ! 2 ) loop on the momenta (actual calculation of Gloc)
-  !   init gloc
-  ! 2 a)  loop on the two times [for the Gloc is ok to use the parallelogramma config for the t,t plane (t+s,t) t,s=1,..,Ntgf] -> NO CHANGE, beacause trivially the Gret is known only the lower triangular
-  ! 2 b)  create Gk_loc
-  ! 2 c)  sum_up to Gloc
-  !   !+----
 
   public :: get_relative_time_FT
   public :: gz_get_Gloc_ret
   public :: gz_get_Gloc_ret_superc
+  public :: gz_get_Gloc_ret_superc_mpi
   public :: gz_get_Gloc_ret_superc_diag_hk
-  
+
 
 contains
 
-  
+
   subroutine gz_get_Gloc_ret(Rhop,Gloc_ret)
     complex(8),dimension(2*Ntgf,Ns,Ns) :: Rhop
     complex(8),dimension(Ntgf,Ntgf,Ns,Ns) :: Gloc_ret
@@ -50,7 +35,7 @@ contains
        Gk_ret_00=zero
        do is=1,Ns
           Gk_ret_00(is,is) = -xi
-       end do       
+       end do
        !
        call get_time_evolution_operators(ik,Vt,Vt_dag,Rhop)
        !
@@ -61,7 +46,7 @@ contains
              jtj = iti + 1 - jt
              !
              Rt=Rhop(iti,:,:)
-!             if(ik.eq.200) write(*,'(10F7.3)') Rt
+             !             if(ik.eq.200) write(*,'(10F7.3)') Rt
              do is=1,Ns
                 do js=1,Ns
                    Rtt(is,js)=conjg(Rhop(jtj,js,is))
@@ -85,7 +70,7 @@ contains
        if(mod(ik,Lk/10).eq.0) write(*,'(F5.1)') dble(ik)/dble(Lk)*100       
     end do
   end subroutine gz_get_Gloc_ret
-  
+
 
 
 
@@ -112,7 +97,7 @@ contains
     sqZt=zero
     sqZtt=zero
     Rt=zero;Rtt=zero;Qt=zero;Qtt=zero
-    
+
     sl_lgr=zero
     if(present(sl_lgr_)) sl_lgr = sl_lgr_
 
@@ -188,11 +173,214 @@ contains
              !
              Gloc_ret(it,jt,:,:) = Gloc_ret(it,jt,:,:) + Gk_ret*wtk(ik)
              !
-          end do          
+          end do
        end do
        write(*,*) ik,Lk
     end do
   end subroutine gz_get_Gloc_ret_superc
+
+
+
+
+
+
+
+
+
+  subroutine gz_get_Gloc_ret_superc_mpi(Rhop,Qhop,Gloc_ret,sl_lgr_)
+    implicit none
+    complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop
+    complex(8),dimension(Nttgf,Ns,Ns),optional :: sl_lgr_
+    complex(8),dimension(Nttgf,Ns,Ns) :: sl_lgr
+    complex(8),dimension(Ntgf,Ntgf,2*Ns,2*Ns) :: Gloc_ret
+
+    complex(8),dimension(:,:,:),allocatable :: Gloc_ret_,Gloc_tmp
+    !
+    complex(8),dimension(2*Ns,2*Ns) :: Gk_ret_00,tmpGk
+    complex(8),dimension(2*Ns,2*Ns) :: Gk_ret,tmpGk_
+    !
+    real(8) :: t,tt    
+    complex(8),dimension(Nttgf,2*Ns,2*Ns) :: Vt,Vt_dag,intHt
+    complex(8),dimension(Lk,Nttgf,2*Ns,2*Ns) :: intHkt,intHkt_tmp
+    complex(8),dimension(2*Ns,2*Ns) :: Vtk,Vttk,tmpVt,tmpVtt
+    real(8),dimension(2*Ns) :: tmp_iHt,tmp_iHtt
+    complex(8),dimension(Ns,Ns) :: Rt,Rtt,Qt,Qtt
+    complex(8),dimension(2*Ns,2*Ns) :: sqZt,sqZtt
+    !
+    integer :: ik,is,js,it,jt,iti,jtj,iis,itt
+    integer :: Ntt
+    !
+    Gloc_ret=zero
+    sqZt=zero
+    sqZtt=zero
+    Rt=zero;Rtt=zero;Qt=zero;Qtt=zero
+
+    sl_lgr=zero
+    if(present(sl_lgr_)) sl_lgr = sl_lgr_
+    
+    
+    Ntt = Ntgf*Ntgf
+    !+- before: compute all the hamiltonian integrals -+!
+    do ik=1+mpiID,Lk,mpiSize !+--> parallelize this sum
+       call get_hamiltonian_time_int_superc(ik,intHkt_tmp(ik,:,:,:),Rhop,Qhop,sl_lgr)       
+    end do
+    call MPI_ALLREDUCE(intHkt_tmp,intHkt,Lk*Ntgf*Ns*2*Ns,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)    
+    !
+    ! next step
+    allocate(Gloc_tmp(Ntt,2*Ns,2*Ns))
+    do itt=1+mpiID,Ntt,mpiSize !+- parallelize this sum
+       !
+       jt = mod(itt-1,Ntgf) + 1
+       it = int((itt-1)/Ntgf) + 1
+       if(mpiID==0) write(*,*) itt,it,jt,Ntt       
+       !
+       iti = it + Nt0 - 1
+       jtj = iti + 1 - jt
+       !       
+       Rt=Rhop(iti,:,:)
+       Rtt=conjg(transpose(Rhop(jtj,:,:)))
+       ! do is=1,Ns
+       !    do js=1,Ns
+       !       Rtt(is,js)=conjg(Rhop(jtj,js,is))
+       !    end do
+       ! end do
+       Qt=Qhop(iti,:,:)
+       Qtt=conjg(transpose(Qhop(jtj,:,:)))
+       ! do is=1,Ns
+       !    do js=1,Ns
+       !       Qtt(is,js)=conjg(Qhop(jtj,js,is))
+       !    end do
+       ! end do
+       !
+       sqZt(1:Ns,1:Ns) = Rt
+       sqZt(1:Ns,1+Ns:2*Ns) = Qt
+       sqZt(1+Ns:2*Ns,1:Ns) = conjg(transpose(Qt))
+       sqZt(1+Ns:2*Ns,1+Ns:2*Ns) = conjg(transpose(Rt))
+       !
+       sqZtt(1:Ns,1:Ns) = Rtt
+       sqZtt(1:Ns,1+Ns:2*Ns) =conjg(transpose(Qtt))
+       sqZtt(1+Ns:2*Ns,1:Ns) =  Qtt
+       sqZtt(1+Ns:2*Ns,1+Ns:2*Ns) = conjg(transpose(Rtt))       
+       ! do is=1,Ns
+       !    do js=1,Ns
+       !       sqZt(is,js) = Rt(is,js)
+       !       sqZt(is,js+Ns) = Qt(is,js)
+       !       sqZt(is+Ns,js) = conjg(Qt(js,is))
+       !       sqZt(is+Ns,js+Ns) = conjg(Rt(js,is))
+       !       !
+       !       sqZtt(is,js) = Rtt(is,js)
+       !       sqZtt(is,js+Ns) = conjg(Qtt(js,is))
+       !       sqZtt(is+Ns,js) = Qtt(is,js)
+       !       sqZtt(is+Ns,js+Ns) = conjg(Rtt(js,is))
+       !    end do
+       ! end do
+       !       
+       Gloc_tmp(itt,:,:) = zero
+       do ik=1,Lk
+          !
+          tmpVt = intHkt(ik,iti,:,:) - intHkt(ik,jtj,:,:)
+          call matrix_diagonalize(tmpVt,tmp_iHt)
+          !
+          do is=1,2*Ns
+             do js=1,2*Ns
+                tmpVtt(is,js)=-xi*exp(xi*tmp_iHt(is))*conjg(tmpVt(js,is))
+             end do
+          end do
+          !
+          tmpGk = matmul(tmpVt,tmpVtt)
+          Gk_ret = matmul(tmpGk,sqZtt)
+          Gk_ret = matmul(sqZt,Gk_ret) 
+          !
+          Gloc_tmp(itt,:,:) = Gloc_tmp(itt,:,:) + Gk_ret*wtk(ik)
+          !
+       end do
+       !
+    end do
+    allocate(Gloc_ret_(Ntgf*Ntgf,2*Ns,2*Ns))
+    call MPI_ALLREDUCE(Gloc_tmp,Gloc_ret_,Ntgf*Ntgf*2*Ns*2*Ns,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    deallocate(Gloc_tmp)
+    do itt=1,Ntgf*Ntgf
+       jt = mod(itt-1,Ntgf) + 1
+       it = int((itt-1)/Ntgf) + 1
+       Gloc_ret(it,jt,:,:) = Gloc_ret_(itt,:,:)
+    end do
+    deallocate(Gloc_ret_)
+
+    !
+    ! do ik=1,Lk
+    !    call get_hamiltonian_time_int_superc(ik,intHt,Rhop,Qhop,sl_lgr)
+    !    do it=1,Ntgf
+    !       do jt=1,Ntgf
+    !          !
+    !          iti = it + Nt0 - 1
+    !          jtj = iti + 1 - jt
+    !          Rt=Rhop(iti,:,:)
+    !          do is=1,Ns
+    !             do js=1,Ns
+    !                Rtt(is,js)=conjg(Rhop(jtj,js,is))
+    !             end do
+    !          end do
+    !          Qt=Qhop(iti,:,:)
+    !          do is=1,Ns
+    !             do js=1,Ns
+    !                Qtt(is,js)=conjg(Qhop(jtj,js,is))
+    !             end do
+    !          end do
+    !          !
+    !          do is=1,Ns
+    !             do js=1,Ns
+    !                sqZt(is,js) = Rt(is,js)
+    !                sqZt(is,js+Ns) = Qt(is,js)
+    !                sqZt(is+Ns,js) = conjg(Qt(js,is))
+    !                sqZt(is+Ns,js+Ns) = conjg(Rt(js,is))
+    !                !
+    !                sqZtt(is,js) = Rtt(is,js)
+    !                sqZtt(is,js+Ns) = conjg(Qtt(js,is))
+    !                sqZtt(is+Ns,js) = Qtt(is,js)
+    !                sqZtt(is+Ns,js+Ns) = conjg(Rtt(js,is))
+    !             end do
+    !          end do
+    !          !
+    !          tmpVt = intHt(iti,:,:) - intHt(jtj,:,:)
+    !          call matrix_diagonalize(tmpVt,tmp_iHt)
+    !          !
+    !          do is=1,2*Ns
+    !             do js=1,2*Ns
+    !                tmpVtt(is,js)=-xi*exp(xi*tmp_iHt(is))*conjg(tmpVt(js,is))
+    !             end do
+    !          end do
+    !          !
+    !          !
+    !          tmpGk = matmul(tmpVt,tmpVtt)
+    !          !
+    !          !
+    !          ! do is=1,2*Ns
+    !          !    do js=1,2*Ns
+    !          !       Vttk(is,js) = zero
+    !          !       do iis=1,2*Ns
+    !          !          Vttk(is,js) = Vttk(is,js) + tmpVt(is,iis)*conjg(tmpVt(js,iis))*exp(xi*tmp_iHt(iis))
+    !          !       end do
+    !          !    end do
+    !          ! end do
+    !          ! !
+    !          ! tmpGk = matmul(Vttk,Gk_ret_00)
+    !          ! !
+    !          Gk_ret = matmul(tmpGk,sqZtt)
+    !          Gk_ret = matmul(sqZt,Gk_ret) 
+    !          !
+    !          Gloc_ret(it,jt,:,:) = Gloc_ret(it,jt,:,:) + Gk_ret*wtk(ik)
+    !          !
+    !       end do
+    !    end do
+     
+    !end do
+  end subroutine gz_get_Gloc_ret_superc_mpi
+
+
+
+
+
+
 
 
   subroutine gz_get_Gloc_ret_superc_diag_hk(Rhop,Qhop,Gloc_ret,sl_lgr_)
@@ -514,35 +702,70 @@ contains
    subroutine get_relative_time_FT(Ftt,Ftw,wre,deps_)
      real(8),dimension(:) :: wre
      complex(8),dimension(:,:) :: Ftw
+     complex(8),dimension(:),allocatable :: Ftw_tmp,Ftw_
      complex(8),dimension(Ntgf,Ntgf) :: Ftt
      complex(8),dimension(Ntgf)    :: Ft
      real(8),optional :: deps_
-     integer :: Nw
-     integer :: it,iit,iw,iti,jjt
+     integer :: Nw,Ntw
+     integer :: it,iit,iw,itw,iti,jjt
      real(8) :: t,tt,deps
-     
+
      deps=0.001d0
      if(present(deps_)) deps=deps_
      !
      Nw =size(wre)
      if(size(Ftw,1).ne.size(Ftt,1)) stop "wrong dimension 1 Ftw"
+     if(size(Ftw,1).ne.Ntgf) stop "wrong dimension 1 Ftw /= Ntgf"
      if(size(Ftw,2).ne.Nw) stop "wrong dimension 2  Ftw"
      !
-     do it=1,Ntgf
+     Ntw=Ntgf*Nw
+     allocate(Ftw_tmp(Ntw),Ftw_(Ntw))
+     do itw=1+mpiID,Ntw,mpiSIZE
+        it = int((itw-1)/Nw) + 1        
+        iw = mod(itw-1,Nw) + 1
+        if(mpiID==0) write(*,*) it,iw,itw
+        Ftw_tmp(itw) = zero
         Ft=Ftt(it,:)
-        do iw=1,Nw
-           Ftw(it,iw) = zero
-           do iit=1,Ntgf-1
-              iti = it + Nt0 -1
-              jjt = iti + 1 - iit - 1
-              t = t_grid(iti)
-              tt = t_grid(jjt)
-              Ftw(it,iw) = Ftw(it,iw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
-              tt = t_grid(jjt+1)
-              Ftw(it,iw) = Ftw(it,iw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
-           end do
+        !
+        do iit=1,Ntgf-1
+           iti = it + Nt0 -1
+           jjt = iti + 1 - iit - 1
+           t = t_grid(iti)
+           tt = t_grid(jjt)
+           Ftw_tmp(itw) = Ftw_tmp(itw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
+           tt = t_grid(jjt+1)
+           Ftw_tmp(itw) = Ftw_tmp(itw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
         end do
+        !
      end do
+     !
+     call MPI_ALLREDUCE(Ftw_tmp,Ftw_,Ntw,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+     deallocate(Ftw_tmp)
+     do itw=1,Ntw
+        it = int((itw-1)/Nw) + 1        
+        iw = mod(itw-1,Nw) + 1
+        Ftw(it,iw) = Ftw_(itw)
+     end do
+     deallocate(Ftw_)
+     !
+     !
+     ! do it=1,Ntgf
+     !    Ft=Ftt(it,:)
+     !    do iw=1,Nw
+     !       Ftw(it,iw) = zero
+     !       do iit=1,Ntgf-1
+     !          iti = it + Nt0 -1
+     !          jjt = iti + 1 - iit - 1
+     !          t = t_grid(iti)
+     !          tt = t_grid(jjt)
+     !          Ftw(it,iw) = Ftw(it,iw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
+     !          tt = t_grid(jjt+1)
+     !          Ftw(it,iw) = Ftw(it,iw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
+     !       end do
+     !    end do
+     ! end do
+     !
+     !
    end subroutine get_relative_time_FT
    !
  END MODULE GZ_neqGREENS_FUNCTIONS

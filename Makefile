@@ -1,5 +1,6 @@
 #COMPILER (PARALLEL)
-FC=gfortran
+FC=mpif90
+#gfortran
 #PRECOMPILATION FLAG (leave blank for serial code)
 FPP=
 
@@ -29,7 +30,7 @@ FPP=
 
 
 #EXE=gz_neq_1b_bethe
-EXE=gz_neq_1b_bethe_sc
+#EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_1b_cubic_sc
 #EXE=gz_neq_1b_cb_sc
 #EXE=gz_neq_1b_bethe_sc_tdlgr
@@ -60,7 +61,7 @@ EXE=gz_neq_3b_bethe_sc_su2
 #EXE=gz_neq_3b_bethe_u1su2
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
-#EXE=gz_GF_pp_sc
+EXE=gz_GF_pp_sc
 
 
 DIR=drivers

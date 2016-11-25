@@ -12,8 +12,11 @@ program GZ_GF
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
   USE GZ_neqGREENS_FUNCTIONS
+
+  USE MPI
+
   implicit none
-  
+
   integer :: Nx,Nw
   real(8) :: Wrange,dw
   character(len=200) :: read_neq_dir
@@ -33,7 +36,17 @@ program GZ_GF
   complex(8),dimension(:),allocatable :: dumpGloc,dumpGloc_
   complex(8),dimension(:,:,:),allocatable :: slater_lgrA
   real(8) :: deps
-  
+
+  !+- START MPI -+!
+  call MPI_INIT(mpiERR)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
+  write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
+  call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+
+
+
+
   call parse_input_variable(Wband,"WBAND","inputGZgz.conf",default=2.d0)
   call parse_input_variable(Nx,"Nx","inputGZgz.conf",default=1000)
   call parse_input_variable(read_neq_dir,"READ_NEQ_DIR","inputGZgz.conf",default='./')
@@ -49,10 +62,10 @@ program GZ_GF
   call parse_input_variable(add_lgrA,"ADD_LGR","inputGZgz.conf",default=.false.)
   call parse_input_variable(deps,"DEPS","inputGZgz.conf",default=0.01d0)
   call save_input_file("inputGZgz.conf")
-  
+
   call initialize_local_fock_space    
   call build_lattice_model; get_Hk_t => getHk
-  
+
   Nttgf = Nt0+Ntgf-1
 
   allocate(neq_rhop(Nttgf,Ns,Ns),neq_qhop(Nttgf,Ns,Ns),t_grid(Nttgf))
@@ -83,8 +96,8 @@ program GZ_GF
      call read_gloc_tt(read_neq_dir,Gloc_ret_tt)             
   else
      if(add_lgrA) then
-        call get_neq_lgrAC(read_neq_dir,neq_Rhop,neq_Qhop,slater_lgrA)
-        call gz_get_Gloc_ret_superc(neq_Rhop,neq_Qhop,Gloc_ret_tt_,slater_lgrA)
+        !        call get_neq_lgrAC(read_neq_dir,neq_Rhop,neq_Qhop,slater_lgrA)
+        call gz_get_Gloc_ret_superc_mpi(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
      else
         call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
      end if
@@ -96,40 +109,40 @@ program GZ_GF
   allocate(dumpGloc(Ns),dumpGloc_(Ns))
   !
   !
-  unit=free_unit()
-  open(unit,file='Gloc_ret_tt.data')
-  do it=1,Ntgf
-     do jt=1,Ntgf
-        iti = it + Nt0 - 1
-        jtj = iti + 1 - jt
-        do is=1,Ns
-           dumpGloc(is)=Gloc_ret_tt(it,jt,is,is)
+  if(mpiID==0) then
+     unit=free_unit()
+     open(unit,file='Gloc_ret_tt.data')
+     do it=1,Ntgf
+        do jt=1,Ntgf
+           iti = it + Nt0 - 1
+           jtj = iti + 1 - jt
+           do is=1,Ns
+              dumpGloc(is)=Gloc_ret_tt(it,jt,is,is)
+           end do
+           write(unit,'(20F18.10)') t_grid(iti),t_grid(jtj),dumpGloc(1:Ns)
         end do
-        write(unit,'(20F18.10)') t_grid(iti),t_grid(jtj),dumpGloc(1:Ns)
+        write(unit,'(6F18.10)')
      end do
-     write(unit,'(6F18.10)')
-  end do
-  close(unit)
-
-
-
-  open(unit,file='Gloc_ret_tt_.data')
-  do it=1,Ntgf
-     do jt=1,Ntgf
-        iti = it + Nt0 - 1
-        jtj = iti + 1 - jt
-        do is=1,Ns
-           dumpGloc(is)=Gloc_ret_tt(it,jt,is,is)
+     close(unit)
+     !
+     open(unit,file='Gloc_ret_tt_.data')
+     do it=1,Ntgf
+        do jt=1,Ntgf
+           iti = it + Nt0 - 1
+           jtj = iti + 1 - jt
+           do is=1,Ns
+              dumpGloc(is)=Gloc_ret_tt(it,jt,is,is)
+           end do
+           write(unit,'(20F18.10)') t_grid(iti),t_grid(jtj),Gloc_ret_tt(it,jt,1,1)!dumpGloc(1:Ns)
         end do
-        write(unit,'(20F18.10)') t_grid(iti),t_grid(jtj),Gloc_ret_tt(it,jt,1,1)!dumpGloc(1:Ns)
+        write(unit,'(6F18.10)')
+        write(unit,'(6F18.10)')
      end do
-     write(unit,'(6F18.10)')
-     write(unit,'(6F18.10)')
-  end do
-  close(unit)
+     close(unit)
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
 
 
-  
   allocate(wre(Nw))
   wre=linspace(-wrange,wrange,Nw,mesh=dw)
   allocate(Gloc_ret_tw(Ntgf,Nw,Ns,Ns)); Gloc_ret_tw=zero
@@ -150,104 +163,104 @@ program GZ_GF
         Gloc_ret_tw_(it+1,iw,:,:) = tmpG/(t_grid(iti+1)-t_grid(Ntgf))
      end do
   end do
-  
-  
-  open(unit,file='Gloc_ret_tw.data')
-  do it=1,Ntgf
-     do iw=1,Nw
-        do is=1,Ns
-           dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
-           dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
-        end do
-        write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
-!        write(unit,'(20F18.10)') t_grid(it+Nt0-1),wre(iw),Gloc_ret_tw(it,iw,1,1),Gloc_ret_tw_(it,iw,1,1),Gloc_ret_tw(it,iw,2,2),Gloc_ret_tw_(it,iw,2,2)          
-     end do
-     write(unit,'(20F18.10)')
-  end do
-  close(unit)
 
-  open(unit,file='Gloc_ret_tw_.data')
-  do it=1,Ntgf
-     do iw=1,Nw
-        do is=1,Ns
-           dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
-           dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
+  if(mpiID==0) then
+     open(unit,file='Gloc_ret_tw.data')
+     do it=1,Ntgf
+        do iw=1,Nw
+           do is=1,Ns
+              dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
+              dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
+           end do
+           write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)  
         end do
-        write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
+        write(unit,'(20F18.10)')
      end do
-     write(unit,'(6F18.10)')
-     write(unit,'(6F18.10)')
-  end do
-  close(unit)
+     close(unit)
+
+     open(unit,file='Gloc_ret_tw_.data')
+     do it=1,Ntgf
+        do iw=1,Nw
+           do is=1,Ns
+              dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
+              dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
+           end do
+           write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
+        end do
+        write(unit,'(6F18.10)')
+        write(unit,'(6F18.10)')
+     end do
+     close(unit)
+  end if
 
 contains
 
 
-  subroutine get_neq_lgrAC(read_dir,neq_Rhop,neq_Qhop,slater_lgrA)
-    implicit none
-    character(len=200)  :: read_dir
-    complex(8),dimension(2,Ns,Ns,Lk) :: slater_init
-    complex(8),dimension(Nttgf,Ns,Ns) :: neq_Rhop,neq_Qhop
-    complex(8),dimension(:,:,:),allocatable :: neq_Rhop_,neq_Qhop_
-    complex(8),dimension(:),allocatable :: psi_t,psi_tmp
-    complex(8),dimension(:,:,:),allocatable :: slater_lgrA
-    complex(8),dimension(:),allocatable :: lgr_cmplx
-    real(8) :: t,ti,tf
-    integer :: it,is,js,unit
-    !
-    Nt_aux=2*Nttgf-1
-    allocate(neq_Rhop_(Nt_aux,Ns,Ns),neq_Qhop_(Nt_aux,Ns,Ns))
-    allocate(t_grid_aux(Nt_aux));
-    ti=t_grid(1); tf=t_grid(Nttgf)
-    t_grid_aux=linspace(ti,tf,Nt_aux,istart=.true.,iend=.true.)
-    !t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
-    
-    allocate(slater_lgrA(Nttgf,Ns,Ns))
-    
-    do it=0,Nttgf-1
-       !
-       neq_Rhop_(2*it+1,:,:) = neq_Rhop(it+1,:,:)
-       if(it.lt.Nttgf-1) then
-          neq_Rhop_(2*it+2,:,:) = neq_Rhop(it+1,:,:)*0.5d0+neq_Rhop(it+2,:,:)*0.5d0
-       end if
-       !
-       neq_Qhop_(2*it+1,:,:) = neq_Qhop(it+1,:,:)
-       if(it.lt.Nttgf-1) then
-          neq_Qhop_(2*it+2,:,:) = neq_Qhop(it+1,:,:)*0.5d0+neq_Qhop(it+2,:,:)*0.5d0
-       end if
-       !
-    end do
-    !
-    nDynamics = 2*Ns*Ns*Lk 
-    allocate(psi_t(nDynamics),psi_tmp(nDynamics))
-    !
-    call read_optimized_variational_wf_slater_superc(read_dir,slater_init)
-    call wfMatrix_superc_2_dynamicalSlater(slater_init,psi_t)
-    call setup_neq_slater_dynamics_superc(neq_Rhop_,neq_Qhop_)
-    !
-    Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
-    allocate(lgr_cmplx(Nvdm_AC_opt))
-    !
-    unit=free_unit()
-    open(unit,file='neq_lgrA.data')
-    do it=1,Nttgf
-       t=t_grid(it)
-       write(*,*) it,t
-       psi_tmp = gz_eom_slater_superc_lgr(t,psi_t,nDynamics)
-       do is=1,Ns
-          do js=1,Ns
-             call get_neq_lgrA_slater(is,js,slater_lgrA(it,is,js))
-          end do
-       end do
-       !
-       call vdm_AC_stride_m2v(slater_lgrA(it,:,:),lgr_cmplx)
-       write(unit,'(10F18.10)')  t_grid(it),lgr_cmplx
-       !
-    end do
-    close(unit)
-  end subroutine get_neq_lgrAC
+  ! subroutine get_neq_lgrAC(read_dir,neq_Rhop,neq_Qhop,slater_lgrA)
+  !   implicit none
+  !   character(len=200)  :: read_dir
+  !   complex(8),dimension(2,Ns,Ns,Lk) :: slater_init
+  !   complex(8),dimension(Nttgf,Ns,Ns) :: neq_Rhop,neq_Qhop
+  !   complex(8),dimension(:,:,:),allocatable :: neq_Rhop_,neq_Qhop_
+  !   complex(8),dimension(:),allocatable :: psi_t,psi_tmp
+  !   complex(8),dimension(:,:,:),allocatable :: slater_lgrA
+  !   complex(8),dimension(:),allocatable :: lgr_cmplx
+  !   real(8) :: t,ti,tf
+  !   integer :: it,is,js,unit
+  !   !
+  !   Nt_aux=2*Nttgf-1
+  !   allocate(neq_Rhop_(Nt_aux,Ns,Ns),neq_Qhop_(Nt_aux,Ns,Ns))
+  !   allocate(t_grid_aux(Nt_aux));
+  !   ti=t_grid(1); tf=t_grid(Nttgf)
+  !   t_grid_aux=linspace(ti,tf,Nt_aux,istart=.true.,iend=.true.)
+  !   !t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
 
-  
+  !   allocate(slater_lgrA(Nttgf,Ns,Ns))
+
+  !   do it=0,Nttgf-1
+  !      !
+  !      neq_Rhop_(2*it+1,:,:) = neq_Rhop(it+1,:,:)
+  !      if(it.lt.Nttgf-1) then
+  !         neq_Rhop_(2*it+2,:,:) = neq_Rhop(it+1,:,:)*0.5d0+neq_Rhop(it+2,:,:)*0.5d0
+  !      end if
+  !      !
+  !      neq_Qhop_(2*it+1,:,:) = neq_Qhop(it+1,:,:)
+  !      if(it.lt.Nttgf-1) then
+  !         neq_Qhop_(2*it+2,:,:) = neq_Qhop(it+1,:,:)*0.5d0+neq_Qhop(it+2,:,:)*0.5d0
+  !      end if
+  !      !
+  !   end do
+  !   !
+  !   nDynamics = 2*Ns*Ns*Lk 
+  !   allocate(psi_t(nDynamics),psi_tmp(nDynamics))
+  !   !
+  !   call read_optimized_variational_wf_slater_superc(read_dir,slater_init)
+  !   call wfMatrix_superc_2_dynamicalSlater(slater_init,psi_t)
+  !   call setup_neq_slater_dynamics_superc(neq_Rhop_,neq_Qhop_)
+  !   !
+  !   Nvdm_AC_opt=2; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+  !   allocate(lgr_cmplx(Nvdm_AC_opt))
+  !   !
+  !   unit=free_unit()
+  !   open(unit,file='neq_lgrA.data')
+  !   do it=1,Nttgf
+  !      t=t_grid(it)
+  !      write(*,*) it,t
+  !      psi_tmp = gz_eom_slater_superc_lgr(t,psi_t,nDynamics)
+  !      do is=1,Ns
+  !         do js=1,Ns
+  !            call get_neq_lgrA_slater(is,js,slater_lgrA(it,is,js))
+  !         end do
+  !      end do
+  !      !
+  !      call vdm_AC_stride_m2v(slater_lgrA(it,:,:),lgr_cmplx)
+  !      write(unit,'(10F18.10)')  t_grid(it),lgr_cmplx
+  !      !
+  !   end do
+  !   close(unit)
+  ! end subroutine get_neq_lgrAC
+
+
 
   subroutine read_neq_VDM(read_neq_dir,neq_vdm)
     implicit none
@@ -334,7 +347,7 @@ contains
     else
        write(*,*) "file ",file_name,"  not present!"
        stop
-    end if    
+    end if
     !
   end subroutine read_gloc_tt
 
@@ -384,9 +397,9 @@ contains
     !
   end subroutine read_neq_dens
 
-  
 
-  
+
+
   subroutine read_neq_Rhop_Qhop(read_neq_dir,neq_Rhop,neq_Qhop)
     implicit none
     character(len=200) :: read_neq_dir,file_name
@@ -458,7 +471,7 @@ contains
        !    neq_Qhop(it,:,:) = neq_Qhop(Ntgf,:,:)*(cos(gap0*t_grid(it))-xi*sin(gap0*t_grid(it)))
        ! end do       
        !TMP>
-       
+
        close(unit)
        deallocate(dump_vect)
     else
@@ -500,7 +513,7 @@ contains
        write(*,*) "file ",file_name,"  not present!"
        stop
     end if
-    
+
     file_name=reg(read_neq_dir)//"neq_Qhop_matrix.data"
     inquire(file=file_name,exist=read_check)
     if(read_check) then     
@@ -538,11 +551,11 @@ contains
     deallocate(dump_vect)
 
 
-    
+
   end subroutine read_neq_Rhop_Qhop
 
 
-  
+
 
   subroutine build_lattice_model  
     implicit none
@@ -605,7 +618,7 @@ contains
 
 
 
-    subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
+  subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
     implicit none
     complex(8),dimension(:)   :: vdm_AC_indep
     complex(8),dimension(:,:) :: vdm_AC_mat
@@ -658,6 +671,6 @@ contains
   end subroutine vdm_AC_mat2vec
 
 
-  
+
 
 end program GZ_GF

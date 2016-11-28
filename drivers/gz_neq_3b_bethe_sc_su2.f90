@@ -372,7 +372,6 @@ program GUTZ_mb
      write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt),CFt(:,itt)
   end do
   close(unit_neq_hloc)
-  
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
   nDynamics = 2*Ns*Ns*Lk + Nphi
   allocate(psi_t(nDynamics))

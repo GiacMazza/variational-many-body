@@ -61,7 +61,7 @@ EXE=gz_neq_3b_bethe_sc_su2
 #EXE=gz_neq_3b_bethe_u1su2
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
-EXE=gz_GF_pp_sc
+#EXE=gz_GF_pp_sc
 
 
 DIR=drivers

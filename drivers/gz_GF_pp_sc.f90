@@ -61,7 +61,8 @@ program GZ_GF
   call parse_input_variable(no_dynamics,"NO_DYN","inputGZgz.conf",default=.false.)
   call parse_input_variable(add_lgrA,"ADD_LGR","inputGZgz.conf",default=.false.)
   call parse_input_variable(deps,"DEPS","inputGZgz.conf",default=0.01d0)
-  call save_input_file("inputGZgz.conf")
+  
+  if(mpiID==0) call save_input_file("inputGZgz.conf")
 
   call initialize_local_fock_space    
   call build_lattice_model; get_Hk_t => getHk
@@ -140,16 +141,18 @@ program GZ_GF
      end do
      close(unit)
   end if
+  
+
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
-
-
   allocate(wre(Nw))
   wre=linspace(-wrange,wrange,Nw,mesh=dw)
   allocate(Gloc_ret_tw(Ntgf,Nw,Ns,Ns)); Gloc_ret_tw=zero
   allocate(Gloc_ret_tw_(Ntgf,Nw,Ns,Ns)); Gloc_ret_tw_=zero
-  do is=1,Ns
+  do is=1,1
      call get_relative_time_FT(Gloc_ret_tt(:,:,is,is),Gloc_ret_tw(:,:,is,is),wre,deps)
   end do
+!  if(mpiID==0) write(*,*) Gloc_ret_tw(:,:,1,1)
+!  stop
   !
   allocate(tmpG(Ns,Ns))
   Gloc_ret_tw_(1,:,:,:) = Gloc_ret_tw(1,:,:,:)
@@ -164,7 +167,9 @@ program GZ_GF
      end do
   end do
 
+  call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
   if(mpiID==0) then
+     unit=free_unit()
      open(unit,file='Gloc_ret_tw.data')
      do it=1,Ntgf
         do iw=1,Nw
@@ -174,10 +179,22 @@ program GZ_GF
            end do
            write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)  
         end do
+        write(*,*) it,iw,Ntgf!,Nw
         write(unit,'(20F18.10)')
      end do
-     close(unit)
 
+     ! do it=1,Ntgf
+     !    do iw=1,Nw
+     !       do is=1,Ns
+     !          dumpGloc(is)=zero!Gloc_ret_tw(it,iw,is,is)
+     !       end do
+     !       write(unit,'(20F18.10)') t_grid(it+Nt0-1),wre(iw),Gloc_ret_tw(it,iw,1,1)
+     !    end do
+     !    write(unit,'(6F18.10)')
+     ! end do
+     close(unit)
+     !
+     unit=free_unit()
      open(unit,file='Gloc_ret_tw_.data')
      do it=1,Ntgf
         do iw=1,Nw
@@ -191,8 +208,55 @@ program GZ_GF
         write(unit,'(6F18.10)')
      end do
      close(unit)
-  end if
 
+     ! do it=1,Ntgf
+     !    do jt=1,Ntgf
+     !       iti = it + Nt0 - 1
+     !       jtj = iti + 1 - jt
+     !       do is=1,Ns
+     !          dumpGloc(is)=Gloc_ret_tt(it,jt,is,is)
+     !       end do
+     ! ! !       write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)  
+     !       write(unit,'(20F18.10)') t_grid(iti),t_grid(jtj),Gloc_ret_tt(it,jt,1,1)!dumpGloc(1:Ns)
+     !    end do
+     !    write(unit,'(6F18.10)')
+     !    write(unit,'(6F18.10)')
+     ! end do
+     ! close(unit)
+
+     ! unit=free_unit()
+     ! write(*,*) 'qui',mpiID,unit
+     ! open(unit,file='Gloc_ret_tw.data')
+     ! ! do it=1,Ntgf
+     ! !    do iw=1,Nw
+     ! !       do is=1,Ns
+     ! !          dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
+     ! !          dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
+     ! !       end do
+     ! !       write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)  
+     ! !    end do
+     ! !    write(*,*) it,iw,Ntgf!,Nw
+     ! !    write(unit,'(20F18.10)')
+     ! ! end do
+     ! close(unit)
+     ! write(*,*) 'qui',mpiID,unit
+     ! open(unit,file='Gloc_ret_tw_.data')
+     ! do it=1,Ntgf
+     !    do iw=1,Nw
+     !       do is=1,Ns
+     !          dumpGloc(is)=Gloc_ret_tw(it,iw,is,is)
+     !          dumpGloc_(is)=Gloc_ret_tw_(it,iw,is,is)
+     !       end do
+     !       write(unit,'(30F18.10)') t_grid(it+Nt0-1),wre(iw),dumpGloc(1:Ns),dumpGloc_(1:Ns)
+     !    end do
+     !    write(unit,'(6F18.10)')
+     !    write(unit,'(6F18.10)')
+     ! end do
+     ! close(unit)
+  end if
+  call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+  call MPI_FINALIZE(mpiERR)
+  !
 contains
 
 

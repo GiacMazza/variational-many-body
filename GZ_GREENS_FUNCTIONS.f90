@@ -232,7 +232,7 @@ contains
        !
        jt = mod(itt-1,Ntgf) + 1
        it = int((itt-1)/Ntgf) + 1
-       if(mpiID==0) write(*,*) itt,it,jt,Ntt       
+       !if(mpiID==0) write(*,*) itt,it,jt,Ntt       
        !
        iti = it + Nt0 - 1
        jtj = iti + 1 - jt
@@ -720,21 +720,29 @@ contains
      !
      Ntw=Ntgf*Nw
      allocate(Ftw_tmp(Ntw),Ftw_(Ntw))
-     do itw=1+mpiID,Ntw,mpiSIZE
+     Ftw_tmp=zero
+     Ftw_=zero
+     call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+     do itw=1+mpiID,Ntw,mpiSIZE !itt=1+mpiID,Ntt,mpiSize
         it = int((itw-1)/Nw) + 1        
         iw = mod(itw-1,Nw) + 1
-        if(mpiID==0) write(*,*) it,iw,itw
+        if(mpiID==0) write(*,*) 'itw',it,iw,itw
         Ftw_tmp(itw) = zero
-        Ft=Ftt(it,:)
+        !        Ft=Ftt(it,:)
         !
         do iit=1,Ntgf-1
            iti = it + Nt0 -1
            jjt = iti + 1 - iit - 1
            t = t_grid(iti)
            tt = t_grid(jjt)
-           Ftw_tmp(itw) = Ftw_tmp(itw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
-           tt = t_grid(jjt+1)
-           Ftw_tmp(itw) = Ftw_tmp(itw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
+           ! if(mpiID==0.and.it==1.and.iw.eq.10) then
+           !    write(*,*) t-tt
+           ! end if
+           !+-> c'e' un qualche cavolo di problema qui impossibile da tirare fuori
+           !+-> tempo al tempo; manda i runs e poi controlla sta storia 
+           Ftw_tmp(itw) = Ftw_tmp(itw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ftt(it,iit)*tstep*0.5
+           tt = t_grid(jjt-1)
+           Ftw_tmp(itw) = Ftw_tmp(itw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ftt(it,iit+1)*tstep*0.5
         end do
         !
      end do

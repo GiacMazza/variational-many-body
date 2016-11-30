@@ -555,7 +555,7 @@ program GUTZ_mb
               call get_neq_dens_constr_gzproj(is,js,dens_constrGZ(1,is,js))
               call get_neq_dens_constrA_slater(is,js,dens_constrSL(2,is,js))
               call get_neq_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))
-              call get_neq_lgrA_slater(is,js,lgrA_constrSL(is,js))
+              call get_neq_lgrA_slater(is,js,lgrA_constrSL(is,js)) 
               call get_neq_lgrA_gzproj(is,js,lgrA_constrGZ(is,js))
               call get_neq_local_sc(is,js,sc_order(is,js))
            end do

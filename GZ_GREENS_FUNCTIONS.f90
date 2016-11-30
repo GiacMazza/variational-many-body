@@ -4,12 +4,13 @@ MODULE GZ_neqGREENS_FUNCTIONS
   USE MPI
   implicit none  
   private
-  
+
 
   public :: get_relative_time_FT
   public :: gz_get_Gloc_ret
   public :: gz_get_Gloc_ret_superc
   public :: gz_get_Gloc_ret_superc_mpi
+  public :: gz_get_Gloc_ret_superc_mpik
   public :: gz_get_Gloc_ret_superc_diag_hk
 
 
@@ -183,6 +184,103 @@ contains
 
 
 
+  subroutine gz_get_Gloc_ret_superc_mpik(Rhop,Qhop,Gloc_ret,sl_lgr_)
+    implicit none
+    complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop
+    complex(8),dimension(Nttgf,Ns,Ns),optional :: sl_lgr_
+    complex(8),dimension(Nttgf,Ns,Ns) :: sl_lgr
+    complex(8),dimension(Ntgf,Ntgf,Ns,Ns) :: Gloc_ret,Gloc_tmp
+    !
+    complex(8),dimension(2*Ns,2*Ns) :: Gk_ret_00,tmpGk
+    complex(8),dimension(2*Ns,2*Ns) :: Gk_ret,tmpGk_
+    !
+    real(8) :: t,tt    
+    complex(8),dimension(Nttgf,2*Ns,2*Ns) :: Vt,Vt_dag,intHt
+    complex(8),dimension(2*Ns,2*Ns) :: Vtk,Vttk,tmpVt,tmpVtt
+    real(8),dimension(2*Ns) :: tmp_iHt,tmp_iHtt
+    complex(8),dimension(Ns,Ns) :: Rt,Rtt,Qt,Qtt
+    complex(8),dimension(2*Ns,2*Ns) :: sqZt,sqZtt
+    !
+    integer :: ik,is,js,it,jt,iti,jtj,iis
+    !
+    Gloc_ret=zero
+    sqZt=zero
+    sqZtt=zero
+    Rt=zero;Rtt=zero;Qt=zero;Qtt=zero
+
+    sl_lgr=zero
+    if(present(sl_lgr_)) sl_lgr = sl_lgr_
+
+    Gloc_tmp=zero
+    do ik=1+mpiID,Lk,mpiSize
+       !
+       call get_hamiltonian_time_int_superc(ik,intHt,Rhop,Qhop,sl_lgr)
+       !
+       do it=1,Ntgf
+          do jt=1,Ntgf
+             !
+             iti = it + Nt0 - 1
+             jtj = iti + 1 - jt
+             !
+
+             Rt=Rhop(iti,:,:)
+             do is=1,Ns
+                do js=1,Ns
+                   Rtt(is,js)=conjg(Rhop(jtj,js,is))
+                end do
+             end do
+             Qt=Qhop(iti,:,:)
+             do is=1,Ns
+                do js=1,Ns
+                   Qtt(is,js)=conjg(Qhop(jtj,js,is))
+                end do
+             end do
+             !
+             do is=1,Ns
+                do js=1,Ns
+                   sqZt(is,js) = Rt(is,js)
+                   sqZt(is,js+Ns) = Qt(is,js)
+                   sqZt(is+Ns,js) = conjg(Qt(js,is))
+                   sqZt(is+Ns,js+Ns) = conjg(Rt(js,is))
+                   !
+                   sqZtt(is,js) = Rtt(is,js)
+                   sqZtt(is,js+Ns) = conjg(Qtt(js,is))
+                   sqZtt(is+Ns,js) = Qtt(is,js)
+                   sqZtt(is+Ns,js+Ns) = conjg(Rtt(js,is))
+                end do
+             end do
+             !
+             tmpVt = intHt(iti,:,:) - intHt(jtj,:,:)
+             call matrix_diagonalize(tmpVt,tmp_iHt)
+             !
+             do is=1,2*Ns
+                do js=1,2*Ns
+                   tmpVtt(is,js)=-xi*exp(xi*tmp_iHt(is))*conjg(tmpVt(js,is))
+                end do
+             end do
+             !
+             !
+             tmpGk = matmul(tmpVt,tmpVtt)
+             !
+             ! !
+             Gk_ret = matmul(tmpGk,sqZtt)
+             Gk_ret = matmul(sqZt,Gk_ret) 
+             !
+             Gloc_tmp(it,jt,:,:) = Gloc_tmp(it,jt,:,:) + Gk_ret(1:Ns,1:Ns)*wtk(ik)
+             !
+          end do
+       end do
+       if(mpiID==0) write(*,*) ik,Lk
+    end do
+    CALL MPI_ALLREDUCE(Gloc_tmp,Gloc_ret,Ntgf*Ntgf*Ns*Ns,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    CALL MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
+    !MPI_ALLREDUCE(intHkt_tmp,intHkt,size(intHkt),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+  end subroutine gz_get_Gloc_ret_superc_mpik
+
+
+
+
+
 
 
 
@@ -192,7 +290,9 @@ contains
     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop
     complex(8),dimension(Nttgf,Ns,Ns),optional :: sl_lgr_
     complex(8),dimension(Nttgf,Ns,Ns) :: sl_lgr
-    complex(8),dimension(Ntgf,Ntgf,2*Ns,2*Ns) :: Gloc_ret
+    !complex(8),dimension(Ntgf,Ntgf,2*Ns,2*Ns) :: Gloc_ret
+    complex(8),dimension(Ntgf,Ntgf,Ns,Ns) :: Gloc_ret
+
 
     complex(8),dimension(:,:,:),allocatable :: Gloc_ret_,Gloc_tmp
     !
@@ -201,7 +301,7 @@ contains
     !
     real(8) :: t,tt    
     complex(8),dimension(Nttgf,2*Ns,2*Ns) :: Vt,Vt_dag,intHt
-    complex(8),dimension(Lk,Nttgf,2*Ns,2*Ns) :: intHkt,intHkt_tmp
+!    complex(8),dimension(Lk,Nttgf,2*Ns,2*Ns) :: intHkt,intHkt_tmp
     complex(8),dimension(2*Ns,2*Ns) :: Vtk,Vttk,tmpVt,tmpVtt
     real(8),dimension(2*Ns) :: tmp_iHt,tmp_iHtt
     complex(8),dimension(Ns,Ns) :: Rt,Rtt,Qt,Qtt
@@ -214,44 +314,39 @@ contains
     sqZt=zero
     sqZtt=zero
     Rt=zero;Rtt=zero;Qt=zero;Qtt=zero
-
+    !
     sl_lgr=zero
     if(present(sl_lgr_)) sl_lgr = sl_lgr_
-    
-    
-    Ntt = Ntgf*Ntgf
-    !+- before: compute all the hamiltonian integrals -+!
-    do ik=1+mpiID,Lk,mpiSize !+--> parallelize this sum
-       call get_hamiltonian_time_int_superc(ik,intHkt_tmp(ik,:,:,:),Rhop,Qhop,sl_lgr)       
-    end do
-    call MPI_ALLREDUCE(intHkt_tmp,intHkt,Lk*Ntgf*Ns*2*Ns,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)    
     !
-    ! next step
-    allocate(Gloc_tmp(Ntt,2*Ns,2*Ns))
-    do itt=1+mpiID,Ntt,mpiSize !+- parallelize this sum
+    Ntt = Ntgf*Ntgf
+    ! intHkt_tmp=zero
+    ! intHkt=zero
+    !+- compute all the hamiltonian integrals -+!
+
+    !+- this is too demanding from a memory-allocatation point point of view -+!
+    ! do ik=1+mpiID,Lk,mpiSize 
+    !    if(mpiID==0) write(*,*) ik,Lk
+    !    call get_hamiltonian_time_int_superc(ik,intHkt_tmp(ik,:,:,:),Rhop,Qhop,sl_lgr) 
+    ! end do
+    ! call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
+    ! call MPI_ALLREDUCE(intHkt_tmp,intHkt,size(intHkt),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    !
+    allocate(Gloc_tmp(Ntt,Ns,Ns))
+    Gloc_tmp=zero ! the tmp array must be inizialed to zero, capra.
+    do itt=1+mpiID,Ntt,mpiSize 
        !
        jt = mod(itt-1,Ntgf) + 1
        it = int((itt-1)/Ntgf) + 1
-       !if(mpiID==0) write(*,*) itt,it,jt,Ntt       
        !
        iti = it + Nt0 - 1
        jtj = iti + 1 - jt
        !       
        Rt=Rhop(iti,:,:)
        Rtt=conjg(transpose(Rhop(jtj,:,:)))
-       ! do is=1,Ns
-       !    do js=1,Ns
-       !       Rtt(is,js)=conjg(Rhop(jtj,js,is))
-       !    end do
-       ! end do
+       !
        Qt=Qhop(iti,:,:)
        Qtt=conjg(transpose(Qhop(jtj,:,:)))
-       ! do is=1,Ns
-       !    do js=1,Ns
-       !       Qtt(is,js)=conjg(Qhop(jtj,js,is))
-       !    end do
-       ! end do
-       !
+       ! !
        sqZt(1:Ns,1:Ns) = Rt
        sqZt(1:Ns,1+Ns:2*Ns) = Qt
        sqZt(1+Ns:2*Ns,1:Ns) = conjg(transpose(Qt))
@@ -261,8 +356,10 @@ contains
        sqZtt(1:Ns,1+Ns:2*Ns) =conjg(transpose(Qtt))
        sqZtt(1+Ns:2*Ns,1:Ns) =  Qtt
        sqZtt(1+Ns:2*Ns,1+Ns:2*Ns) = conjg(transpose(Rtt))       
+       ! !
        ! do is=1,Ns
        !    do js=1,Ns
+       !       !
        !       sqZt(is,js) = Rt(is,js)
        !       sqZt(is,js+Ns) = Qt(is,js)
        !       sqZt(is+Ns,js) = conjg(Qt(js,is))
@@ -272,13 +369,18 @@ contains
        !       sqZtt(is,js+Ns) = conjg(Qtt(js,is))
        !       sqZtt(is+Ns,js) = Qtt(is,js)
        !       sqZtt(is+Ns,js+Ns) = conjg(Rtt(js,is))
+       !       !
        !    end do
        ! end do
        !       
        Gloc_tmp(itt,:,:) = zero
        do ik=1,Lk
           !
-          tmpVt = intHkt(ik,iti,:,:) - intHkt(ik,jtj,:,:)
+
+          !+- compute on the fly the time integral -+!
+          !+- (safest way to avoid memory allocations issues)
+          call get_hamiltonian_2times_int_superc(ik,jtj,iti,tmpVt,Rhop,Qhop,sl_lgr) 
+          ! tmpVt = intHkt(ik,iti,:,:) - intHkt(ik,jtj,:,:)
           call matrix_diagonalize(tmpVt,tmp_iHt)
           !
           do is=1,2*Ns
@@ -291,13 +393,18 @@ contains
           Gk_ret = matmul(tmpGk,sqZtt)
           Gk_ret = matmul(sqZt,Gk_ret) 
           !
-          Gloc_tmp(itt,:,:) = Gloc_tmp(itt,:,:) + Gk_ret*wtk(ik)
+          Gloc_tmp(itt,:,:) = Gloc_tmp(itt,:,:) + Gk_ret(1:Ns,1:Ns)*wtk(ik)
           !
        end do
        !
+       if(mpiID==0) write(*,*) dble(itt)/dble(Ntt)
     end do
-    allocate(Gloc_ret_(Ntgf*Ntgf,2*Ns,2*Ns))
-    call MPI_ALLREDUCE(Gloc_tmp,Gloc_ret_,Ntgf*Ntgf*2*Ns*2*Ns,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
+    !
+    allocate(Gloc_ret_(Ntgf*Ntgf,Ns,Ns)); Gloc_ret_=zero
+    call MPI_ALLREDUCE(Gloc_tmp,Gloc_ret_,Ntgf*Ntgf*Ns*Ns,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
+    !+-  dump into the input array -+!
     deallocate(Gloc_tmp)
     do itt=1,Ntgf*Ntgf
        jt = mod(itt-1,Ntgf) + 1
@@ -305,84 +412,13 @@ contains
        Gloc_ret(it,jt,:,:) = Gloc_ret_(itt,:,:)
     end do
     deallocate(Gloc_ret_)
-
+    call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
+    if(mpiID==0) write(*,*) "computation of the two times rGF achieved"
     !
-    ! do ik=1,Lk
-    !    call get_hamiltonian_time_int_superc(ik,intHt,Rhop,Qhop,sl_lgr)
-    !    do it=1,Ntgf
-    !       do jt=1,Ntgf
-    !          !
-    !          iti = it + Nt0 - 1
-    !          jtj = iti + 1 - jt
-    !          Rt=Rhop(iti,:,:)
-    !          do is=1,Ns
-    !             do js=1,Ns
-    !                Rtt(is,js)=conjg(Rhop(jtj,js,is))
-    !             end do
-    !          end do
-    !          Qt=Qhop(iti,:,:)
-    !          do is=1,Ns
-    !             do js=1,Ns
-    !                Qtt(is,js)=conjg(Qhop(jtj,js,is))
-    !             end do
-    !          end do
-    !          !
-    !          do is=1,Ns
-    !             do js=1,Ns
-    !                sqZt(is,js) = Rt(is,js)
-    !                sqZt(is,js+Ns) = Qt(is,js)
-    !                sqZt(is+Ns,js) = conjg(Qt(js,is))
-    !                sqZt(is+Ns,js+Ns) = conjg(Rt(js,is))
-    !                !
-    !                sqZtt(is,js) = Rtt(is,js)
-    !                sqZtt(is,js+Ns) = conjg(Qtt(js,is))
-    !                sqZtt(is+Ns,js) = Qtt(is,js)
-    !                sqZtt(is+Ns,js+Ns) = conjg(Rtt(js,is))
-    !             end do
-    !          end do
-    !          !
-    !          tmpVt = intHt(iti,:,:) - intHt(jtj,:,:)
-    !          call matrix_diagonalize(tmpVt,tmp_iHt)
-    !          !
-    !          do is=1,2*Ns
-    !             do js=1,2*Ns
-    !                tmpVtt(is,js)=-xi*exp(xi*tmp_iHt(is))*conjg(tmpVt(js,is))
-    !             end do
-    !          end do
-    !          !
-    !          !
-    !          tmpGk = matmul(tmpVt,tmpVtt)
-    !          !
-    !          !
-    !          ! do is=1,2*Ns
-    !          !    do js=1,2*Ns
-    !          !       Vttk(is,js) = zero
-    !          !       do iis=1,2*Ns
-    !          !          Vttk(is,js) = Vttk(is,js) + tmpVt(is,iis)*conjg(tmpVt(js,iis))*exp(xi*tmp_iHt(iis))
-    !          !       end do
-    !          !    end do
-    !          ! end do
-    !          ! !
-    !          ! tmpGk = matmul(Vttk,Gk_ret_00)
-    !          ! !
-    !          Gk_ret = matmul(tmpGk,sqZtt)
-    !          Gk_ret = matmul(sqZt,Gk_ret) 
-    !          !
-    !          Gloc_ret(it,jt,:,:) = Gloc_ret(it,jt,:,:) + Gk_ret*wtk(ik)
-    !          !
-    !       end do
-    !    end do
-     
-    !end do
   end subroutine gz_get_Gloc_ret_superc_mpi
-
-
-
-
-
-
-
-
+  !
+  !
+  !
   subroutine gz_get_Gloc_ret_superc_diag_hk(Rhop,Qhop,Gloc_ret,sl_lgr_)
     implicit none
     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop
@@ -538,166 +574,248 @@ contains
              Vt(it,is,js)=zero
              do iis=1,Ns
                 Vt(it,is,js)=Vt(it,is,js)+expHt_v(is,iis)*conjg(expHt_v(js,iis))*exp(xi*expHt_e(iis))
-              end do
-           end do
-        end do
-        do is=1,Ns
-           do js=1,Ns
-              Vt_dag(it,is,js) = conjg(Vt(it,js,is))
-           end do
-        end do
-     end do
-   end subroutine get_time_evolution_operators
-   !
-   !
-   !
-   subroutine get_hamiltonian_time_int_superc(ik,intHt,Rhop,Qhop,sl_lgr)
-     implicit none
-     complex(8),dimension(Nttgf,2*Ns,2*Ns) :: intHt
-     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop,sl_lgr
-     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop_dag,Qhop_dag     
-     integer :: ik,is,js,iis,it,iit
-     complex(8),dimension(Ns,Ns) :: Hk,expHt_tmp
-     complex(8),dimension(2*Ns,2*Ns) :: expHt,expHt_v,Ht,Vtmp
-     complex(8),dimension(2*Ns,2*Ns) :: expHt_,expHt_v_
-     real(8),dimension(2*Ns) :: expHt_e,expHt_e_
-     real(8) :: time
-     !
-     !
-     intHt=zero     
-     Ht=zero
-     expHt=zero
-     !
-     !
-     do it=1,Nttgf
-        !
-        !
-        do is=1,Ns
-           do js=1,Ns
-              Rhop_dag(it,is,js) = conjg(Rhop(it,js,is))
-              Qhop_dag(it,is,js) = conjg(Qhop(it,js,is))             
-           end do
-        end do
-        !
-        intHt(it,:,:) = expHt
-        
-        if(it.gt.1) then
-           time = t_grid(it)          
-           call get_Hk_t(Hk,ik,time)
-           !
-           expHt_tmp = matmul(Hk,Rhop(it,:,:))
-           expHt_tmp = matmul(Rhop_dag(it,:,:),expHt_tmp)
-           Ht(1:Ns,1:Ns) = expHt_tmp 
-           !
-           expHt_tmp = matmul(Hk,Qhop(it,:,:))
-           expHt_tmp = matmul(Rhop_dag(it,:,:),expHt_tmp)
-           Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it,:,:)
-           !
-           expHt_tmp = matmul(Hk,Rhop(it,:,:))
-           expHt_tmp = matmul(Qhop_dag(it,:,:),expHt_tmp)  
-           Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it,:,:)))
-           !
-           expHt_tmp = matmul(Hk,Qhop(it,:,:))
-           expHt_tmp = matmul(Qhop_dag(it,:,:),expHt_tmp)
-           Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
-           !
-           expHt = expHt + Ht*tstep*0.5d0
-           !
-           time = t_grid(it-1)
-           call get_Hk_t(Hk,ik,time)
-           !
-           expHt_tmp = matmul(Hk,Rhop(it-1,:,:))
-           expHt_tmp = matmul(Rhop_dag(it-1,:,:),expHt_tmp)
-           Ht(1:Ns,1:Ns) = expHt_tmp
-           !
-           expHt_tmp = matmul(Hk,Qhop(it-1,:,:))
-           expHt_tmp = matmul(Rhop_dag(it-1,:,:),expHt_tmp)
-           Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it-1,:,:)
+             end do
+          end do
+       end do
+       do is=1,Ns
+          do js=1,Ns
+             Vt_dag(it,is,js) = conjg(Vt(it,js,is))
+          end do
+       end do
+    end do
+  end subroutine get_time_evolution_operators
+  !
+  !
+  !
+  subroutine get_hamiltonian_time_int_superc(ik,intHt,Rhop,Qhop,sl_lgr)
+    implicit none
+    complex(8),dimension(Nttgf,2*Ns,2*Ns) :: intHt
+    complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop,sl_lgr
+    complex(8),dimension(Nttgf,Ns,Ns) :: Rhop_dag,Qhop_dag     
+    integer :: ik,is,js,iis,it,iit
+    complex(8),dimension(Ns,Ns) :: Hk,expHt_tmp
+    complex(8),dimension(2*Ns,2*Ns) :: expHt,expHt_v,Ht,Vtmp
+    complex(8),dimension(2*Ns,2*Ns) :: expHt_,expHt_v_
+    real(8),dimension(2*Ns) :: expHt_e,expHt_e_
+    real(8) :: time
+    !
+    !
+    intHt=zero     
+    Ht=zero
+    expHt=zero
+    !
+    !
+    do it=1,Nttgf
+       !
+       !
+       do is=1,Ns
+          do js=1,Ns
+             Rhop_dag(it,is,js) = conjg(Rhop(it,js,is))
+             Qhop_dag(it,is,js) = conjg(Qhop(it,js,is))             
+          end do
+       end do
+       !
+       intHt(it,:,:) = expHt
+
+       if(it.gt.1) then
+          time = t_grid(it)          
+          call get_Hk_t(Hk,ik,time)
           !
-           expHt_tmp = matmul(Hk,Rhop(it-1,:,:))
-           expHt_tmp = matmul(Qhop_dag(it-1,:,:),expHt_tmp)
-           Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it-1,:,:)))
-           !
-           expHt_tmp = matmul(Hk,Qhop(it-1,:,:))
-           expHt_tmp = matmul(Qhop_dag(it-1,:,:),expHt_tmp)
-           Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
-           !
-           expHt = expHt + Ht*tstep*0.5d0
-           !
-        end if
-     end do
-     !
-   end subroutine get_hamiltonian_time_int_superc
-   !
-   subroutine get_hamiltonian_time_int_superc_(intHt,Rhop,Qhop,sl_lgr)
-     implicit none
-     complex(8),dimension(Nttgf,2*Ns,2*Ns) :: intHt
-     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop,sl_lgr
-     complex(8),dimension(Nttgf,Ns,Ns) :: Rhop_dag,Qhop_dag
-     integer :: ik,is,js,iis,it,iit
-     complex(8),dimension(Ns,Ns) :: Hk,expHt_tmp
-     complex(8),dimension(2*Ns,2*Ns) :: expHt,expHt_v,Ht,Vtmp
-     complex(8),dimension(2*Ns,2*Ns) :: expHt_,expHt_v_
-     real(8),dimension(2*Ns) :: expHt_e,expHt_e_
-     real(8) :: time
-     !
-     !
-     intHt=zero     
-     Ht=zero
-     expHt=zero
-     !
-     write(*,*) "computing time integrals"     
-     !
-     do it=1,Nttgf
-        !
-        !
-        do is=1,Ns
-           do js=1,Ns
-              Rhop_dag(it,is,js) = conjg(Rhop(it,js,is))
-              Qhop_dag(it,is,js) = conjg(Qhop(it,js,is))             
-           end do
-        end do
-        !
-        !
-        intHt(it,:,:) = expHt
-        !
-        !
-        if(it.gt.1) then
-           !
-           expHt_tmp = matmul(Rhop_dag(it,:,:),Rhop(it,:,:))
-           Ht(1:Ns,1:Ns) = expHt_tmp
-           !
-           expHt_tmp = matmul(Rhop_dag(it,:,:),Qhop(it,:,:))
-           Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it,:,:)  !<<<----wrong!!! can not use the k-diag trick!!
-           !
-           expHt_tmp = matmul(Qhop_dag(it,:,:),Rhop(it,:,:))  
-           Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it,:,:)))
-           !
-           expHt_tmp = matmul(Qhop_dag(it,:,:),Qhop(it,:,:))
-           Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
-           !
-           !
-           expHt = expHt + Ht*tstep*0.5d0
-           !
-           !
-           expHt_tmp = matmul(Rhop_dag(it-1,:,:),Rhop(it-1,:,:))
-           Ht(1:Ns,1:Ns) = expHt_tmp
-           !
-           expHt_tmp = matmul(Rhop_dag(it-1,:,:),Qhop(it-1,:,:))
-           Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it-1,:,:)
-           !
-           expHt_tmp = matmul(Qhop_dag(it-1,:,:),Rhop(it-1,:,:))
-           Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it-1,:,:)))
-           !
-           expHt_tmp = matmul(Qhop_dag(it-1,:,:),Qhop(it-1,:,:))
-           Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
-           !
-           expHt = expHt + Ht*tstep*0.5d0
-           !
-        end if
-     end do
-     !
-   end subroutine get_hamiltonian_time_int_superc_
+          expHt_tmp = matmul(Hk,Rhop(it,:,:))
+          expHt_tmp = matmul(Rhop_dag(it,:,:),expHt_tmp)
+          Ht(1:Ns,1:Ns) = expHt_tmp 
+          !
+          expHt_tmp = matmul(Hk,Qhop(it,:,:))
+          expHt_tmp = matmul(Rhop_dag(it,:,:),expHt_tmp)
+          Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it,:,:)
+          !
+          expHt_tmp = matmul(Hk,Rhop(it,:,:))
+          expHt_tmp = matmul(Qhop_dag(it,:,:),expHt_tmp)  
+          Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it,:,:)))
+          !
+          expHt_tmp = matmul(Hk,Qhop(it,:,:))
+          expHt_tmp = matmul(Qhop_dag(it,:,:),expHt_tmp)
+          Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
+          !
+          expHt = expHt + Ht*tstep*0.5d0
+          !
+          time = t_grid(it-1)
+          call get_Hk_t(Hk,ik,time)
+          !
+          expHt_tmp = matmul(Hk,Rhop(it-1,:,:))
+          expHt_tmp = matmul(Rhop_dag(it-1,:,:),expHt_tmp)
+          Ht(1:Ns,1:Ns) = expHt_tmp
+          !
+          expHt_tmp = matmul(Hk,Qhop(it-1,:,:))
+          expHt_tmp = matmul(Rhop_dag(it-1,:,:),expHt_tmp)
+          Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it-1,:,:)
+          !
+          expHt_tmp = matmul(Hk,Rhop(it-1,:,:))
+          expHt_tmp = matmul(Qhop_dag(it-1,:,:),expHt_tmp)
+          Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it-1,:,:)))
+          !
+          expHt_tmp = matmul(Hk,Qhop(it-1,:,:))
+          expHt_tmp = matmul(Qhop_dag(it-1,:,:),expHt_tmp)
+          Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
+          !
+          expHt = expHt + Ht*tstep*0.5d0
+          !
+       end if
+    end do
+    !
+  end subroutine get_hamiltonian_time_int_superc
+  !
+  subroutine get_hamiltonian_time_int_superc_(intHt,Rhop,Qhop,sl_lgr)
+    implicit none
+    complex(8),dimension(Nttgf,2*Ns,2*Ns) :: intHt
+    complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop,sl_lgr
+    complex(8),dimension(Nttgf,Ns,Ns) :: Rhop_dag,Qhop_dag
+    integer :: ik,is,js,iis,it,iit
+    complex(8),dimension(Ns,Ns) :: Hk,expHt_tmp
+    complex(8),dimension(2*Ns,2*Ns) :: expHt,expHt_v,Ht,Vtmp
+    complex(8),dimension(2*Ns,2*Ns) :: expHt_,expHt_v_
+    real(8),dimension(2*Ns) :: expHt_e,expHt_e_
+    real(8) :: time
+    !
+    !
+    intHt=zero     
+    Ht=zero
+    expHt=zero
+    !
+    write(*,*) "computing time integrals"     
+    !
+    do it=1,Nttgf
+       !
+       !
+       do is=1,Ns
+          do js=1,Ns
+             Rhop_dag(it,is,js) = conjg(Rhop(it,js,is))
+             Qhop_dag(it,is,js) = conjg(Qhop(it,js,is))             
+          end do
+       end do
+       !
+       !
+       intHt(it,:,:) = expHt
+       !
+       !
+       if(it.gt.1) then
+          !
+          expHt_tmp = matmul(Rhop_dag(it,:,:),Rhop(it,:,:))
+          Ht(1:Ns,1:Ns) = expHt_tmp
+          !
+          expHt_tmp = matmul(Rhop_dag(it,:,:),Qhop(it,:,:))
+          Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it,:,:)  !<<<----wrong!!! can not use the k-diag trick!!
+          !
+          expHt_tmp = matmul(Qhop_dag(it,:,:),Rhop(it,:,:))  
+          Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it,:,:)))
+          !
+          expHt_tmp = matmul(Qhop_dag(it,:,:),Qhop(it,:,:))
+          Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
+          !
+          !
+          expHt = expHt + Ht*tstep*0.5d0
+          !
+          !
+          expHt_tmp = matmul(Rhop_dag(it-1,:,:),Rhop(it-1,:,:))
+          Ht(1:Ns,1:Ns) = expHt_tmp
+          !
+          expHt_tmp = matmul(Rhop_dag(it-1,:,:),Qhop(it-1,:,:))
+          Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it-1,:,:)
+          !
+          expHt_tmp = matmul(Qhop_dag(it-1,:,:),Rhop(it-1,:,:))
+          Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it-1,:,:)))
+          !
+          expHt_tmp = matmul(Qhop_dag(it-1,:,:),Qhop(it-1,:,:))
+          Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
+          !
+          expHt = expHt + Ht*tstep*0.5d0
+          !
+       end if
+    end do
+    !
+  end subroutine get_hamiltonian_time_int_superc_
+  !
+
+
+  subroutine get_hamiltonian_2times_int_superc(ik,iti,itf,intHt,Rhop,Qhop,sl_lgr)
+    implicit none
+    complex(8),dimension(2*Ns,2*Ns) :: intHt
+    complex(8),dimension(Nttgf,Ns,Ns) :: Rhop,Qhop,sl_lgr
+    complex(8),dimension(Nttgf,Ns,Ns) :: Rhop_dag,Qhop_dag     
+    integer :: ik,is,js,iis,it,iit,iti,itf
+    complex(8),dimension(Ns,Ns) :: Hk,expHt_tmp
+    complex(8),dimension(2*Ns,2*Ns) :: expHt,expHt_v,Ht,Vtmp
+    complex(8),dimension(2*Ns,2*Ns) :: expHt_,expHt_v_
+    real(8),dimension(2*Ns) :: expHt_e,expHt_e_
+    real(8) :: time
+    !
+    !
+    intHt=zero     
+    Ht=zero
+    expHt=zero
+    !
+    !
+    do it=iti,itf-1
+
+       do is=1,Ns
+          do js=1,Ns
+             Rhop_dag(it,is,js) = conjg(Rhop(it,js,is))
+             Qhop_dag(it,is,js) = conjg(Qhop(it,js,is))             
+          end do
+       end do
+       !
+       time = t_grid(it)          
+       call get_Hk_t(Hk,ik,time)
+       !
+       expHt_tmp = matmul(Hk,Rhop(it,:,:))
+       expHt_tmp = matmul(Rhop_dag(it,:,:),expHt_tmp)
+       Ht(1:Ns,1:Ns) = expHt_tmp 
+       !
+       expHt_tmp = matmul(Hk,Qhop(it,:,:))
+       expHt_tmp = matmul(Rhop_dag(it,:,:),expHt_tmp)
+       Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it,:,:)
+       !
+       expHt_tmp = matmul(Hk,Rhop(it,:,:))
+       expHt_tmp = matmul(Qhop_dag(it,:,:),expHt_tmp)  
+       Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it,:,:)))
+       !
+       expHt_tmp = matmul(Hk,Qhop(it,:,:))
+       expHt_tmp = matmul(Qhop_dag(it,:,:),expHt_tmp)
+       Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
+       !
+       expHt = expHt + Ht*tstep*0.5d0
+
+       time = t_grid(it-1)
+       call get_Hk_t(Hk,ik,time)
+       !
+       expHt_tmp = matmul(Hk,Rhop(it-1,:,:))
+       expHt_tmp = matmul(Rhop_dag(it-1,:,:),expHt_tmp)
+       Ht(1:Ns,1:Ns) = expHt_tmp
+       !
+       expHt_tmp = matmul(Hk,Qhop(it-1,:,:))
+       expHt_tmp = matmul(Rhop_dag(it-1,:,:),expHt_tmp)
+       Ht(1:Ns,Ns+1:2*Ns) = expHt_tmp + sl_lgr(it-1,:,:)
+       !
+       expHt_tmp = matmul(Hk,Rhop(it-1,:,:))
+       expHt_tmp = matmul(Qhop_dag(it-1,:,:),expHt_tmp)
+       Ht(Ns+1:2*Ns,1:Ns) = expHt_tmp + conjg(transpose(sl_lgr(it-1,:,:)))
+       !
+       expHt_tmp = matmul(Hk,Qhop(it-1,:,:))
+       expHt_tmp = matmul(Qhop_dag(it-1,:,:),expHt_tmp)
+       Ht(Ns+1:2*Ns,Ns+1:2*Ns) = expHt_tmp
+       !
+       expHt = expHt + Ht*tstep*0.5d0
+
+    end do
+    !
+    intHt=expHt
+    !
+  end subroutine get_hamiltonian_2times_int_superc
+
+
+
+
+
    !
    subroutine get_relative_time_FT(Ftt,Ftw,wre,deps_)
      real(8),dimension(:) :: wre
@@ -727,27 +845,27 @@ contains
         it = int((itw-1)/Nw) + 1        
         iw = mod(itw-1,Nw) + 1
         if(mpiID==0) write(*,*) 'itw',it,iw,itw
-        Ftw_tmp(itw) = zero
+        !Ftw_tmp(itw) = zero
         !        Ft=Ftt(it,:)
         !
         do iit=1,Ntgf-1
            iti = it + Nt0 -1
-           jjt = iti + 1 - iit - 1
+           jjt = iti + 1 - iit 
+           !
            t = t_grid(iti)
            tt = t_grid(jjt)
-           ! if(mpiID==0.and.it==1.and.iw.eq.10) then
-           !    write(*,*) t-tt
-           ! end if
-           !+-> c'e' un qualche cavolo di problema qui impossibile da tirare fuori
-           !+-> tempo al tempo; manda i runs e poi controlla sta storia 
+           !
            Ftw_tmp(itw) = Ftw_tmp(itw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ftt(it,iit)*tstep*0.5
            tt = t_grid(jjt-1)
            Ftw_tmp(itw) = Ftw_tmp(itw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ftt(it,iit+1)*tstep*0.5
+
+
         end do
         !
      end do
      !
      call MPI_ALLREDUCE(Ftw_tmp,Ftw_,Ntw,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+     call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
      deallocate(Ftw_tmp)
      do itw=1,Ntw
         it = int((itw-1)/Nw) + 1        
@@ -756,31 +874,10 @@ contains
      end do
      deallocate(Ftw_)
      !
-     !
-     ! do it=1,Ntgf
-     !    Ft=Ftt(it,:)
-     !    do iw=1,Nw
-     !       Ftw(it,iw) = zero
-     !       do iit=1,Ntgf-1
-     !          iti = it + Nt0 -1
-     !          jjt = iti + 1 - iit - 1
-     !          t = t_grid(iti)
-     !          tt = t_grid(jjt)
-     !          Ftw(it,iw) = Ftw(it,iw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
-     !          tt = t_grid(jjt+1)
-     !          Ftw(it,iw) = Ftw(it,iw) + exp(xi*(wre(iw)+xi*deps)*(t-tt))*Ft(iit)*tstep*0.5
-     !       end do
-     !    end do
-     ! end do
-     !
-     !
    end subroutine get_relative_time_FT
    !
  END MODULE GZ_neqGREENS_FUNCTIONS
-
-
-
-
+ 
 
 
  

@@ -34,7 +34,7 @@ program GZ_GF
   logical :: read_gloc,no_dynamics,add_lgrA  
   real(8) :: ti,tf,dt_tmp
   complex(8),dimension(:),allocatable :: dumpGloc,dumpGloc_
-  complex(8),dimension(:,:,:),allocatable :: slater_lgrA
+  complex(8),dimension(:,:,:),allocatable :: neq_lgrA
   real(8) :: deps
 
   !+- START MPI -+!
@@ -61,7 +61,7 @@ program GZ_GF
   call parse_input_variable(no_dynamics,"NO_DYN","inputGZgz.conf",default=.false.)
   call parse_input_variable(add_lgrA,"ADD_LGR","inputGZgz.conf",default=.false.)
   call parse_input_variable(deps,"DEPS","inputGZgz.conf",default=0.01d0)
-  
+
   if(mpiID==0) call save_input_file("inputGZgz.conf")
 
   call initialize_local_fock_space    
@@ -69,7 +69,7 @@ program GZ_GF
 
   Nttgf = Nt0+Ntgf-1
 
-  allocate(neq_rhop(Nttgf,Ns,Ns),neq_qhop(Nttgf,Ns,Ns),t_grid(Nttgf))
+  allocate(neq_rhop(Nttgf,Ns,Ns),neq_qhop(Nttgf,Ns,Ns),neq_lgrA(Nttgf,Ns,Ns),t_grid(Nttgf))
   ti=-tstep*Nt0; tf=tstep*Ntgf
   t_grid=linspace(ti,tf,Nttgf,istart=.false.,iend=.false.,mesh=dt_tmp)
   if(abs(dt_tmp-tstep).gt.1.d-8) then
@@ -77,18 +77,28 @@ program GZ_GF
      stop "wrong time grid"
   end if
   write(*,*) t_grid(1),t_grid(Nt0),t_grid(Nttgf)
-  call read_neq_Rhop_Qhop(read_neq_dir,neq_Rhop,neq_Qhop)
+  !
+  if(mpiID==0) call read_neq_Rhop_Qhop(read_neq_dir,neq_Rhop,neq_Qhop)
+  call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)  
+  call MPI_BCAST(neq_Rhop,Nttgf*Ns*Ns,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,MPIerr)
+  call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)  
+  call MPI_BCAST(neq_Qhop,Nttgf*Ns*Ns,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,MPIerr)
+  call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
+  
+  if(mpiID==0) call read_neq_lgr(read_neq_dir,neq_lgrA)
+  call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)  
+  call MPI_BCAST(neq_lgrA,Nttgf*Ns*Ns,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,MPIerr)
+  call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
+  !
+  !
   !
   if(no_dynamics) then
      do it=1,Nttgf
         neq_Rhop(it,:,:) = neq_Rhop(Nt0,:,:)*(cos(gap0*t_grid(it))-xi*sin(gap0*t_grid(it)))
         neq_Qhop(it,:,:) = neq_Qhop(Nt0,:,:)*(cos(gap0*t_grid(it))+xi*sin(gap0*t_grid(it)))
+        neq_lgrA(it,:,:) = zero!neq_lgrA(Nt0,:,:)
      end do
   end if
-  !
-  !
-  !
-
   !
   !
   !
@@ -97,12 +107,14 @@ program GZ_GF
      call read_gloc_tt(read_neq_dir,Gloc_ret_tt)             
   else
      if(add_lgrA) then
-        !        call get_neq_lgrAC(read_neq_dir,neq_Rhop,neq_Qhop,slater_lgrA)
-        call gz_get_Gloc_ret_superc_mpi(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
+        !call gz_get_Gloc_ret_superc_mpi(neq_Rhop,neq_Qhop,Gloc_ret_tt_,neq_lgrA)
+        !call gz_get_Gloc_ret_superc_mpi(neq_Rhop,neq_Qhop,Gloc_ret_tt)
+        call gz_get_Gloc_ret_superc_mpik(neq_Rhop,neq_Qhop,Gloc_ret_tt,neq_lgrA)
      else
-        call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
+        call gz_get_Gloc_ret_superc_mpik(neq_Rhop,neq_Qhop,Gloc_ret_tt)
+        !call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
      end if
-     Gloc_ret_tt=Gloc_ret_tt_(:,:,1:Ns,1:Ns) 
+     !Gloc_ret_tt=Gloc_ret_tt_(:,:,1:Ns,1:Ns) 
   end if
   !
   !
@@ -141,18 +153,18 @@ program GZ_GF
      end do
      close(unit)
   end if
-  
+
 
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
   allocate(wre(Nw))
   wre=linspace(-wrange,wrange,Nw,mesh=dw)
   allocate(Gloc_ret_tw(Ntgf,Nw,Ns,Ns)); Gloc_ret_tw=zero
   allocate(Gloc_ret_tw_(Ntgf,Nw,Ns,Ns)); Gloc_ret_tw_=zero
-  do is=1,1
+  do is=1,Ns
      call get_relative_time_FT(Gloc_ret_tt(:,:,is,is),Gloc_ret_tw(:,:,is,is),wre,deps)
   end do
-!  if(mpiID==0) write(*,*) Gloc_ret_tw(:,:,1,1)
-!  stop
+  !  if(mpiID==0) write(*,*) Gloc_ret_tw(:,:,1,1)
+  !  stop
   !
   allocate(tmpG(Ns,Ns))
   Gloc_ret_tw_(1,:,:,:) = Gloc_ret_tw(1,:,:,:)
@@ -467,7 +479,6 @@ contains
   subroutine read_neq_Rhop_Qhop(read_neq_dir,neq_Rhop,neq_Qhop)
     implicit none
     character(len=200) :: read_neq_dir,file_name
-
     integer,dimension(:),allocatable :: ISr,JSr,ISq,JSq
     integer,dimension(:,:),allocatable :: grid_Rhop,grid_Qhop
     integer :: ir,i,ifile,it,iq
@@ -617,6 +628,92 @@ contains
 
 
   end subroutine read_neq_Rhop_Qhop
+
+
+
+
+
+
+
+
+
+
+
+  subroutine read_neq_lgr(read_neq_dir,neq_lgrA)
+    implicit none
+    character(len=200) :: read_neq_dir,file_name
+    integer,dimension(:),allocatable :: ISr,JSr,ISq,JSq
+    integer,dimension(:,:),allocatable :: grid_Rhop,grid_Qhop
+    integer :: ir,i,ifile,it,iq,is,js
+    integer :: ios,unit
+    logical :: read_check
+    integer :: tmp_ir,tmp_iq
+    real(8) :: tmpt
+    real(8),dimension(:),allocatable :: dump_vect
+    complex(8),dimension(Nttgf,Ns,Ns) :: neq_lgrA
+    !
+    read_neq_dir=trim(read_neq_dir)    
+
+    file_name=reg(read_neq_dir)//"neq_lgrA_constrSL.data"
+    inquire(file=file_name,exist=read_check)
+    if(read_check) then     
+       unit=free_unit()
+       open(unit,file=file_name,status='old')
+       !
+       ios=0
+       ir=Ns*Ns
+       iq=Ns*(Ns-1)/2
+       allocate(dump_vect(ir)) !+- lenght of the array used to dump file
+       neq_lgrA = zero
+       do it=1,Ntgf
+          read(unit,*,iostat=ios) tmpt,dump_vect(1:ir) !HERE
+          i=0
+          do is=1,Ns
+             i=i+1
+             !+-diagonal [only real]
+             neq_lgrA(it+Nt0-1,is,is) = dump_vect(i) 
+          end do
+          do is=1,Ns
+             do js=is+1,Ns 
+                i=i+1
+                !+- upper diagonal 
+                neq_lgrA(it+Nt0-1,is,js) = dump_vect(i) + xi*dump_vect(i+iq)
+             end do
+          end do
+          do is=1,Ns
+             do js=1,is-1
+                !+- hermitean part
+                neq_lgrA(it+Nt0-1,is,js) = conjg(neq_lgrA(it+Nt0-1,js,is))
+             end do
+          end do
+          if(abs(tmpt-t_grid(it+Nt0-1)).gt.1.d-8) stop "file to read and given tstep not compatibles"
+       end do
+       !+- continuation to the trivial dynamics case
+       do it=1,Nt0-1
+          neq_lgrA(it,:,:) = neq_lgrA(Nt0,:,:)
+       end do
+       close(unit)
+       deallocate(dump_vect)
+    else
+       write(*,*) "file ",file_name,"  not present!"
+       stop
+    end if
+    !
+    open(unit,file='neq_lgrA_constrSL_read.data')
+    do it=1,Nttgf
+       !
+       call write_hermitean_matrix(neq_lgrA(it,:,:),unit,t_grid(it))
+       !
+    end do
+    close(unit)
+
+  end subroutine read_neq_lgr
+
+
+
+
+
+
 
 
 

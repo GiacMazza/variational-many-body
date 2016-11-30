@@ -10,7 +10,7 @@ MODULE GZ_VARS_INPUT
   real(8)              ::  Jh !hund's coupling
   real(8)              :: Jsf,Jph
   real(8)              :: xmu
-  real(8),parameter    :: beta=10000.d0
+  real(8)              :: beta
   integer,parameter    :: lw=512
   real(8)              :: wini,wfin
   logical              :: slater_store
@@ -73,6 +73,7 @@ contains
     call parse_input_variable(wini,"WINI",INPUTunit,default=-10.d0)
     call parse_input_variable(wfin,"WFIN",INPUTunit,default=10.d0)
     call parse_input_variable(slater_store,"SLATER_STORE",INPUTunit,default=.false.)
+    call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0)  !+- fictitious temperature
     !
     call parse_input_variable(Nt,"NT",INPUTunit,default=100)
     call parse_input_variable(tstart,"TSTART",INPUTunit,default=0.d0)

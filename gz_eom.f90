@@ -1503,6 +1503,8 @@ contains
 end function gz_eom_superc_lgrSLGZ
 
 
+
+
 !+------------------------------------------+!
 !+- OBSOLETE ROUTINES; KEEP FOR THE MOMENT -+!
 !+- OLD EsOM in cui i lgr parameters sono risolti separatamente per SL e GZ (per il momento lasciare)

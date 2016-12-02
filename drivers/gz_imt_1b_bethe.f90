@@ -7,7 +7,8 @@ program GUTZ_mb
   !
   USE GZ_AUX_FUNX
   USE GZ_neqAUX_FUNX
-  USE GZ_DYNAMICS
+!  USE GZ_DYNAMICS
+  USE GZ_imtDYNAMICS
   USE GZ_VARS_GLOBAL
   USE GZ_LOCAL_FOCK
   USE GZ_LOCAL_HAMILTONIAN
@@ -18,32 +19,32 @@ program GUTZ_mb
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t,r,s,tmpU
-  integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin
+  integer :: Nx,out_unit,is,js,ik,im_it,itt,i,iorb,ispin
   integer :: nprint
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir,read_finSC_dir
   complex(8),dimension(:,:,:),allocatable :: slater_init
   complex(8),dimension(:),allocatable     :: gz_proj_init
   !
-  complex(8),dimension(:,:),allocatable :: bcs_wf
   !
   complex(8),dimension(:),allocatable     :: psi_t
-  real(8),dimension(:,:),allocatable      :: Ut 
+  complex(8),dimension(:,:),allocatable     :: lgr_NC
+  real(8) :: lgrU
   !
-  integer :: unit_neq_hloc
-  integer :: unit_neq_local_dens
-  integer :: unit_neq_local_dens_dens
-  integer :: unit_neq_ene
-  integer :: unit_neq_dens_constrSL
-  integer :: unit_neq_dens_constrGZ
-  integer :: unit_neq_dens_constrSLa
-  integer :: unit_neq_dens_constrGZa
-  integer :: unit_neq_constrU
-  integer :: unit_neq_Rhop
-  integer :: unit_neq_Qhop
-  integer :: unit_neq_AngMom
-  integer :: unit_neq_sc_order
-  integer :: unit_neq_nqp
+  integer :: unit_imt_hloc
+  integer :: unit_imt_local_dens
+  integer :: unit_imt_local_dens_dens
+  integer :: unit_imt_ene
+  integer :: unit_imt_dens_constrSL
+  integer :: unit_imt_dens_constrGZ
+  integer :: unit_imt_dens_constrSLa
+  integer :: unit_imt_dens_constrGZa
+  integer :: unit_imt_constrU
+  integer :: unit_imt_Rhop
+  integer :: unit_imt_Qhop
+  integer :: unit_imt_AngMom
+  integer :: unit_imt_sc_order
+  integer :: unit_imt_nqp
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -57,130 +58,107 @@ program GUTZ_mb
   real(8),dimension(3)                  :: energies
   !
   real(8),dimension(:),allocatable      :: dump_vect
-  real(8) :: fin_sc_dir
-  real(8) :: Uneq,Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU,dUneq
   !
-  call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
+  real(8) :: itstart,itstop
+  !
+  
+  !
+  call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)  
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
-  !call parse_input_variable(read_dir,"READ_GZ_BASIS_DIR","inputGZ.conf",default='~/etc_local/GZ_basis/')
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
-  call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
-  !
-  call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=0.d0) 
-  call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
-  call parse_input_variable(tStart_neqU,"TSTART_NEQU","inputGZ.conf",default=0.d0)
-  call parse_input_variable(tRamp_neqU,"TRAMP_NEQU","inputGZ.conf",default=0.d0)  
-  call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
-  call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=0.d0) 
-  !
+  call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)
+
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
   !
-
-  
   Norb=1
   wf_symmetry=0
   call initialize_local_fock_space  
   call init_variational_matrices(wf_symmetry)
   !
-
-  
-
-  call build_lattice_model; get_Hk_t => getHk
+  call build_lattice_model
+  Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
+  !
   allocate(eLevels(Ns)); eLevels=0.d0
   !
   !+- INITIALIZE TIME GRIDS -+!
-  Nt_aux=2*Nt+1
+  Nit_aux=2*Nit+1
   allocate(t_grid(Nt),t_grid_aux(Nt_aux))
   !
-  t_grid = linspace(tstart,tstep*real(Nt-1,8),Nt)
-  t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
+  itstart = beta_init
+  itstop = beta_init + itstep*real(Nit-1)
+  t_grid = linspace(itstart,itstop,Nit)
   !
+  itstart = beta_init
+  itstop = beta_init + itstep*0.5d0*real(Nit_aux-1)
+  t_grid_aux = linspace(itstart,itstop,Nit_aux)
 
-  allocate(Ut(3,Nt_aux))  
-  do itt=1,Nt_aux
-     t = t_grid_aux(itt) 
-     !
-     if(t.lt.tStart_neqU) then
-        r=0.d0
-     else
-        if(t.lt.tStart_neqU+tRamp_neqU) then
-           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
-        else
-           r = 1.d0 
-        end if
-     end if
-     !
-     if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
-        s = 1.d0
-     else
-        s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
-     end if
-     !
-     tmpU = Uneq0 + r*(Uneq*s-Uneq0)
-     !
-     Ut(:,itt) = Uneq0 + r*(Uneq*s-Uneq0)
+  do im_it=1,Nit
+     write(245,*) t_grid(im_it)
+  end do
+  do im_it=1,Nit_aux
+     write(246,*) t_grid_aux(im_it)
   end do
   !
-  call setup_neq_hamiltonian(Uloc_t_=Ut)
   !
-  unit_neq_hloc = free_unit()
-  open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
-  !
-  do itt=1,Nt_aux
-     write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
-  end do
-  close(unit_neq_hloc)
+  call setup_imt_hamiltonian
   !
 
   !
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  nDynamics = Ns*Ns*Lk + Nphi
+  nDynamics = Nphi
   allocate(psi_t(nDynamics))
   allocate(slater_init(Ns,Ns,Lk),gz_proj_init(Nphi))  
   !
   call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
-  call wfMatrix_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
+  psi_t = gz_proj_init
+  allocate(lgr_NC(Ns,Ns));lgr_NC=zero
+  lgrU=0.d0
+  call init_imt_qpH(beta_init,gz_proj_init)
   !
-  it=1
-  Uloc=Uloc_t(:,it)
-  Ust =Ust_t(it)
-  Jh=Jh_t(it)
-  Jsf=Jsf_t(it)
-  Jph=Jph_t(it)
-  eLevels = eLevels_t(:,it)
   !
+  
+  !call wfMatrix_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
+  !
+  ! it=1
+  ! Uloc=Uloc_t(:,it)
+  ! Ust =Ust_t(it)
+  ! Jh=Jh_t(it)
+  ! Jsf=Jsf_t(it)
+  ! Jph=Jph_t(it)
+  eLevels = 0.d0
+  ! !
   call get_local_hamiltonian_trace(eLevels)      
   !
-  call setup_neq_dynamics
+  call setup_imt_dynamics
   !    
-  unit_neq_Rhop = free_unit()
-  open(unit_neq_Rhop,file='neq_Rhop_matrix.data')
+  unit_imt_Rhop = free_unit()
+  open(unit_imt_Rhop,file='imt_Rhop_matrix.data')
   !
-  unit_neq_local_dens = free_unit()
-  open(unit_neq_local_dens,file='neq_local_density_matrix.data')
+  unit_imt_local_dens = free_unit()
+  open(unit_imt_local_dens,file='imt_local_density_matrix.data')
   !
-  unit_neq_local_dens_dens = free_unit()
-  open(unit_neq_local_dens_dens,file='neq_local_dens_dens.data')
+  unit_imt_local_dens_dens = free_unit()
+  open(unit_imt_local_dens_dens,file='imt_local_dens_dens.data')
   !
-  unit_neq_ene = free_unit()
-  open(unit_neq_ene,file='neq_energy.data')
+  unit_imt_ene = free_unit()
+  open(unit_imt_ene,file='imt_energy.data')
   !
-  unit_neq_dens_constrSL = free_unit()
-  open(unit_neq_dens_constrSL,file='neq_dens_constrSL.data')
+  unit_imt_dens_constrSL = free_unit()
+  open(unit_imt_dens_constrSL,file='imt_dens_constrSL.data')
   !
-  unit_neq_dens_constrGZ = free_unit()
-  open(unit_neq_dens_constrGZ,file='neq_dens_constrGZ.data')
+  unit_imt_dens_constrGZ = free_unit()
+  open(unit_imt_dens_constrGZ,file='imt_dens_constrGZ.data')
   !
-  unit_neq_constrU = free_unit()
-  open(unit_neq_constrU,file='neq_constrU.data')
+  unit_imt_constrU = free_unit()
+  open(unit_imt_constrU,file='imt_constrU.data')
   !
-  unit_neq_AngMom = free_unit()
-  open(unit_neq_AngMom,file='neq_AngMom.data')
+  unit_imt_AngMom = free_unit()
+  open(unit_imt_AngMom,file='imt_AngMom.data')
   !
-  unit_neq_sc_order = free_unit()
-  open(unit_neq_sc_order,file='neq_sc_order.data')
+  unit_imt_sc_order = free_unit()
+  open(unit_imt_sc_order,file='imt_sc_order.data')
   !
   allocate(Rhop_matrix(Ns,Ns))
   allocate(local_density_matrix(Ns,Ns))
@@ -190,43 +168,46 @@ program GUTZ_mb
   allocate(dump_vect(Ns*Ns))
 
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
-  do it=1,Nt
-     write(*,*) it,Nt
+  do im_it=1,Nit
+     write(*,*) im_it,Nit
      !
-     t=t_grid(it)
+     t=t_grid(im_it)
      !
-     if(mod(it-1,nprint).eq.0) then        
+     if(mod(im_it-1,nprint).eq.0) then        
         !
-        call gz_neq_measure(psi_t,t)
+        call gz_imt_measure(psi_t,t)
         !
         do is=1,Ns
            do js=1,Ns
-              call get_neq_Rhop(is,js,Rhop_matrix(is,js))              
-              call get_neq_local_dens(is,js,local_density_matrix(is,js))              
-              call get_neq_local_dens_dens(is,js,local_dens_dens(is,js))              
-              call get_neq_dens_constr_slater(is,js,dens_constrSL(is,js))
-              call get_neq_dens_constr_gzproj(is,js,dens_constrGZ(is,js))              
+              call get_imt_Rhop(is,js,Rhop_matrix(is,js))              
+              call get_imt_local_dens(is,js,local_density_matrix(is,js))              
+              call get_imt_local_dens_dens(is,js,local_dens_dens(is,js))              
+              call get_imt_dens_constr_slater(is,js,dens_constrSL(is,js))
+              call get_imt_dens_constr_gzproj(is,js,dens_constrGZ(is,js))              
            end do
         end do
         !
-        call get_neq_energies(energies)
-        call get_neq_local_angular_momenta(local_angular_momenta)
-        call get_neq_unitary_constr(unitary_constr)
+        call get_imt_energies(energies)
+        call get_imt_local_angular_momenta(local_angular_momenta)
+        call get_imt_unitary_constr(unitary_constr)
         !
-        call write_complex_matrix_grid(Rhop_matrix,unit_neq_Rhop,print_grid_Rhop,t)
+        call write_complex_matrix_grid(Rhop_matrix,unit_imt_Rhop,print_grid_Rhop,t)
         !
-        call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
-        call write_hermitean_matrix(dens_constrSL,unit_neq_dens_constrSL,t)
-        call write_hermitean_matrix(dens_constrGZ,unit_neq_dens_constrGZ,t)
-        call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
-        call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
-        write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
-        write(unit_neq_ene,'(10F18.10)') t,energies
-        write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
+        call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,t)
+        call write_hermitean_matrix(dens_constrSL,unit_imt_dens_constrSL,t)
+        call write_hermitean_matrix(dens_constrGZ,unit_imt_dens_constrGZ,t)
+        call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,t)
+        call write_symmetric_matrix(local_dens_dens,unit_imt_local_dens_dens,t)
+        write(unit_imt_AngMom,'(10F18.10)') t,local_angular_momenta
+        write(unit_imt_ene,'(10F18.10)') t,energies
+        write(unit_imt_constrU,'(10F18.10)') t,unitary_constr
         !        
      end if
      !
-     psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
+
+     call  step_imt_dynamics(nDynamics,tstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom) 
+     !
+     !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
      !
   end do
   !
@@ -315,14 +296,6 @@ CONTAINS
   end subroutine build_lattice_model
 
 
-  subroutine getHk(Hk,ik,time)
-    complex(8),dimension(:,:) :: Hk
-    integer                   :: ik
-    real(8)                   :: time
-    if(size(Hk,1).ne.size(Hk,2)) stop "wrong dimenions in getHk"
-    if(size(Hk,1).ne.Ns) stop "wrong dimenions in getHk"
-    Hk = Hk_tb(:,:,ik)
-  end subroutine getHk
 
 
 
@@ -330,133 +303,133 @@ CONTAINS
 
 
 
-  subroutine print_output(vdm_simplex,vdm_opt)
-    real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
-    real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),optional :: vdm_opt
-    integer :: out_unit,istate,jstate,iorb,iphi,ifock,jfock,is,js,ik
-    integer,dimension(Ns) :: fock_state
-    complex(8),dimension(Ns) :: tmp
-    real(8) :: deltani,delta_tmp,vdm_tmp
+  ! subroutine print_output(vdm_simplex,vdm_opt)
+  !   real(8),dimension(Ns+1,Ns),optional :: vdm_simplex
+  !   real(8),dimension(Nvdm_NC_opt-Nvdm_NCoff_opt),optional :: vdm_opt
+  !   integer :: out_unit,istate,jstate,iorb,iphi,ifock,jfock,is,js,ik
+  !   integer,dimension(Ns) :: fock_state
+  !   complex(8),dimension(Ns) :: tmp
+  !   real(8) :: deltani,delta_tmp,vdm_tmp
 
-    real(8),dimension(nFock,nFock) :: test_full_phi
+  !   real(8),dimension(nFock,nFock) :: test_full_phi
 
-    !+- STORE GZ PROJECTORS -+!
-    out_unit=free_unit()
-    open(out_unit,file='optimized_projectors.data')
-    test_full_phi=0.d0
-    do iphi=1,Nphi
-       !
-       test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
-       write(out_unit,'(2F18.10)') GZ_vector(iphi)
-    end do
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    do ifock=1,nFock
-       do jfock=1,nFock
-          write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
-       end do
-    end do
-    close(out_unit)    
+  !   !+- STORE GZ PROJECTORS -+!
+  !   out_unit=free_unit()
+  !   open(out_unit,file='optimized_projectors.data')
+  !   test_full_phi=0.d0
+  !   do iphi=1,Nphi
+  !      !
+  !      test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
+  !      write(out_unit,'(2F18.10)') GZ_vector(iphi)
+  !   end do
+  !   write(out_unit,*) '!+-----------------------------+!'
+  !   write(out_unit,*) '!+-----------------------------+!'
+  !   write(out_unit,*) '!+-----------------------------+!'
+  !   do ifock=1,nFock
+  !      do jfock=1,nFock
+  !         write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
+  !      end do
+  !   end do
+  !   close(out_unit)    
 
-    !+- STORE SLATER DETERMINANT -+!
-    do is=1,Ns
-       do js=1,Ns
-          out_unit=free_unit()
-          open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
-          do ik=1,Lk
-             write(out_unit,'(2F18.10)') dreal(GZ_opt_slater(is,js,ik)),dimag(GZ_opt_slater(is,js,ik))
-          end do
-          close(out_unit)
-       end do
-    end do
+  !   !+- STORE SLATER DETERMINANT -+!
+  !   do is=1,Ns
+  !      do js=1,Ns
+  !         out_unit=free_unit()
+  !         open(out_unit,file='optimized_slater_normal_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
+  !         do ik=1,Lk
+  !            write(out_unit,'(2F18.10)') dreal(GZ_opt_slater(is,js,ik)),dimag(GZ_opt_slater(is,js,ik))
+  !         end do
+  !         close(out_unit)
+  !      end do
+  !   end do
 
 
-    !
-    out_unit=free_unit()
-    open(out_unit,file='optimized_internal_energy.data')
-    write(out_unit,'(5F18.10)') GZ_opt_energy,GZ_opt_kinetic,GZ_opt_Eloc
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='optimized_variational_density_matrix.data')
-    write(out_unit,*) 'NORMAL VDM'
-    do istate=1,Ns
-       tmp(istate)=GZ_opt_VDM(istate,istate)
-       write(out_unit,'(20F18.10)') GZ_opt_VDM(istate,:)
-    end do
-    write(out_unit,*) ! on the last line store the diagonal elements
-    write(out_unit,'(20F18.10)') tmp(1:Ns)
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='optimized_Rhop_matrix.data')
-    do istate=1,Ns
-       tmp(istate)=GZ_opt_Rhop(istate,istate)
-       write(out_unit,'(20F18.10)') GZ_opt_Rhop(istate,1:Ns)
-    end do
-    write(out_unit,*) ! on the last line store the diagonal elements
-    write(out_unit,'(20F18.10)') tmp(1:Ns)
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='optimized_density.data')
-    do istate=1,Ns
-       write(out_unit,'(20F18.10)') gz_dens_matrix(istate,1:Ns)
-    end do
-    write(out_unit,*) ! on the last line store the diagonal elements
-    write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='local_density_density.data')
-    do is=1,Ns
-       write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
-    end do
-    close(out_unit)
-    !
-    out_unit=free_unit()
-    open(out_unit,file='local_angular_momenta.data')
-    write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
-    close(out_unit)
-    !
-    if(present(vdm_simplex)) then
-       out_unit=free_unit()
-       open(out_unit,file='vdm_simplex.restart')
-       do jstate=1,Ns+1
-          if(jstate.le.Ns) then
-             do istate=1,Ns
-                write(out_unit,'(20F18.10)') vdm_simplex(jstate,istate)
-             end do
-             if(jstate.le.Ns) write(out_unit,*)  'x'
-          else
-             do istate=1,Ns
-                deltani=vdm_simplex(jstate,istate)-0.5
-                if(deltani.gt.0.d0) then
-                   delta_tmp=0.9999-vdm_simplex(jstate,istate)
-                   vdm_tmp=vdm_simplex(jstate,istate)+delta_tmp*0.1
-                   write(out_unit,'(20F18.10)') vdm_tmp
-                else
-                   delta_tmp=vdm_simplex(jstate,istate)-0.0001
-                   vdm_tmp=vdm_simplex(jstate,istate)-delta_tmp*0.1
-                   write(out_unit,'(20F18.10)') vdm_tmp
-                end if
-             end do
-          end if
-       end do
-       close(out_unit)
-    end if
-    !
-    if(present(vdm_opt)) then
-       out_unit=free_unit()
-       open(out_unit,file='vdm_seed.restart')
-       do istate=1,Nvdm_NC_opt-Nvdm_NCoff_opt
-          write(out_unit,'(10F18.10)')  vdm_opt(istate)
-       end do
-       close(out_unit)
-    end if
+  !   !
+  !   out_unit=free_unit()
+  !   open(out_unit,file='optimized_internal_energy.data')
+  !   write(out_unit,'(5F18.10)') GZ_opt_energy,GZ_opt_kinetic,GZ_opt_Eloc
+  !   close(out_unit)
+  !   !
+  !   out_unit=free_unit()
+  !   open(out_unit,file='optimized_variational_density_matrix.data')
+  !   write(out_unit,*) 'NORMAL VDM'
+  !   do istate=1,Ns
+  !      tmp(istate)=GZ_opt_VDM(istate,istate)
+  !      write(out_unit,'(20F18.10)') GZ_opt_VDM(istate,:)
+  !   end do
+  !   write(out_unit,*) ! on the last line store the diagonal elements
+  !   write(out_unit,'(20F18.10)') tmp(1:Ns)
+  !   close(out_unit)
+  !   !
+  !   out_unit=free_unit()
+  !   open(out_unit,file='optimized_Rhop_matrix.data')
+  !   do istate=1,Ns
+  !      tmp(istate)=GZ_opt_Rhop(istate,istate)
+  !      write(out_unit,'(20F18.10)') GZ_opt_Rhop(istate,1:Ns)
+  !   end do
+  !   write(out_unit,*) ! on the last line store the diagonal elements
+  !   write(out_unit,'(20F18.10)') tmp(1:Ns)
+  !   close(out_unit)
+  !   !
+  !   out_unit=free_unit()
+  !   open(out_unit,file='optimized_density.data')
+  !   do istate=1,Ns
+  !      write(out_unit,'(20F18.10)') gz_dens_matrix(istate,1:Ns)
+  !   end do
+  !   write(out_unit,*) ! on the last line store the diagonal elements
+  !   write(out_unit,'(20F18.10)') gz_dens(1:Ns)    
+  !   close(out_unit)
+  !   !
+  !   out_unit=free_unit()
+  !   open(out_unit,file='local_density_density.data')
+  !   do is=1,Ns
+  !      write(out_unit,'(20F18.10)') gz_dens_dens(is,:)
+  !   end do
+  !   close(out_unit)
+  !   !
+  !   out_unit=free_unit()
+  !   open(out_unit,file='local_angular_momenta.data')
+  !   write(out_unit,'(20F18.10)') gz_spin2,gz_spinZ,gz_isospin2,gz_isospinZ
+  !   close(out_unit)
+  !   !
+  !   if(present(vdm_simplex)) then
+  !      out_unit=free_unit()
+  !      open(out_unit,file='vdm_simplex.restart')
+  !      do jstate=1,Ns+1
+  !         if(jstate.le.Ns) then
+  !            do istate=1,Ns
+  !               write(out_unit,'(20F18.10)') vdm_simplex(jstate,istate)
+  !            end do
+  !            if(jstate.le.Ns) write(out_unit,*)  'x'
+  !         else
+  !            do istate=1,Ns
+  !               deltani=vdm_simplex(jstate,istate)-0.5
+  !               if(deltani.gt.0.d0) then
+  !                  delta_tmp=0.9999-vdm_simplex(jstate,istate)
+  !                  vdm_tmp=vdm_simplex(jstate,istate)+delta_tmp*0.1
+  !                  write(out_unit,'(20F18.10)') vdm_tmp
+  !               else
+  !                  delta_tmp=vdm_simplex(jstate,istate)-0.0001
+  !                  vdm_tmp=vdm_simplex(jstate,istate)-delta_tmp*0.1
+  !                  write(out_unit,'(20F18.10)') vdm_tmp
+  !               end if
+  !            end do
+  !         end if
+  !      end do
+  !      close(out_unit)
+  !   end if
+  !   !
+  !   if(present(vdm_opt)) then
+  !      out_unit=free_unit()
+  !      open(out_unit,file='vdm_seed.restart')
+  !      do istate=1,Nvdm_NC_opt-Nvdm_NCoff_opt
+  !         write(out_unit,'(10F18.10)')  vdm_opt(istate)
+  !      end do
+  !      close(out_unit)
+  !   end if
 
-  end subroutine print_output
+  ! end subroutine print_output
 
 
 
@@ -475,7 +448,7 @@ CONTAINS
     do iorb=1,Norb
        do ispin=1,2
           is=index(ispin,iorb)
-          Rhop_mat(is,is) = Rhop_indep(iorb)
+          Rhop_mat(is,is) = Rhop_indep(1)
        end do
     end do
     !
@@ -492,8 +465,6 @@ CONTAINS
     !
     ispin=1;iorb=1;is=index(ispin,iorb)
     Rhop_indep(1)=Rhop_mat(is,is)
-    ispin=1;iorb=2;is=index(ispin,iorb)
-    Rhop_indep(2)=Rhop_mat(is,is)
     !
   end subroutine Rhop_mat2vec
 
@@ -511,7 +482,7 @@ CONTAINS
     do iorb=1,Norb
        do ispin=1,2
           is=index(ispin,iorb)
-          vdm_NC_mat(is,is) = vdm_NC_indep(iorb)
+          vdm_NC_mat(is,is) = vdm_NC_indep(1)
        end do
     end do
     !
@@ -526,8 +497,6 @@ CONTAINS
     !
     ispin=1;iorb=1;is=index(ispin,iorb)
     vdm_NC_indep(1)=vdm_NC_mat(is,is)
-    ispin=1;iorb=2;is=index(ispin,iorb)
-    vdm_NC_indep(2)=vdm_NC_mat(is,is)
     !
   end subroutine vdm_NC_mat2vec
 

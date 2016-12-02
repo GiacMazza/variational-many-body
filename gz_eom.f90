@@ -792,11 +792,11 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
         xtmp=slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
         if(xtmp/=zero) then
-           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(is,js),xtmp)    !+- sono una capra rara ?!?!
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)        
            xtmp=conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
-           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(js,js),xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(is,js),xtmp)  !+---> ma vero (no big deal???)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if
@@ -814,11 +814,11 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
         xtmp=slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         xtmp_=dreal(xtmp)**2.d0+dimag(xtmp)**2.d0
         if(xtmp/=zero) then
-           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(is,js),xtmp)    !+--> qui puo' essere un big deal
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
            xtmp=conjg(slater_derivatives(2,is,js)*Qhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
-           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(js,js),xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(is,js),xtmp) !+--> qui puo' essere un big deal, check ASAP
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if

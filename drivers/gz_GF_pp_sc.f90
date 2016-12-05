@@ -47,22 +47,22 @@ program GZ_GF
 
 
 
-  call parse_input_variable(Wband,"WBAND","inputGZgz.conf",default=2.d0)
-  call parse_input_variable(Nx,"Nx","inputGZgz.conf",default=1000)
-  call parse_input_variable(read_neq_dir,"READ_NEQ_DIR","inputGZgz.conf",default='./')
-  call parse_input_variable(Norb,"Norb","inputGZgz.conf",default=1)
-  call parse_input_variable(Ntgf,"NTGF","inputGZgz.conf",default=100)
-  call parse_input_variable(Nt0,"NT0","inputGZgz.conf",default=100)
-  call parse_input_variable(Nw,"Nw","inputGZgz.conf",default=200)
-  call parse_input_variable(Wrange,"WRANGE","inputGZgz.conf",default=2.d0)
-  call parse_input_variable(tstep,"TSTEP","inputGZgz.conf",default=1.d-2)
-  call parse_input_variable(gap0,"gap0","inputGZgz.conf",default=0.d0)
-  call parse_input_variable(read_gloc,"READ_GLOC","inputGZgz.conf",default=.false.)
-  call parse_input_variable(no_dynamics,"NO_DYN","inputGZgz.conf",default=.false.)
-  call parse_input_variable(add_lgrA,"ADD_LGR","inputGZgz.conf",default=.false.)
-  call parse_input_variable(deps,"DEPS","inputGZgz.conf",default=0.01d0)
+  call parse_input_variable(Wband,"WBAND","inputGFgz.conf",default=2.d0)
+  call parse_input_variable(Nx,"Nx","inputGFgz.conf",default=1000)
+  call parse_input_variable(read_neq_dir,"READ_NEQ_DIR","inputGFgz.conf",default='./')
+  call parse_input_variable(Norb,"Norb","inputGFgz.conf",default=1)
+  call parse_input_variable(Ntgf,"NTGF","inputGFgz.conf",default=100)
+  call parse_input_variable(Nt0,"NT0","inputGFgz.conf",default=100)
+  call parse_input_variable(Nw,"Nw","inputGFgz.conf",default=200)
+  call parse_input_variable(Wrange,"WRANGE","inputGFgz.conf",default=2.d0)
+  call parse_input_variable(tstep,"TSTEP","inputGFgz.conf",default=1.d-2)
+  call parse_input_variable(gap0,"GAP0","inputGFgz.conf",default=0.d0)
+  call parse_input_variable(read_gloc,"READ_GLOC","inputGFgz.conf",default=.false.)
+  call parse_input_variable(no_dynamics,"NO_DYN","inputGFgz.conf",default=.false.)
+  call parse_input_variable(add_lgrA,"ADD_LGR","inputGFgz.conf",default=.false.)
+  call parse_input_variable(deps,"DEPS","inputGFgz.conf",default=0.01d0)
 
-  if(mpiID==0) call save_input_file("inputGZgz.conf")
+  if(mpiID==0) call save_input_file("inputGFgz.conf")
 
   call initialize_local_fock_space    
   call build_lattice_model; get_Hk_t => getHk

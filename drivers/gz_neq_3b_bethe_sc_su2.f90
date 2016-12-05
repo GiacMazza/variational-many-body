@@ -75,7 +75,7 @@ program GUTZ_mb
   character(len=3) :: dUenv
   real(8),dimension(3) :: Uneq,dUneq
   real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
-  
+
 
   real(8) :: CFneq0,tStart_neqCF,tRamp_neqCF,tSin_neqCF
   real(8),dimension(3) :: CFneq,dCFneq
@@ -99,9 +99,9 @@ program GUTZ_mb
   integer,dimension(:),allocatable :: tmp_states,states210,ivec
   integer :: count_states,itest,nstate
 
-  integer :: Ntmp,itmp
+  integer :: Ntmp,itmp,it0
   !
-
+  real(8) :: tsave,x_re,x_im
 
 
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
@@ -120,7 +120,7 @@ program GUTZ_mb
   call parse_input_variable(tenv,"TENV","inputGZ.conf",default=0.d0)  
   call parse_input_variable(dU_tstop,"TSTOP","inputGZ.conf",default=0.d0)  
   call parse_input_variable(dU_tcenter,"TCENTER","inputGZ.conf",default=0.d0)  
-  
+
   call parse_input_variable(dUenv,"DUENV","inputGZ.conf",default='box')  
   call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=[0.d0,0.d0,0.d0]) 
@@ -141,6 +141,8 @@ program GUTZ_mb
   call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default='sl')  !possibilitie sl/sg/no
   call parse_input_variable(read_full_phi,"read_phi","inputGZ.conf",default=.false.)
+
+  call parse_input_variable(tsave,"TSAVE","inputGZ.conf",default=0.d0)
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -378,102 +380,117 @@ program GUTZ_mb
   allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi),gz_proj_matrix_init(nFock,nFock))
   allocate(slater_normal(Nsl_normal_opt,Lk),slater_anomalous(Nsl_anomalous_opt,Lk))  
   !
-  expected_flen=Nopt
-  inquire(file="RQn0_root_seed.conf",exist=seed_file)
-  if(seed_file) then
-     flen=file_length("RQn0_root_seed.conf")
-     unit=free_unit()
-     open(unit,file="RQn0_root_seed.conf")
-     write(*,*) 'reading equilibrium solution from file RQn0_root_seed.conf'
-     if(flen.eq.expected_flen) then
-        allocate(dump_seed(flen))
-        !+- read from file -+!
-        do i=1,flen
-           read(unit,*) dump_seed(i)
-        end do
-        !+------------------+!
-        !
-        it = 1
-        Uloc = Uloc_t(:,it)
-        Ust = Ust_t(it)
-        Jh = Jh_t(it)
-        Jsf = Jsf_t(it)
-        Jph = Jph_t(it)
-        eLevels = eLevels_t(:,it)
-        !
-        call get_local_hamiltonian_trace
-        !
-        allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
-        allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
-        slater_lgr_init=0.d0
-        gzproj_lgr_init=0.d0
-        call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        !
-        call get_gz_optimized_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-        !
-        call get_gz_ground_state_superc(GZ_vector)  
-        !
-        slater_init = GZ_opt_slater_superc
-        call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
-        gz_proj_init = GZ_vector
-        allocate(td_lgr(2,Ns,Ns))
-        td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
-        td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
-        !
-        call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
-        !
+
+  if(tsave==0.d0) then
+
+     expected_flen=Nopt
+     inquire(file="RQn0_root_seed.conf",exist=seed_file)
+     if(seed_file) then
+        flen=file_length("RQn0_root_seed.conf")
+        unit=free_unit()
+        open(unit,file="RQn0_root_seed.conf")
+        write(*,*) 'reading equilibrium solution from file RQn0_root_seed.conf'
+        if(flen.eq.expected_flen) then
+           allocate(dump_seed(flen))
+           !+- read from file -+!
+           do i=1,flen
+              read(unit,*) dump_seed(i)
+           end do
+           !+------------------+!
+           !
+           it = 1
+           Uloc = Uloc_t(:,it)
+           Ust = Ust_t(it)
+           Jh = Jh_t(it)
+           Jsf = Jsf_t(it)
+           Jph = Jph_t(it)
+           eLevels = eLevels_t(:,it)
+           !
+           call get_local_hamiltonian_trace
+           !
+           allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
+           allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
+           slater_lgr_init=0.d0
+           gzproj_lgr_init=0.d0
+           call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+           !
+           call get_gz_optimized_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+           !
+           call get_gz_ground_state_superc(GZ_vector)  
+           !
+           slater_init = GZ_opt_slater_superc
+           call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
+           gz_proj_init = GZ_vector
+           allocate(td_lgr(2,Ns,Ns))
+           td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
+           td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
+           !
+           call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
+           !
+        else
+           write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
+           write(*,*) 'please check your file for the optimized wavefunction'
+           stop
+        end if
      else
-        write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
-        write(*,*) 'please check your file for the optimized wavefunction'
-        stop
+        !
+        allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
+
+        if(read_full_phi) then
+           call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+           call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+        else
+           call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+           call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+           call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
+        end if
+
+
+        out_unit=free_unit()
+        open(out_unit,file='optimized_phi_matrix.data')
+        do ifock=1,nFock
+           do jfock=1,nFock
+              write(out_unit,*) dreal(gz_proj_matrix_init(ifock,jfock)),dimag(gz_proj_matrix_init(ifock,jfock)),ifock,jfock
+           end do
+        end do
+        close(out_unit)
+
+        open(out_unit,file='optimized_projectors.data')
+        do iphi=1,Nphi
+           write(out_unit,'(2F18.10)') gz_proj_init(iphi)
+        end do
+        close(out_unit)
+        call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
+        call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
      end if
   else
      !
-     allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
-
-     if(read_full_phi) then
-        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
-        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
-     else
-        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
-        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
-        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
-     end if
-
-
-     out_unit=free_unit()
-     open(out_unit,file='optimized_phi_matrix.data')
-     do ifock=1,nFock
-        do jfock=1,nFock
-           write(out_unit,*) dreal(gz_proj_matrix_init(ifock,jfock)),dimag(gz_proj_matrix_init(ifock,jfock)),ifock,jfock
+     flen=file_length("save_dynamics.data")
+     expected_flen = nDynamics
+     unit=free_unit()
+     open(unit,file="save_dynamics.data")
+     write(*,*) 'reading saved solution'
+     if(flen.eq.expected_flen) then
+        !+- read from file -+!
+        do i=1,flen
+           read(unit,*) x_re,x_im
+           psi_t(i) = x_re + xi*x_im
         end do
-     end do
-     close(out_unit)
-
-     open(out_unit,file='optimized_projectors.data')
-     do iphi=1,Nphi
-        write(out_unit,'(2F18.10)') gz_proj_init(iphi)
-     end do
-     close(out_unit)
-     !re-test the projector matrix !?!
-
-
-
-
-     ! td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
-     ! td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
-     call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
-     call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
-     it=1
-     Uloc=Uloc_t(:,it)
-     Ust =Ust_t(it)
-     Jh=Jh_t(it)
-     Jsf=Jsf_t(it)
-     Jph=Jph_t(it)
-     eLevels = eLevels_t(:,it)
-     call get_local_hamiltonian_trace(eLevels)      
+     else
+        stop "save_dynamics.data wrong length"
+     end if
      !
   end if
+
+
+  it=1
+  Uloc=Uloc_t(:,it)
+  Ust =Ust_t(it)
+  Jh=Jh_t(it)
+  Jsf=Jsf_t(it)
+  Jph=Jph_t(it)
+  eLevels = eLevels_t(:,it)
+  call get_local_hamiltonian_trace(eLevels)      
   !
   call setup_neq_dynamics_superc
   !    
@@ -536,7 +553,10 @@ program GUTZ_mb
   !+- local fock weights -+!
   allocate(weights_fock(count_states))  
   !*) ACTUAL DYNAMICS 
-  do it=1,Nt
+
+  it0=t2it(tsave,tstep)
+
+  do it=it0,Nt
      write(*,*) it,Nt
      !
      t=t_grid(it)

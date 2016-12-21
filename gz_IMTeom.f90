@@ -53,13 +53,14 @@ function gz_imt_equations_of_motion(time,y,Nsys) result(f)
      Hk = matmul(Rhop_hc,Hk)
      Hk = Hk + imt_lgrNC
 
-     if(ik.eq.10) write(*,'(10F18.10)') tmpHk(1,1),Hk_tb(1,1,ik),time,imt_tstep
-     tmpHk = tmpHk + 2.d0*(time-imt_tstep)*Hk !here add/or subtract the small increment integral !the two is important!!
-     if(ik.eq.10) then
-        write(*,*) tmpHk(1,1)
-        write(*,*)
-     end if
-
+     if(ik.eq.10) write(*,'(10F18.10)') gz_imt_qpH(ik,1,1),time-imt_tstep
+     if(ik.eq.10) write(455,'(10F18.10)') 2.d0*Hk(1,1)*(time-imt_tstep)
+     ! if(itstep.lt.0.d0) then
+     !    tmpHk = tmpHk - 2.d0*(time-imt_tstep)*Hk !here add/or subtract the small increment integral !the two is important!!
+     ! else
+     tmpHk = tmpHk + 2.d0*(time-imt_tstep)*Hk*0.5d0
+     tmpHk = tmpHk + 2.d0*(time-imt_tstep)*HKsave(ik,:,:)*0.5d0
+     ! end if
      !
      call matrix_diagonalize(tmpHk,tmp_eHk)       
      !
@@ -71,13 +72,13 @@ function gz_imt_equations_of_motion(time,y,Nsys) result(f)
            end do
         end do
      end do
-     !if(abs(time-999).lt.1.d-6) write(456,'(10F18.10)') slater(1,1,ik)
+     if(ik.eq.10) write(344,'(10F18.10)') time,slater(1,1,ik)
      !
      Hk=Hk-imt_lgrNC
      do is=1,Ns
         do js=1,Ns
            do ks=1,Ns
-              do kks=1,Ns
+              do kks=1,Ns                 
                  slater_derivatives(is,js) = slater_derivatives(is,js) + conjg(Rhop(kks,ks))*Hk(kks,is)*slater(ks,js,ik)*wtk(ik)
               end do
            end do
@@ -103,19 +104,17 @@ function gz_imt_equations_of_motion(time,y,Nsys) result(f)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
            xtmp=conjg(xtmp)
-           !xtmp=conjg(slater_derivatives(is,js))/sqrt(n0(js)*(1.d0-n0(js)))
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop_hc(is,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if
         xtmp=slater_derivatives(is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
         if(xtmp/=zero) then           
-           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(is,js),xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)   !js,js is right, capra!!
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)        
            xtmp=conjg(xtmp)
-           !xtmp=conjg(slater_derivatives(is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
-           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(is,js),xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(js,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
         end if
@@ -156,21 +155,17 @@ function gz_imt_eom(time,y,Nsys) result(f)
   !
   ! if(allocated(imt_lgrNC)) deallocate(imt_lgr)
   ! allocate(imt_lgrNC(Ns,Ns)); imt_lgrNC=zero
-  !
-  !HERE write the GZ EQUATIONS OF MOTION
-
   !   get the traces over the uncorrelated density distribution (as a function of the lagrange params)
   !   get the derivative of the Phi matrices, such that d/dt TR(Phi* Phi) = 0
   !   be in peace 
-
   ! modifications for the anomalous constriants: as before, with two more lgr params.
-
-
-
+  !
   if(Nsys.ne.nDynamics) stop "wrong dimensions in the GZ_equations_of_motion"
   !
   f = gz_imt_equations_of_motion(time,y,Nsys)
-  
+  !
+  !if(itstep.lt.0.d0) f=-f
+  !
   gzproj = y
   !
   tmpU = 0.d0
@@ -180,8 +175,11 @@ function gz_imt_eom(time,y,Nsys) result(f)
      tmpU_ = tmpU_ + conjg(gzproj(iphi))*f(iphi)
   end do
   imt_lgrU = tmpU_/tmpU
-  f = f - imt_lgrU*gzproj
-  f=-f !?!?!?!
+  f = f - imt_lgrU*gzproj 
+  !
+  !f=-f  !+- this is for the backwards step dynamics
+  write(567,'(10F18.10)') time,f
+  !
 end function gz_imt_eom
 
 
@@ -231,9 +229,7 @@ subroutine update_qpH_integral(yold,ynew,lgrNC_old,lgrNC_new)
      Hk = Hk + lgrNC_old
      gz_imt_qpH(ik,:,:) = gz_imt_qpH(ik,:,:) + 2.d0*Hk*itstep*0.5d0     
   end do
-
-
-
+  !
   gzproj = ynew
   do is=1,Ns
      do js=1,Ns
@@ -253,9 +249,10 @@ subroutine update_qpH_integral(yold,ynew,lgrNC_old,lgrNC_new)
      Hk = matmul(Hk_tb(:,:,ik),Rhop)
      Hk = matmul(Rhop_hc,Hk)
      Hk = Hk + lgrNC_new
-     gz_imt_qpH(ik,:,:) = gz_imt_qpH(ik,:,:) + 2.d0*Hk*itstep*0.5d0     
+     gz_imt_qpH(ik,:,:) = gz_imt_qpH(ik,:,:) + 2.d0*Hk*itstep*0.5d0
+     !
   end do
-
+  
 end subroutine update_qpH_integral
 
 

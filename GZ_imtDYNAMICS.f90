@@ -61,7 +61,7 @@ MODULE GZ_imtDYNAMICS
   real(8),dimension(:,:),allocatable    :: gz_imt_nqp        
   !
 
-  complex(8),dimension(:,:,:),allocatable :: gz_imt_qpH 
+  complex(8),dimension(:,:,:),allocatable :: gz_imt_qpH,Hksave
 
   complex(8),dimension(:,:),allocatable,public :: imt_lgrNC
   real(8) :: imt_lgrU
@@ -94,6 +94,7 @@ CONTAINS
     lgrNC = zero
     if(present(lgrNC_)) lgrNC = lgrNC_
     allocate(gz_imt_qpH(Lk,Ns,Ns)); gz_imt_qpH=zero
+    allocate(Hksave(Lk,Ns,Ns)); HKsave=zero
     !
     do is=1,Ns
        vdm_diag(is) = dreal(trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:)))
@@ -107,7 +108,7 @@ CONTAINS
        Hk=matmul(Rhop_hc,Hk)
        Hk=Hk+lgrNC       
        !
-       gz_imt_qpH(ik,:,:) = beta0*Hk
+       gz_imt_qpH(ik,:,:) = 2.d0*beta0*Hk  !+- il due, capra!!!
        !
     end do
   end subroutine init_imt_qpH
@@ -302,12 +303,13 @@ CONTAINS
     end do
     !
     itt=imt_t2it(itime,0.5d0*itstep,beta_init)
-    Uloc=Uloc_t(:,itt)
-    Ust =Ust_t(itt)
-    Jh=Jh_t(itt)
-    Jsf=Jsf_t(itt)
-    Jph=Jph_t(itt)
-    eLevels = eLevels_t(:,itt)
+    ! Uloc=Uloc_t(:,itt)
+    ! Ust =Ust_t(itt)
+    ! Jh=Jh_t(itt)
+    ! Jsf=Jsf_t(itt)
+    ! Jph=Jph_t(itt)
+    ! eLevels = eLevels_t(:,itt)
+    eLevels=0.d0
     !
     gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
     Eloc = 0.d0
@@ -331,6 +333,10 @@ CONTAINS
     !+- first thing first I have to exctract slater(is,js,ik) from the immaginary time integral of the QP hamiltonian
     do ik=1,Lk
        !
+
+       Hksave(ik,:,:) = matmul(Hk_tb(:,:,ik),gz_imt_rhop)
+       Hksave(ik,:,:) = matmul(conjg(transpose(gz_imt_rhop)),Hksave(ik,:,:))
+
        tmpHk= gz_imt_qpH(ik,:,:) 
        call matrix_diagonalize(tmpHk,tmp_eHk)       
        !
@@ -343,6 +349,8 @@ CONTAINS
           end do
        end do
        !
+
+       if(ik.eq.10) write(343,'(18F18.10)') itime,slater(1,1,ik)
     end do
     !
     gz_imt_dens_constr_slater=0.d0
@@ -407,7 +415,7 @@ CONTAINS
              end do
           end do
        end do
-       !
+       !       
     end do
     !
     gz_imt_dens_constr_slater=0.d0
@@ -846,46 +854,55 @@ CONTAINS
     end do
     !
     yt_old = yt
+
     lgrNC_old = itd_lgrNC
+    if(.not.allocated(imt_lgrNC)) allocate(imt_lgrNC(Ns,Ns))
+    imt_lgrNC=itd_lgrNC
     !
     ! delta_out = fix_anomalous_vdm(lgr)
     ! delta=0.d0
     ! do i=1,2*Nopt
     !    delta = delta + delta_out(i)**2.d0
     ! end do   
-    !
-    select case(lgr_method)
-    case('CG_min')
-       call fmin_cgminimize(lgr,imt_fix_constr_,iter,delta,ftol=1.d-04,itmax=20)    
-    case('f_zero')
-       call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
-    case default
-       call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
-    end select
-    !
-    delta_out = imt_fix_constr(lgr)
-    delta=0.d0
-    do i=1,2*Nopt
-       delta = delta + delta_out(i)**2.d0
-    end do
-    !
-    write(*,*) 'Immaginary Time Dynamics -> lagrange parameters'
-    write(*,*) lgr
-    write(*,*) delta
-    write(*,*)
-    !
-    yt=yt_new
-    !
-    lgr_cmplx=zero
-    do i=1,Nvdm_AC_opt
-       lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_NC_opt)
-    end do
-    call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC)
-    itd_lgrU = imt_lgrU !(computed in the derivative)
-    !
-    !
-    lgrNC_new = itd_lgrNC    
+    !    
+    yt_new = RK4_step(nDynamics,4,tstep,t,yt_old,eom_funct)
+    yt = yt_new
+
+    ! select case(lgr_method)
+    ! case('CG_min')
+    !    call fmin_cgminimize(lgr,imt_fix_constr_,iter,delta,ftol=1.d-04,itmax=20)    
+    ! case('f_zero')
+    !    call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
+    ! case default
+    !    call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
+    ! end select
+    ! !
+    ! delta_out = imt_fix_constr(lgr)
+    ! delta=0.d0
+    ! do i=1,2*Nopt
+    !    delta = delta + delta_out(i)**2.d0
+    ! end do
+    ! !
+    ! write(*,*) 'Immaginary Time Dynamics -> lagrange parameters'
+    ! write(*,*) lgr
+    ! write(*,*) delta
+    ! write(*,*)
+    ! !
+    ! yt=yt_new
+    ! !
+    ! lgr_cmplx=zero
+    ! do i=1,Nvdm_AC_opt
+    !    lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_NC_opt)
+    ! end do
+    ! call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC)
+    ! itd_lgrU = imt_lgrU !(computed in the derivative)
+    ! !
+    ! !
+    ! lgrNC_new = itd_lgrNC    
+    lgrNC_new = lgrNC_old
+    write(600,'(10F18.10)') t,gz_imt_qpH(10,1,1),gz_imt_qpH(30,1,1)
     call update_qpH_integral(yt_old,yt_new,lgrNC_old,lgrNC_new)
+    write(601,'(10F18.10)') t,gz_imt_qpH(10,1,1),gz_imt_qpH(30,1,1)
     !    
     !
   contains
@@ -910,7 +927,7 @@ CONTAINS
       end do
       call vdm_NC_stride_v2m(lgr_cmplx,imt_lgrNC)
       !
-      yt_new = RK_step(nDynamics,4,itstep,t,yt_old,eom_funct)
+      yt_new = RK4_step(nDynamics,4,itstep,t,yt_old,eom_funct)
       !
       call gz_imt_measure_constr(yt_new,t) 
       !

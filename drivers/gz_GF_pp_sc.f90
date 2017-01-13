@@ -85,10 +85,12 @@ program GZ_GF
   call MPI_BCAST(neq_Qhop,Nttgf*Ns*Ns,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,MPIerr)
   call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
   
-  if(mpiID==0) call read_neq_lgr(read_neq_dir,neq_lgrA)
+
+  if(mpiID==0.and.add_lgrA) call read_neq_lgr(read_neq_dir,neq_lgrA)
+  !
   call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)  
   call MPI_BCAST(neq_lgrA,Nttgf*Ns*Ns,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,MPIerr)
-  call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)
+  call MPI_BARRIER(MPI_COMM_WORLD,MPIerr)  
   !
   !
   !
@@ -96,7 +98,7 @@ program GZ_GF
      do it=1,Nttgf
         neq_Rhop(it,:,:) = neq_Rhop(Nt0,:,:)*(cos(gap0*t_grid(it))-xi*sin(gap0*t_grid(it)))
         neq_Qhop(it,:,:) = neq_Qhop(Nt0,:,:)*(cos(gap0*t_grid(it))+xi*sin(gap0*t_grid(it)))
-        neq_lgrA(it,:,:) = zero!neq_lgrA(Nt0,:,:)
+        neq_lgrA(it,:,:) = zero
      end do
   end if
   !
@@ -107,14 +109,10 @@ program GZ_GF
      call read_gloc_tt(read_neq_dir,Gloc_ret_tt)             
   else
      if(add_lgrA) then
-        !call gz_get_Gloc_ret_superc_mpi(neq_Rhop,neq_Qhop,Gloc_ret_tt_,neq_lgrA)
-        !call gz_get_Gloc_ret_superc_mpi(neq_Rhop,neq_Qhop,Gloc_ret_tt)
         call gz_get_Gloc_ret_superc_mpik(neq_Rhop,neq_Qhop,Gloc_ret_tt,neq_lgrA)
      else
         call gz_get_Gloc_ret_superc_mpik(neq_Rhop,neq_Qhop,Gloc_ret_tt)
-        !call gz_get_Gloc_ret_superc_diag_hk(neq_Rhop,neq_Qhop,Gloc_ret_tt_)
      end if
-     !Gloc_ret_tt=Gloc_ret_tt_(:,:,1:Ns,1:Ns) 
   end if
   !
   !
@@ -539,14 +537,14 @@ contains
           ! neq_Rhop(it,:,:) = neq_Rhop(Ntgf,:,:)
           ! t_grid(it) = -t_grid(2*Ntgf-it)
        end do
-
+       !
        !<TMP
        ! do it=1,2*Ntgf-1
        !    neq_Rhop(it,:,:) = neq_Rhop(Ntgf,:,:)*(cos(gap0*t_grid(it))-xi*sin(gap0*t_grid(it)))
        !    neq_Qhop(it,:,:) = neq_Qhop(Ntgf,:,:)*(cos(gap0*t_grid(it))-xi*sin(gap0*t_grid(it)))
        ! end do       
        !TMP>
-
+       !
        close(unit)
        deallocate(dump_vect)
     else

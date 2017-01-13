@@ -19,7 +19,7 @@ program GUTZ_mb
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t
-  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,ispin,unit,ifock,jfock,iphi,idyn
+  integer :: Nx,out_unit,is,js,ik,it,itt,i,j,iorb,jorb,ispin,unit,ifock,jfock,iphi,idyn
   integer :: nprint,nsave
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir
@@ -50,6 +50,8 @@ program GUTZ_mb
   integer :: unit_neq_AngMom
   integer :: unit_neq_sc_order
   integer :: unit_neq_weights
+  integer :: unit_neq_pair_hopp
+  integer :: unit_neq_spin_flip
   integer :: unit_save
   integer :: unit_lgrA_sl
   integer :: unit_lgrA_gz
@@ -63,6 +65,8 @@ program GUTZ_mb
   complex(8),dimension(:,:,:),allocatable :: dens_constrGZ
   complex(8),dimension(:,:),allocatable :: lgrA_constrSL
   complex(8),dimension(:,:),allocatable :: lgrA_constrGZ
+  complex(8),dimension(:,:),allocatable :: pair_hopp
+  complex(8),dimension(:,:),allocatable :: spin_flip
   real(8)                               :: unitary_constr
   real(8),dimension(4)                  :: local_angular_momenta
   real(8),dimension(3)                  :: energies
@@ -151,7 +155,11 @@ program GUTZ_mb
      wf_symmetry=0
   end if
   !
+
   call initialize_local_fock_space
+
+
+
 
   allocate(tmp_states(nFock),ivec(Ns))
   count_states=0
@@ -177,15 +185,13 @@ program GUTZ_mb
      call bdecomp(states210(i),ivec)
      write(out_unit,*) ivec,'   ',states210(i)
   end do
+
+  call build_lattice_model; get_Hk_t => getHk
+  allocate(eLevels(Ns)); eLevels=0.d0
   !
   !
   !
   call init_variational_matrices(wf_symmetry,read_dir_=read_dir)    
-  !
-  !
-  !
-  call build_lattice_model; get_Hk_t => getHk
-  allocate(eLevels(Ns)); eLevels=0.d0
   !
   !
   !
@@ -381,107 +387,106 @@ program GUTZ_mb
   allocate(slater_normal(Nsl_normal_opt,Lk),slater_anomalous(Nsl_anomalous_opt,Lk))  
   !
 
-  if(tsave==0.d0) then
 
-     expected_flen=Nopt
-     inquire(file="RQn0_root_seed.conf",exist=seed_file)
-     if(seed_file) then
-        flen=file_length("RQn0_root_seed.conf")
-        unit=free_unit()
-        open(unit,file="RQn0_root_seed.conf")
-        write(*,*) 'reading equilibrium solution from file RQn0_root_seed.conf'
-        if(flen.eq.expected_flen) then
-           allocate(dump_seed(flen))
-           !+- read from file -+!
-           do i=1,flen
-              read(unit,*) dump_seed(i)
-           end do
-           !+------------------+!
-           !
-           it = 1
-           Uloc = Uloc_t(:,it)
-           Ust = Ust_t(it)
-           Jh = Jh_t(it)
-           Jsf = Jsf_t(it)
-           Jph = Jph_t(it)
-           eLevels = eLevels_t(:,it)
-           !
-           call get_local_hamiltonian_trace
-           !
-           allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
-           allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
-           slater_lgr_init=0.d0
-           gzproj_lgr_init=0.d0
-           call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-           !
-           call get_gz_optimized_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
-           !
-           call get_gz_ground_state_superc(GZ_vector)  
-           !
-           slater_init = GZ_opt_slater_superc
-           call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
-           gz_proj_init = GZ_vector
-           allocate(td_lgr(2,Ns,Ns))
-           td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
-           td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
-           !
-           call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
-           !
-        else
-           write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
-           write(*,*) 'please check your file for the optimized wavefunction'
-           stop
-        end if
-     else
+  
+  expected_flen=Nopt
+  inquire(file="RQn0_root_seed.conf",exist=seed_file)
+  if(seed_file) then
+     flen=file_length("RQn0_root_seed.conf")
+     unit=free_unit()
+     open(unit,file="RQn0_root_seed.conf")
+     write(*,*) 'reading equilibrium solution from file RQn0_root_seed.conf'
+     if(flen.eq.expected_flen) then
+        allocate(dump_seed(flen))
+        !+- read from file -+!
+        do i=1,flen
+           read(unit,*) dump_seed(i)
+        end do
+        !+------------------+!
         !
-        allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
-
-        if(read_full_phi) then
-           call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
-           call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
-        else
-           call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
-           call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
-           call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
-        end if
-
-
-        out_unit=free_unit()
-        open(out_unit,file='optimized_phi_matrix.data')
-        do ifock=1,nFock
-           do jfock=1,nFock
-              write(out_unit,*) dreal(gz_proj_matrix_init(ifock,jfock)),dimag(gz_proj_matrix_init(ifock,jfock)),ifock,jfock
-           end do
-        end do
-        close(out_unit)
-
-        open(out_unit,file='optimized_projectors.data')
-        do iphi=1,Nphi
-           write(out_unit,'(2F18.10)') gz_proj_init(iphi)
-        end do
-        close(out_unit)
+        it = 1
+        Uloc = Uloc_t(:,it)
+        Ust = Ust_t(it)
+        Jh = Jh_t(it)
+        Jsf = Jsf_t(it)
+        Jph = Jph_t(it)
+        eLevels = eLevels_t(:,it)
+        !
+        call get_local_hamiltonian_trace
+        !
+        allocate(R_init(Ns,Ns),Q_init(Ns,Ns))
+        allocate(slater_lgr_init(2,Ns,Ns),gzproj_lgr_init(2,Ns,Ns))
+        slater_lgr_init=0.d0
+        gzproj_lgr_init=0.d0
+        call dump2mats_superc(dump_seed,R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+        !
+        call get_gz_optimized_vdm_Rhop_superc(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+        !
+        call get_gz_ground_state_superc(GZ_vector)  
+        !
+        slater_init = GZ_opt_slater_superc
         call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
+        gz_proj_init = GZ_vector
+        allocate(td_lgr(2,Ns,Ns))
+        td_lgr(1,:,:) = zero!slater_lgr_init(2,:,:)
+        td_lgr(2,:,:) = zero!gzproj_lgr_init(2,:,:)
+        !
         call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
+        !
+     else
+        write(*,*) 'RQn0_root_seed.conf in the wrong form',flen,expected_flen
+        write(*,*) 'please check your file for the optimized wavefunction'
+        stop
      end if
   else
      !
-     flen=file_length("save_dynamics.data")
-     expected_flen = nDynamics
-     unit=free_unit()
-     open(unit,file="save_dynamics.data")
-     write(*,*) 'reading saved solution'
-     if(flen.eq.expected_flen) then
-        !+- read from file -+!
-        do i=1,flen
-           read(unit,*) x_re,x_im
-           psi_t(i) = x_re + xi*x_im
-        end do
-     else
-        stop "save_dynamics.data wrong length"
-     end if
-     !
-  end if
+     allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
 
+     if(read_full_phi) then
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+     else
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_matrix_init)
+        call get_phi_basis_decomposition(gz_proj_matrix_init,gz_proj_init)
+        call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
+     end if
+
+
+     out_unit=free_unit()
+     open(out_unit,file='optimized_phi_matrix.data')
+     do ifock=1,nFock
+        do jfock=1,nFock
+           write(out_unit,*) dreal(gz_proj_matrix_init(ifock,jfock)),dimag(gz_proj_matrix_init(ifock,jfock)),ifock,jfock
+        end do
+     end do
+     close(out_unit)
+
+     open(out_unit,file='optimized_projectors.data')
+     do iphi=1,Nphi
+        write(out_unit,'(2F18.10)') gz_proj_init(iphi)
+     end do
+     close(out_unit)
+     call slater_full2reduced(slater_init,slater_normal,slater_anomalous)
+     call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)
+
+     if(tsave/=0.d0) then
+        flen=file_length("save_dynamics.data")
+        expected_flen = nDynamics
+        unit=free_unit()
+        open(unit,file="save_dynamics.data",status='old')
+        write(*,*) 'reading saved solution'
+        if(flen.eq.expected_flen) then
+           !+- read from file -+!
+           do i=1,flen
+              read(unit,*) x_re,x_im
+              psi_t(i) = x_re + xi*x_im
+           end do
+        else
+           stop "save_dynamics.data wrong length"
+        end if
+        close(unit)
+     end if
+  end if
 
   it=1
   Uloc=Uloc_t(:,it)
@@ -494,55 +499,14 @@ program GUTZ_mb
   !
   call setup_neq_dynamics_superc
   !    
-  unit_neq_Rhop = free_unit()
-  open(unit_neq_Rhop,file='neq_Rhop_matrix.data')
-  !
-  unit_neq_Qhop = free_unit()
-  open(unit_neq_Qhop,file='neq_Qhop_matrix.data')  
-  !
-  unit_neq_local_dens = free_unit()
-  open(unit_neq_local_dens,file='neq_local_density_matrix.data')
-  !
-  unit_neq_local_dens_dens = free_unit()
-  open(unit_neq_local_dens_dens,file='neq_local_dens_dens.data')
-  !
-  unit_neq_ene = free_unit()
-  open(unit_neq_ene,file='neq_energy.data')
-  !
-  unit_neq_dens_constrSL = free_unit()
-  open(unit_neq_dens_constrSL,file='neq_dens_constrSL.data')
-  !
-  unit_neq_dens_constrGZ = free_unit()
-  open(unit_neq_dens_constrGZ,file='neq_dens_constrGZ.data')
-  !
-  unit_neq_dens_constrSLa = free_unit()
-  open(unit_neq_dens_constrSLa,file='neq_dens_constrSLa.data')
-  !
-  unit_neq_dens_constrGZa = free_unit()
-  open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data')
-  !
-  unit_lgrA_sl = free_unit()
-  open(unit_lgrA_sl,file='neq_lgrA_constrSL.data')
-  !
-  unit_lgrA_gz = free_unit()
-  open(unit_lgrA_gz,file='neq_lgrA_constrGZ.data')
-  !
-  unit_neq_constrU = free_unit()
-  open(unit_neq_constrU,file='neq_constrU.data')
-  !
-  unit_neq_AngMom = free_unit()
-  open(unit_neq_AngMom,file='neq_AngMom.data')
-  !
-  unit_neq_sc_order = free_unit()
-  open(unit_neq_sc_order,file='neq_sc_order.data')
-  !
-  unit_neq_weights = free_unit()
-  open(unit_neq_weights,file='neq_weights.data')
+  call open_data_files
   !
   allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
   allocate(Qhop_matrix(Ns,Ns))
   allocate(local_density_matrix(Ns,Ns))
   allocate(local_dens_dens(Ns,Ns))
+  allocate(pair_hopp(Norb,Norb))
+  allocate(spin_flip(Norb,Norb))
   allocate(dens_constrSL(2,Ns,Ns))
   allocate(dens_constrGZ(2,Ns,Ns))
   allocate(lgrA_constrSL(Ns,Ns))
@@ -580,6 +544,12 @@ program GUTZ_mb
               call get_neq_local_sc(is,js,sc_order(is,js))
            end do
         end do
+        do iorb=1,Norb
+           do jorb=1,Norb
+              call get_neq_pair_hopp(iorb,jorb,pair_hopp(iorb,jorb))
+              call get_neq_spin_flip(iorb,jorb,spin_flip(iorb,jorb))
+           end do
+        end do
         call get_neq_energies(energies)
         call get_neq_local_angular_momenta(local_angular_momenta)
         call get_neq_unitary_constr(unitary_constr)
@@ -597,6 +567,8 @@ program GUTZ_mb
         call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_neq_dens_constrGZa,t)
         call write_hermitean_matrix(lgrA_constrSL,unit_lgrA_sl,t)
         call write_hermitean_matrix(lgrA_constrGZ,unit_lgrA_gz,t)
+        call write_hermitean_matrix(pair_hopp,unit_neq_pair_hopp,t)
+        call write_hermitean_matrix(spin_flip,unit_neq_spin_flip,t)
         call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies
@@ -636,6 +608,162 @@ program GUTZ_mb
   !
 CONTAINS
   !
+
+  subroutine open_data_files
+    logical :: exist
+
+    unit_neq_Rhop = free_unit()
+    inquire(file="neq_Rhop_matrix.data", exist=exist)
+    if (exist) then
+       open(unit_neq_Rhop,file='neq_Rhop_matrix.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_Rhop,file='neq_Rhop_matrix.data',status="new",action="write")
+    end if
+    !
+    unit_neq_Qhop = free_unit()
+    inquire(file="neq_Qhop_matrix.data", exist=exist)
+    if (exist) then
+       open(unit_neq_Qhop,file='neq_Qhop_matrix.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_Qhop,file='neq_Qhop_matrix.data',status="new",action="write")
+    end if
+    !
+    unit_neq_local_dens = free_unit()
+    inquire(file="neq_local_density_matrix.data", exist=exist)
+    if (exist) then
+       open(unit_neq_local_dens,file='neq_local_density_matrix.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_local_dens,file='neq_local_density_matrix.data',status="new",action="write")
+    end if
+    !
+    unit_neq_local_dens_dens = free_unit()
+    inquire(file="neq_local_dens_dens.data", exist=exist)
+    if (exist) then
+       open(unit_neq_local_dens_dens,file='neq_local_dens_dens.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_local_dens_dens,file='neq_local_dens_dens.data',status="new",action="write")
+    end if
+    !
+    unit_neq_pair_hopp = free_unit()
+    inquire(file="neq_pair_hopp.data", exist=exist)
+    if (exist) then
+       open(unit_neq_pair_hopp,file='neq_pair_hopp.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_pair_hopp,file='neq_pair_hopp.data',status="new",action="write")
+    end if
+    !
+    unit_neq_spin_flip = free_unit()
+    inquire(file="neq_spin_flip.data", exist=exist)
+    if (exist) then
+       open(unit_neq_spin_flip,file='neq_spin_flip.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_spin_flip,file='neq_spin_flip.data',status="new",action="write")
+    end if
+    !
+    unit_neq_ene = free_unit()
+    inquire(file="neq_energy.data", exist=exist)
+    if (exist) then
+       open(unit_neq_ene,file='neq_energy.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_ene,file='neq_energy.data',status="new",action="write")
+    end if
+    !
+    unit_neq_dens_constrSL = free_unit()
+    inquire(file="neq_dens_constrSL.data", exist=exist)
+    if (exist) then
+       open(unit_neq_dens_constrSL,file='neq_dens_constrSL.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_dens_constrSL,file='neq_dens_constrSL.data',status="new",action="write")
+    end if
+    !
+    unit_neq_dens_constrGZ = free_unit()
+    inquire(file="neq_dens_constrGZ.data", exist=exist)
+    if (exist) then
+       open(unit_neq_dens_constrGZ,file='neq_dens_constrGZ.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_dens_constrGZ,file='neq_dens_constrGZ.data',status="new",action="write")
+    end if
+    !
+    unit_neq_dens_constrSLa = free_unit()
+    inquire(file="neq_dens_constrSLa.data", exist=exist)
+    if (exist) then
+       open(unit_neq_dens_constrSLa,file='neq_dens_constrSLa.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_dens_constrSLa,file='neq_dens_constrSLa.data',status="new",action="write")
+    end if
+    !open(unit_neq_dens_constrSLa,file='neq_dens_constrSLa.data')
+    !
+    unit_neq_dens_constrGZa = free_unit()
+    inquire(file="neq_dens_constrGZa.data", exist=exist)
+    if (exist) then
+       open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data',status="new",action="write")
+    end if
+    !open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data')
+    !
+    unit_lgrA_sl = free_unit()
+    inquire(file="neq_lgrA_constrSL.data", exist=exist)
+    if (exist) then
+       open(unit_lgrA_sl,file='neq_lgrA_constrSL.data',status="old",position="append",action="write")
+    else
+       open(unit_lgrA_sl,file='neq_lgrA_constrSL.data',status="new",action="write")
+    end if
+    !open(unit_lgrA_sl,file='neq_lgrA_constrSL.data')
+    !
+    unit_lgrA_gz = free_unit()
+    inquire(file="neq_lgrA_constrGZ.data", exist=exist)
+    if (exist) then
+       open(unit_lgrA_gz,file='neq_lgrA_constrGZ.data',status="old",position="append",action="write")
+    else
+       open(unit_lgrA_gz,file='neq_lgrA_constrGZ.data',status="new",action="write")
+    end if
+    !open(unit_lgrA_gz,file='neq_lgrA_constrGZ.data')
+    !
+    unit_neq_constrU = free_unit()
+    inquire(file="neq_constrU.data", exist=exist)
+    if (exist) then
+       open(unit_neq_constrU,file='neq_constrU.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_constrU,file='neq_constrU.data',status="new",action="write")
+    end if
+    !open(unit_neq_constrU,file='neq_constrU.data')
+    !
+    unit_neq_AngMom = free_unit()
+    inquire(file="neq_AngMom.data", exist=exist)
+    if (exist) then
+       open(unit_neq_AngMom,file='neq_AngMom.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_AngMom,file='neq_AngMom.data',status="new",action="write")
+    end if
+    !open(unit_neq_AngMom,file='neq_AngMom.data')
+    !
+    unit_neq_sc_order = free_unit()
+    inquire(file="neq_sc_order.data", exist=exist)
+    if (exist) then
+       open(unit_neq_sc_order,file='neq_sc_order.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_sc_order,file='neq_sc_order.data',status="new",action="write")
+    end if
+    !open(unit_neq_sc_order,file='neq_sc_order.data')
+    !
+    unit_neq_weights = free_unit()
+    inquire(file="neq_weights.data", exist=exist)
+    if (exist) then
+       open(unit_neq_weights,file='neq_weights.data',status="old",position="append",action="write")
+    else
+       open(unit_neq_weights,file='neq_weights.data',status="new",action="write")
+    end if
+    !open(unit_neq_weights,file='neq_weights.data')
+    
+
+  end subroutine open_data_files
+
+  
+
+
+
+
 
   function setup_pointers(NRhop,NQhop,NvdmNC,NvdmNCo,NvdmAC) result(Nopt)
     implicit none

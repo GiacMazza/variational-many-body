@@ -21,6 +21,7 @@ MODULE GZ_DYNAMICS
   !
   public :: gz_eom_superc_lgrSL
   public :: gz_eom_superc_lgrSLGZ
+  !
   public :: gz_eom_superc_lgr_sp !+--> obsolete routine; keep for the moment
   !
   public :: bcs_equations_of_motion
@@ -35,6 +36,8 @@ MODULE GZ_DYNAMICS
   !
   public :: get_neq_local_dens
   public :: get_neq_local_dens_dens
+  public :: get_neq_pair_hopp
+  public :: get_neq_spin_flip
   public :: get_neq_energies  
   public :: get_neq_dens_constr_slater
   public :: get_neq_dens_constr_gzproj
@@ -63,6 +66,8 @@ MODULE GZ_DYNAMICS
   complex(8),dimension(:,:),allocatable :: gz_neq_Rhop         
   complex(8),dimension(:,:),allocatable :: gz_neq_Qhop         
   complex(8),dimension(:,:),allocatable :: gz_neq_local_sc_order 
+  complex(8),dimension(:,:),allocatable :: gz_neq_pair_hopp 
+  complex(8),dimension(:,:),allocatable :: gz_neq_spin_flip 
   real(8),dimension(:,:),allocatable    :: gz_neq_nqp        
   !
   complex(8),dimension(:,:,:),allocatable,public :: neq_lgr
@@ -84,6 +89,8 @@ CONTAINS
     allocate(gz_neq_local_dens_dens(Ns,Ns)); gz_neq_local_dens_dens = 0.d0
     gz_neq_local_angular_momenta = 0.d0
     gz_neq_energies = 0.d0
+    allocate(gz_neq_pair_hopp(Norb,Norb)); gz_neq_pair_hopp = 0.d0
+    allocate(gz_neq_spin_flip(Norb,Norb)); gz_neq_spin_flip = 0.d0
     allocate(gz_neq_dens_constr_slater(Ns,Ns)); gz_neq_dens_constr_slater = 0.d0
     allocate(gz_neq_dens_constr_gzproj(Ns,Ns)); gz_neq_dens_constr_gzproj = 0.d0
     gz_neq_unitary_constr = 0.d0
@@ -107,6 +114,8 @@ CONTAINS
     allocate(gz_neq_Rhop(Ns,Ns)); gz_neq_Rhop = 0.d0
     allocate(gz_neq_Qhop(Ns,Ns)); gz_neq_Qhop = 0.d0
     allocate(gz_neq_local_sc_order(Ns,Ns)); gz_neq_local_sc_order = 0.d0
+    allocate(gz_neq_pair_hopp(Norb,Norb)); gz_neq_pair_hopp = 0.d0
+    allocate(gz_neq_spin_flip(Norb,Norb)); gz_neq_spin_flip = 0.d0
     allocate(gz_neq_nqp(Ns,Lk)); gz_neq_nqp = 0.d0
   end subroutine setup_neq_dynamics_superc
   !
@@ -136,6 +145,18 @@ CONTAINS
     complex(8) :: x
     x=gz_neq_local_sc_order(is,js)
   end subroutine get_neq_local_sc
+  !
+  subroutine get_neq_pair_hopp(is,js,x)
+    integer :: is,js
+    complex(8) :: x
+    x=gz_neq_pair_hopp(is,js)
+  end subroutine get_neq_pair_hopp
+  !
+  subroutine get_neq_spin_flip(is,js,x)
+    integer :: is,js
+    complex(8) :: x
+    x=gz_neq_spin_flip(is,js)
+  end subroutine get_neq_spin_flip
   !
   subroutine get_neq_energies(x)
     real(8),dimension(3) :: x
@@ -551,7 +572,7 @@ CONTAINS
     real(8)                         :: Estar,Eloc,Egz
     real(8),dimension(Ns)           :: vdm_diag
     real(8)                         :: nqp
-    integer                         :: is,js,ik,it,iphi,iis,jjs
+    integer                         :: is,js,ik,it,iphi,iis,jjs,iorb,jorb
     !
     it=t2it(time,tstep)
     !
@@ -589,6 +610,14 @@ CONTAINS
        end do
        vdm_diag(is) = gz_neq_dens_constr_gzproj(is,is)
     end do
+    !
+    do iorb=1,Norb
+       do jorb=1,Norb
+          gz_neq_pair_hopp(iorb,jorb) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_pair_hopping(iorb,jorb))
+          gz_neq_spin_flip(iorb,jorb) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spin_flip(iorb,jorb))
+       end do
+    end do
+    
     !
     gztmp=zero
     gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)

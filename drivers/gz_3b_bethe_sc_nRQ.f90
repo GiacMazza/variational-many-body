@@ -39,6 +39,8 @@ program GUTZ_mb
 
 
   character(len=5) :: dir_suffix
+  character(len=10) :: temp_dir_suffix
+  character(len=10) :: temp_dir_iter
   character(len=6) :: dir_iter
   !
   complex(8),dimension(:,:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
@@ -50,6 +52,7 @@ program GUTZ_mb
   complex(8),dimension(1) :: tmpQ
   character(len=6) :: sweep !sweepU,sweepJ
   real(8) :: sweep_start,sweep_stop,sweep_step
+  real(8) :: Titer
   integer ::  Nsweep,iseed
   real(8),dimension(:),allocatable :: x_reseed
   !
@@ -218,6 +221,47 @@ program GUTZ_mb
         call system('rm *.out *.data fort* ')
         Uiter = Uiter + sweep_step
      end do
+
+
+  case('sweepT')
+     Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
+     Titer=sweep_start
+     do iiter=1,Nsweep
+        !
+        beta=1.d0/Titer
+        !
+        ! do iorb=1,Norb
+        !    Uloc(iorb) = Uiter
+        ! end do
+        ! !
+        ! Jsf = Jh
+        ! Jph = Jh
+        ! Ust = Uloc(1)-2.d0*Jh
+        !
+        call get_local_hamiltonian_trace
+        unit=free_unit()
+        open(unit,file='local_interactions.used')
+        write(unit,*) 'Uloc',Uloc
+        write(unit,*) 'Ust',Ust
+        write(unit,*) 'Jh',Jh
+        write(unit,*) 'Jsf',Jsf
+        write(unit,*) 'Jph',Jph
+        write(unit,*) 'Titer',Titer,beta
+        close(unit)
+        !
+        write(temp_dir_suffix,'(F6.4)') Titer
+        temp_dir_iter="TEMP"//trim(temp_dir_suffix)
+        call system('mkdir -v '//temp_dir_iter)     
+        !
+        call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+        call get_gz_ground_state_superc(GZ_vector)  
+        !
+        call print_output_superc
+        call system('cp * '//temp_dir_iter)
+        call system('rm *.out *.data fort* ')
+        Titer = Titer + sweep_step
+     end do
+
 
   end select
 

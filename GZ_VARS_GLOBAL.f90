@@ -147,6 +147,7 @@ MODULE GZ_VARS_GLOBAL
   real(8),dimension(:),allocatable       :: Jh_t
   real(8),dimension(:),allocatable       :: Jsf_t,Jph_t
   real(8),dimension(:,:,:,:),allocatable :: Hk_tb_t 
+  complex(8),dimension(:,:,:,:),allocatable :: read_neq_lgr
   real(8),dimension(:,:),allocatable     :: eLevels_t 
   
   !

@@ -8,7 +8,7 @@ FPP=
 #EXE=gz_generate_phi_traces
 
 #EXE=gz_1b_nR
-#EXE=gz_1b_bethe_nR
+EXE=gz_1b_bethe_nR
 
 #EXE=gz_2b_bethe
 #EXE=gz_2b_cubic_hyb
@@ -42,8 +42,11 @@ FPP=
 #EXE=gz_2b_bethe_sc_pair_hopping_nRQ
 
 #EXE=gz_3b_bethe
-#EXE=gz_3b_bethe_nR
+##EXE=gz_3b_bethe_nR
+EXE=gz_3b_bethe_ghost
 #EXE=gz_neq_3b_bethe
+
+
 
 #EXE=gz_3b_bethe_sc
 #EXE=gz_3b_bethe_sc_su2nlep
@@ -56,7 +59,7 @@ FPP=
 
 #EXE=gz_neq_sc
 #EXE=gz_neq_3b_bethe_sc
-EXE=gz_neq_3b_bethe_sc_su2
+#EXE=gz_neq_3b_bethe_sc_su2
 #EXE=gz_neq_3b_bethe_sc_su2_read
 #EXE=gz_neq_3b_bethe_u1su2
 #EXE=gz_neq_3b_bethe_sc_su2O1
@@ -99,7 +102,7 @@ INCARGS+=-I$(LIBDIR)/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib
 INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
-#FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
+FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
 
 
 

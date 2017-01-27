@@ -82,7 +82,7 @@ program GUTZ_mb
   !
   Jsf = Jh
   Jph = Jh
-  Ust = Uloc(1)-2.d0*Jh
+  Ust = Uloc(2)-2.d0*Jh
   !
   call initialize_local_fock_space
   !
@@ -102,8 +102,8 @@ program GUTZ_mb
   !
   call build_lattice_model
   !
-  NRhop_opt=1;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
-  Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
+  NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
+  Nvdm_NC_opt=2; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=0; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   !  Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
   Nopt = NRhop_opt  + Nvdm_NC_opt + Nvdm_NCoff_opt 
@@ -220,8 +220,8 @@ CONTAINS
     allocate(Hk_tb(Ns,Ns,Lk))    
     Hk_tb=0.d0
     do ik=1,Lk
-       do iorb=1,Norb
-          do jorb=1,Norb
+       do iorb=1,1!Norb
+          do jorb=1,1!Norb
              do ispin=1,2
                 istate=index(ispin,iorb)
                 jstate=index(ispin,jorb)
@@ -496,6 +496,218 @@ CONTAINS
 
 
 
+  subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
+    complex(8),dimension(:)   :: Rhop_indep
+    complex(8),dimension(:,:) :: Rhop_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
+    if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
+    if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
+    Rhop_mat = zero
+    do iorb=1,Norb
+       do ispin=1,2
+          is=index(ispin,iorb)
+          if(iorb.eq.1) then
+             Rhop_mat(is,is) = Rhop_indep(1)
+          else
+             Rhop_mat(is,is) = Rhop_indep(2)
+          end if
+       end do
+    end do
+    !
+  end subroutine Rhop_vec2mat
+  subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
+    complex(8),dimension(:,:) :: Rhop_mat
+    complex(8),dimension(:)   :: Rhop_indep
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    complex(8) :: test_stride
+    real(8) :: test
+    if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
+    if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
+    if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
+    !
+    do iorb=1,Norb
+       ispin=1
+       is=index(ispin,iorb)
+       if(iorb.eq.1) then
+          Rhop_indep(1)=Rhop_mat(is,is)
+       else
+          Rhop_indep(2)=Rhop_mat(is,is)
+       end if
+    end do
+    !
+  end subroutine Rhop_mat2vec
+
+
+
+  subroutine Qhop_vec2mat(Qhop_indep,Qhop_mat)
+    complex(8),dimension(:)   :: Qhop_indep
+    complex(8),dimension(:,:) :: Qhop_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
+    if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
+    if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
+    Qhop_mat = zero
+    do iorb=1,Norb
+       do jorb=1,Norb
+          do ispin=1,2
+             jspin=3-ispin
+             is=index(ispin,iorb)
+             js=index(jspin,jorb)
+             if(iorb.eq.jorb) then
+                if(iorb.eq.1) then
+                   Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
+                else
+                   Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(2)
+                end if
+             else
+                Qhop_mat(is,js) = zero
+             end if
+          end do
+       end do
+    end do
+  end subroutine Qhop_vec2mat
+  subroutine Qhop_mat2vec(Qhop_mat,Qhop_indep)
+    complex(8),dimension(:)   :: Qhop_indep
+    complex(8),dimension(:,:) :: Qhop_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
+    if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
+    if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
+    !
+    iorb=1;jorb=1;ispin=1;jspin=2
+    !
+    do iorb=1,Norb
+       is=index(ispin,iorb)
+       js=index(jspin,iorb)
+       if(iorb.eq.1) then
+          Qhop_indep(1) = Qhop_mat(is,js)
+       else
+          Qhop_indep(2) = Qhop_mat(is,js)
+       end if
+    end do
+  end subroutine Qhop_mat2vec
+
+
+
+  subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
+    !
+    vdm_NC_mat = zero
+    do iorb=1,Norb
+       do ispin=1,2
+          is=index(ispin,iorb)
+          if(iorb.eq.1) then
+             vdm_NC_mat(is,is) = vdm_NC_indep(1)
+          else
+             vdm_NC_mat(is,is) = vdm_NC_indep(2)
+          end if
+       end do
+    end do
+    !
+  end subroutine vdm_NC_vec2mat
+  subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
+    !
+    do iorb=1,Norb
+       ispin=1
+       is=index(ispin,iorb)
+       if(iorb.eq.1) then
+          vdm_NC_indep(1) = vdm_NC_mat(is,is)
+       else
+          vdm_NC_indep(2) = vdm_NC_mat(is,is)
+       end if
+    end do
+    !
+  end subroutine vdm_NC_mat2vec
+
+
+
+  subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
+    !
+    vdm_NC_mat = zero
+    !
+  end subroutine vdm_NCoff_vec2mat
+  subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
+    !
+    vdm_NC_indep = zero
+    !
+  end subroutine vdm_NCoff_mat2vec
+  !
+
+
+  !
+  subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
+    complex(8),dimension(:)   :: vdm_AC_indep
+    complex(8),dimension(:,:) :: vdm_AC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
+    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+    !
+    vdm_AC_mat = zero
+    do iorb=1,Norb
+       do jorb=1,Norb
+          do ispin=1,2
+             jspin=3-ispin
+             is=index(ispin,iorb)
+             js=index(jspin,jorb)
+             if(iorb.eq.jorb) then
+                if(iorb.eq.1) then
+                   vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(1)
+                else
+                   vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(2)
+                end if
+             else
+                vdm_AC_mat(is,js) = zero
+             end if
+          end do
+       end do
+    end do
+    !
+  end subroutine vdm_AC_vec2mat
+  subroutine vdm_AC_mat2vec(vdm_AC_mat,vdm_AC_indep)
+    complex(8),dimension(:)   :: vdm_AC_indep
+    complex(8),dimension(:,:) :: vdm_AC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
+    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+    !
+    iorb=1;jorb=1;ispin=1;jspin=2
+    do iorb=1,Norb
+       is=index(ispin,iorb)
+       js=index(jspin,iorb)
+       if(iorb.eq.1) then
+          vdm_AC_indep(1) = vdm_AC_mat(is,js)
+       else
+          vdm_AC_indep(2) = vdm_AC_mat(is,js)
+       end if
+    end do
+    !
+  end subroutine vdm_AC_mat2vec
 
 
 
@@ -698,168 +910,168 @@ CONTAINS
 
 
 
-  subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
-    complex(8),dimension(:)   :: Rhop_indep
-    complex(8),dimension(:,:) :: Rhop_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
-    if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
-    if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
-    Rhop_mat = zero
-    do is=1,Ns
-       Rhop_mat(is,is) = Rhop_indep(1)
-    end do
-    !
-  end subroutine Rhop_vec2mat
-  subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
-    complex(8),dimension(:,:) :: Rhop_mat
-    complex(8),dimension(:)   :: Rhop_indep
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    complex(8) :: test_stride
-    real(8) :: test
-    if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
-    if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
-    if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
-    !
-    Rhop_indep(1)=Rhop_mat(1,1)
-    !
-  end subroutine Rhop_mat2vec
+  ! subroutine Rhop_vec2mat(Rhop_indep,Rhop_mat)
+  !   complex(8),dimension(:)   :: Rhop_indep
+  !   complex(8),dimension(:,:) :: Rhop_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
+  !   if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
+  !   Rhop_mat = zero
+  !   do is=1,Ns
+  !      Rhop_mat(is,is) = Rhop_indep(1)
+  !   end do
+  !   !
+  ! end subroutine Rhop_vec2mat
+  ! subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
+  !   complex(8),dimension(:,:) :: Rhop_mat
+  !   complex(8),dimension(:)   :: Rhop_indep
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   complex(8) :: test_stride
+  !   real(8) :: test
+  !   if(size(Rhop_mat,1).ne.size(Rhop_mat,2)) stop "wrong stride"
+  !   if(size(Rhop_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(Rhop_indep).ne.NRhop_opt) stop "wrong stride!"    
+  !   !
+  !   Rhop_indep(1)=Rhop_mat(1,1)
+  !   !
+  ! end subroutine Rhop_mat2vec
 
-  subroutine Qhop_vec2mat(Qhop_indep,Qhop_mat)
-    complex(8),dimension(:)   :: Qhop_indep
-    complex(8),dimension(:,:) :: Qhop_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
-    if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
-    if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
-    Qhop_mat = zero
-    do iorb=1,Norb
-       do jorb=1,Norb
-          do ispin=1,2
-             jspin=3-ispin
-             is=index(ispin,iorb)
-             js=index(jspin,jorb)
-             if(iorb.eq.jorb) then
-                Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
-             else
-                Qhop_mat(is,js) = zero
-             end if
-          end do
-       end do
-    end do
-  end subroutine Qhop_vec2mat
-  subroutine Qhop_mat2vec(Qhop_mat,Qhop_indep)
-    complex(8),dimension(:)   :: Qhop_indep
-    complex(8),dimension(:,:) :: Qhop_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
-    if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
-    if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
-    !
-    iorb=1;jorb=1;ispin=1;jspin=2
-    is=index(ispin,iorb)
-    js=index(jspin,jorb)
-    Qhop_indep(1) = Qhop_mat(is,js)
-  end subroutine Qhop_mat2vec
-
-
-
-  subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
-    complex(8),dimension(:)   :: vdm_NC_indep
-    complex(8),dimension(:,:) :: vdm_NC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-    !
-    vdm_NC_mat = zero
-    do is=1,Ns       
-       vdm_NC_mat(is,is) = vdm_NC_indep(1)
-    end do
-    Nopt_odiag = 0
-    !
-  end subroutine vdm_NC_vec2mat
-  subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
-    complex(8),dimension(:)   :: vdm_NC_indep
-    complex(8),dimension(:,:) :: vdm_NC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-    !
-    vdm_NC_indep(1) = vdm_NC_mat(1,1)
-    !
-  end subroutine vdm_NC_mat2vec
+  ! subroutine Qhop_vec2mat(Qhop_indep,Qhop_mat)
+  !   complex(8),dimension(:)   :: Qhop_indep
+  !   complex(8),dimension(:,:) :: Qhop_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
+  !   if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
+  !   Qhop_mat = zero
+  !   do iorb=1,Norb
+  !      do jorb=1,Norb
+  !         do ispin=1,2
+  !            jspin=3-ispin
+  !            is=index(ispin,iorb)
+  !            js=index(jspin,jorb)
+  !            if(iorb.eq.jorb) then
+  !               Qhop_mat(is,js) = (-1.d0)**dble(jspin)*Qhop_indep(1)
+  !            else
+  !               Qhop_mat(is,js) = zero
+  !            end if
+  !         end do
+  !      end do
+  !   end do
+  ! end subroutine Qhop_vec2mat
+  ! subroutine Qhop_mat2vec(Qhop_mat,Qhop_indep)
+  !   complex(8),dimension(:)   :: Qhop_indep
+  !   complex(8),dimension(:,:) :: Qhop_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(Qhop_mat,1).ne.size(Qhop_mat,2)) stop "wrong stride"
+  !   if(size(Qhop_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(Qhop_indep).ne.NQhop_opt) stop "wrong stride!"    
+  !   !
+  !   iorb=1;jorb=1;ispin=1;jspin=2
+  !   is=index(ispin,iorb)
+  !   js=index(jspin,jorb)
+  !   Qhop_indep(1) = Qhop_mat(is,js)
+  ! end subroutine Qhop_mat2vec
 
 
 
-  subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
-    complex(8),dimension(:)   :: vdm_NC_indep
-    complex(8),dimension(:,:) :: vdm_NC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-    !
-    vdm_NC_mat = zero
-    !
-  end subroutine vdm_NCoff_vec2mat
-  subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
-    complex(8),dimension(:)   :: vdm_NC_indep
-    complex(8),dimension(:,:) :: vdm_NC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-    !
-    vdm_NC_indep = zero
-    !
-  end subroutine vdm_NCoff_mat2vec
+  ! subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
+  !   complex(8),dimension(:)   :: vdm_NC_indep
+  !   complex(8),dimension(:,:) :: vdm_NC_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
+  !   !
+  !   vdm_NC_mat = zero
+  !   do is=1,Ns       
+  !      vdm_NC_mat(is,is) = vdm_NC_indep(1)
+  !   end do
+  !   !Nopt_odiag = 0
+  !   !
+  ! end subroutine vdm_NC_vec2mat
+  ! subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
+  !   complex(8),dimension(:)   :: vdm_NC_indep
+  !   complex(8),dimension(:,:) :: vdm_NC_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
+  !   !
+  !   vdm_NC_indep(1) = vdm_NC_mat(1,1)
+  !   !
+  ! end subroutine vdm_NC_mat2vec
+
+
+
+  ! subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
+  !   complex(8),dimension(:)   :: vdm_NC_indep
+  !   complex(8),dimension(:,:) :: vdm_NC_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
+  !   !
+  !   vdm_NC_mat = zero
+  !   !
+  ! end subroutine vdm_NCoff_vec2mat
+  ! subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
+  !   complex(8),dimension(:)   :: vdm_NC_indep
+  !   complex(8),dimension(:,:) :: vdm_NC_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+  !   if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
+  !   !
+  !   vdm_NC_indep = zero
+  !   !
+  ! end subroutine vdm_NCoff_mat2vec
 
 
 
 
 
-  !
-  subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
-    complex(8),dimension(:)   :: vdm_AC_indep
-    complex(8),dimension(:,:) :: vdm_AC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
-    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
-    !
-    vdm_AC_mat = zero
-    do iorb=1,Norb
-       do jorb=1,Norb
-          do ispin=1,2
-             jspin=3-ispin
-             is=index(ispin,iorb)
-             js=index(jspin,jorb)
-             if(iorb.eq.jorb) then
-                vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(1)
-             else
-                vdm_AC_mat(is,js) = zero
-             end if
-          end do
-       end do
-    end do
-    !
-  end subroutine vdm_AC_vec2mat
-  subroutine vdm_AC_mat2vec(vdm_AC_mat,vdm_AC_indep)
-    complex(8),dimension(:)   :: vdm_AC_indep
-    complex(8),dimension(:,:) :: vdm_AC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
-    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
-    !
-    iorb=1;jorb=1;ispin=1;jspin=2
-    is=index(ispin,iorb)
-    js=index(jspin,jorb)
-    vdm_AC_indep(1) = vdm_AC_mat(is,js)
-    !
-  end subroutine vdm_AC_mat2vec
+  ! !
+  ! subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
+  !   complex(8),dimension(:)   :: vdm_AC_indep
+  !   complex(8),dimension(:,:) :: vdm_AC_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
+  !   if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+  !   !
+  !   vdm_AC_mat = zero
+  !   do iorb=1,Norb
+  !      do jorb=1,Norb
+  !         do ispin=1,2
+  !            jspin=3-ispin
+  !            is=index(ispin,iorb)
+  !            js=index(jspin,jorb)
+  !            if(iorb.eq.jorb) then
+  !               vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(1)
+  !            else
+  !               vdm_AC_mat(is,js) = zero
+  !            end if
+  !         end do
+  !      end do
+  !   end do
+  !   !
+  ! end subroutine vdm_AC_vec2mat
+  ! subroutine vdm_AC_mat2vec(vdm_AC_mat,vdm_AC_indep)
+  !   complex(8),dimension(:)   :: vdm_AC_indep
+  !   complex(8),dimension(:,:) :: vdm_AC_mat
+  !   integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+  !   if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
+  !   if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
+  !   if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+  !   !
+  !   iorb=1;jorb=1;ispin=1;jspin=2
+  !   is=index(ispin,iorb)
+  !   js=index(jspin,jorb)
+  !   vdm_AC_indep(1) = vdm_AC_mat(is,js)
+  !   !
+  ! end subroutine vdm_AC_mat2vec
 
 
 

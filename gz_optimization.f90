@@ -38,6 +38,14 @@ function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
   !  
   call slater_minimization_fixed_lgr(Rhop,slater_lgr_multip,E_Hstar,n0_slater,slater_derivatives)  
   !
+  
+  !<TMP
+  do is=1,Ns
+     write(*,*) slater_derivatives(is,:)
+  end do
+  !stop
+  !TMP>
+
   test_n=.true.
   !  
   do is=1,Ns
@@ -63,11 +71,7 @@ function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
              0.5d0*(1.d0-2.d0*n0_slater(is,is))/sqrt(n0_slater(is,is)*(1.d0-n0_slater(is,is)))*tmp 
      end do
      !
-     ! write(*,*) 'prima',n0_diag
-     ! write(*,*) slater_lgr_multip
-     ! write(*,*) slater_lgr_multip
      call gz_proj_minimization_fixed_lgr_hop(n0_diag,proj_lgr_multip,Rhop_lgr_multip,E_Hloc,GZvect)   
-     !write(*,*) 'dopo' 
      !
      n0_GZproj = 0.d0
      do is=1,Ns
@@ -76,6 +80,18 @@ function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
            Rhop_GZProj(is,js) = trace_phi_basis(GZvect,phi_traces_basis_Rhop(is,js,:,:))
         end do
      end do
+
+     !<TMP
+     ! do is=1,Ns
+     !    write(*,'(20F18.10)') n0_GZproj(is,:)
+     ! end do
+     ! write(*,*)
+     ! do is=1,Ns
+     !    write(*,'(20F18.10)') Rhop_GZproj(is,:)
+     ! end do
+     ! stop
+     !TMP>
+
      !  
      do is=1,Ns
         do js=1,Ns
@@ -89,6 +105,21 @@ function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
         end do
      end do
      !
+     do is=1,Ns
+        write(*,*) dreal(Rhop_out(is,:))
+        write(*,*) imag(Rhop_out(is,:))
+     end do
+     write(*,*)
+     do is=1,Ns
+        write(*,*) dreal(slater_out(is,:))
+        write(*,*) imag(slater_out(is,:))
+     end do
+     do is=1,Ns
+        write(*,*) dreal(GZproj_out(is,:))
+        write(*,*) imag(GZproj_out(is,:))
+     end do
+     stop
+
      call dump2vec(tmp_x,Rhop_out,slater_out,GZproj_out)
      !
      Fout=tmp_x

@@ -86,6 +86,8 @@ program GUTZ_mb
   integer :: count_states,itest,nstate
   complex(8),dimension(:,:),allocatable :: slater_lgr_init,gzproj_lgr_init
   integer :: Ntmp,itmp
+
+  logical :: decoupled
   !
 
 
@@ -119,7 +121,9 @@ program GUTZ_mb
   call parse_input_variable(tRamp_neqJ,"TRAMP_NEQJ","inputGZ.conf",default=0.d0)  
   call parse_input_variable(tSin_neqJ,"TSIN_NEQJ","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
-  !call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default=.true.) 
+
+  !
+  call parse_input_variable(decoupled,"DEC","inputGZ.conf",default=.false.) 
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -298,6 +302,7 @@ program GUTZ_mb
   Jsf_t = Jh_t
   Jph_t = Jh_t
   Ust_t = Uloc_t(1,:)-2.d0*Jh_t ! be careful this has to be done using the first orbital -> we assume Ust is not changed during the excitation !
+  if(decoupled) Ust_t=0.d0
   !
   unit_neq_hloc = free_unit()
   open(unit_neq_hloc,file="neq_local_interaction_parameters.out")

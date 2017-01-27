@@ -61,6 +61,7 @@ subroutine gz_projectors_minimization_nlep(slater_derivatives,n0_target,E_Hloc,G
      write(*,*)
   end if
   !
+  stop
 contains
   !
   function get_delta_proj_variational_density(lm_) result(delta)
@@ -109,7 +110,7 @@ contains
           delta = delta + delta_proj_variational_density(istate,jstate)*conjg(delta_proj_variational_density(istate,jstate))
        end do
     end do
-
+    
   end function get_delta_proj_variational_density
   !
   function fix_density(lm_) result(delta)
@@ -133,10 +134,19 @@ contains
     call vdm_NC_stride_v2m(lm_cmplx,lm)    
     deallocate(lm_cmplx)
     !
+    write(*,*) lm_
+
+
     proj_variational_density=0.d0
     !+- build up the local H_projectors -+!
     call build_H_GZproj_(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !  
+    do ifock=1,Nphi
+       do jfock=1,Nphi
+          write(400,*) H_projectors(ifock,jfock)
+       end do
+    end do
+    !
     call matrix_diagonalize(H_projectors,H_eigens)         
     !
     proj_gs = H_projectors(:,1)
@@ -152,6 +162,25 @@ contains
             delta_proj_variational_density(istate,istate) - n0_target(istate) 
     end do
     !    
+    
+    !TMP
+    ! do istate=1,Ns
+    !    write(*,'(20F18.10)') proj_variational_density(istate,:)
+    !    write(*,'(20F18.10)') n0_target(istate)
+    ! end do
+    ! write(*,*)
+    ! do istate=1,Ns
+    !    write(*,'(20F18.10)') slater_derivatives(istate,:)
+    ! end do
+    ! do istate=1,Ns
+    !    write(*,'(20F18.10)') lm(istate,:)
+    ! end do
+    
+
+    ! stop
+    !TMP
+
+    !
     delta=0.d0
     allocate(delta_cmplx(Nvdm_NC_opt))
     call vdm_NC_stride_m2v(delta_proj_variational_density,delta_cmplx)

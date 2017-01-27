@@ -37,6 +37,7 @@ program GUTZ_mb
   integer :: expected_flen,flen,unit
   logical :: seed_file
   logical :: Jh_ratio
+  logical :: decoupled
   real(8) :: Jh_
 
   character(len=5) :: dir_suffix
@@ -77,6 +78,8 @@ program GUTZ_mb
   call parse_input_variable(nread,"NREAD","inputGZ.conf",default=0.d0)
   call parse_input_variable(nerr,"NERR","inputGZ.conf",default=1.d-7)
   call parse_input_variable(ndelta,"NDELTA","inputGZ.conf",default=1.d-4)
+  call parse_input_variable(decoupled,"DEC","inputGZ.conf",default=.false.)
+
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -206,6 +209,15 @@ program GUTZ_mb
         Jsf = Jh
         Jph = Jh
         Ust = Uloc(1)-2.d0*Jh
+        if(decoupled) then
+           Jh = 0.d0
+           Jsf = Jh
+           Jph = Jh
+           Ust = 0.d0
+           do iorb=2,Norb              
+              Uloc(iorb) = 0.d0
+           end do                      
+        end if
         !
         if(nread/=0.d0) then
            converged_mu=.false.
@@ -292,8 +304,8 @@ CONTAINS
     allocate(Hk_tb(Ns,Ns,Lk))    
     Hk_tb=0.d0
     do ik=1,Lk
-       do iorb=1,Norb
-          do jorb=1,Norb
+       do iorb=1,1!
+          do jorb=1,1!Norb
              do ispin=1,2
                 istate=index(ispin,iorb)
                 jstate=index(ispin,jorb)

@@ -216,7 +216,7 @@ contains
     ! write(*,*)
     ! write(*,*)
     ! if(check.gt.1.d-10) stop "CHECK STRIDES @ fix_density_normal"
-    write(*,*) delta
+    !write(*,*) delta
   end function fix_density
 end subroutine slater_minimization_lgr
 !
@@ -248,6 +248,10 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
   complex(8)                :: tmp_gk,iw
   real(8) :: w
   
+  do is=1,Ns
+     write(*,'(20F18.10)') dreal(Rhop(is,:))
+  end do
+  
   !
   Estar=0.d0
   slater_derivatives_=zero
@@ -267,6 +271,16 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
   !
   if(store_) qp_gloc = zero
   !
+  ! write(*,*)
+  ! do is=1,Ns
+  !    write(*,'(20F18.10)') dreal(n0_slater(is,:))
+  ! end do
+  
+  ! do is=1,Ns
+  !    write(*,'(20F18.10)') dimag(n0_slater(is,:))
+  ! end do
+
+  !
   do ik=1,Lk
      !
      Hk=0.d0
@@ -275,10 +289,31 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
      ! hopping renormalization !
      Hk=matmul(Hk_tb(:,:,ik),Rhop)
      Hk=matmul(Rhop_dag,Hk)  
+     
+
      Hstar=Hk
+     ! do is=1,Ns
+     !    write(*,'(10F18.10)') dreal(Hk(is,:))
+     ! end do
+     ! write(*,'(10F18.10)') 
+     ! do is=1,Ns
+     !    write(*,'(10F18.10)') dreal(lm(is,:))
+     ! end do
+     
      Hk=Hk+lm
      !
+     ! !TMP
+     ! write(*,*) 'before'
+     ! !TMP
+     ! do is=1,Ns
+     !    write(*,'(10F18.10)') dreal(Hk(is,:))
+     ! end do
+     !stop
      call  matrix_diagonalize(Hk,ek)
+     !TMP
+     !write(*,*) 'after'
+     !TMP
+     
      ek_store(:,ik) = ek
      !
      ! store slater determinant matrix elements

@@ -175,15 +175,15 @@ CONTAINS
        write(*,*) 'Rn0_minimization: INPUT PARAMETERS'
        write(*,*) 'Rhop'
        do is=1,Ns
-          write(*,'(10F8.4)') init_Rhop(is,:)
+          write(*,'(20F8.4)') init_Rhop(is,:)
        end do
        write(*,*) 'init_lgr_slater'
        do is=1,Ns
-          write(*,'(10F8.4)') init_lgr_slater(is,:)
+          write(*,'(20F8.4)') init_lgr_slater(is,:)
        end do
        write(*,*) 'init_lgr_proj'
        do is=1,Ns
-          write(*,'(10F8.4)') init_lgr_proj(is,:)
+          write(*,'(20F8.4)') init_lgr_proj(is,:)
        end do
     end if
     !
@@ -210,6 +210,9 @@ CONTAINS
     !
     allocate(xmin_(Nopt_reduced))
     call stride_zeros_orig2red(xmin,xmin_)
+    xout = R_VDM_free_zeros_(xmin)
+    write(*,*) xout
+    stop
     call fsolve(R_VDM_free_zeros__,xmin_,tol=1.d-10,info=iter)
     call stride_zeros_red2orig(xmin_,xmin)
     !

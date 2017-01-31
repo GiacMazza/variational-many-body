@@ -17,7 +17,7 @@ program GUTZ_mb
   implicit none
   !
   !+- hamiltonian details -+!
-  integer                            :: ispin,jspin,iorb,i,j,istate,jstate,ifock,jorb,iloop
+  integer                            :: ispin,jspin,iorb,i,j,istate,jstate,ifock,jorb,iloop,iswp
   integer,dimension(:),allocatable   :: fock_vec
   complex(8),dimension(:),allocatable               :: init_vec
   real(8),dimension(:),allocatable   :: variational_density_natural
@@ -104,13 +104,13 @@ program GUTZ_mb
   call build_lattice_model
   !
   !
-  NRhop_opt=3;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
+  NRhop_opt=2;   Rhop_stride_v2m => Rhop_vec2mat; Rhop_stride_m2v => Rhop_mat2vec 
   Nvdm_NC_opt=6; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_NCoff_opt=3; vdm_NCoff_stride_v2m => vdm_NCoff_vec2mat ; vdm_NCoff_stride_m2v => vdm_NCoff_mat2vec
   !
-  Nopt = NRhop_opt + Nvdm_NC_opt + Nvdm_NCoff_opt
+  Nopt = NRhop_opt + Nvdm_NC_opt !+ Nvdm_NCoff_opt
   Nopt = 2*Nopt
-  Nopt_reduced = 3 + 3 + 6
+  Nopt_reduced = 2 + 6
   !
   stride_zeros_orig2red => stride2reduced
   stride_zeros_red2orig => stride2orig
@@ -134,7 +134,7 @@ program GUTZ_mb
            read(unit,*) dump_seed(i)
         end do
         !+------------------+!        
-        call dump2mats(dump_seed,R_init,slater_lgr_init,gzproj_lgr_init)        
+        call dump2mats_(dump_seed,R_init,slater_lgr_init)        
      else
         write(*,*) 'Rn0_root_seed.conf in the wrong form',flen,expected_flen
         write(*,*) 'please check your initialization file for the root finding'
@@ -153,11 +153,12 @@ program GUTZ_mb
   !stop
   
   call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
+  !call init_variational_matrices(wf_symmetry)  
 
   Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
   write(*,*) Nsweep
   deltaU = sweep_start
-  do i=1,Nsweep
+  do iswp=1,Nsweep
      !
      Jh=0.d0
      Jh  = Jh        
@@ -175,58 +176,72 @@ program GUTZ_mb
      call system('mkdir -v '//dir_iter)     
      !
 
-     call get_local_hamiltonian_trace
-     allocate(variational_density_natural_simplex(Ns+1,Ns)); allocate(variational_density_natural(Ns))     
-     call initialize_variational_density_simplex(variational_density_natural_simplex)
-     !
-     call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
-     !
-     call get_gz_ground_state(GZ_vector)
-     !
-     call print_output           
+     ! call get_local_hamiltonian_trace
+     ! allocate(variational_density_natural_simplex(Ns+1,Ns)); allocate(variational_density_natural(Ns))     
+     ! call initialize_variational_density_simplex(variational_density_natural_simplex)
+     ! !
+     ! call gz_optimization_vdm_simplex(variational_density_natural_simplex,variational_density_natural)  
+     ! !
+     ! call get_gz_ground_state(GZ_vector)
+     ! !
+     ! call print_output           
 
 
 
 
-     ! if(nread/=0.d0.and.deltaU/=0.d0) then        
-     !    xmu_unit=free_unit()
-     !    open(xmu_unit,file='bracket_XMU.out') 
-     !    call bracket_density(xmu1,xmu2,0.01d0,300)     
-     !    write(xmu_unit,*)  xmu1,xmu2
-     !    close(xmu_unit)
+     if(nread/=0.d0.and.deltaU/=0.d0) then        
+        xmu_unit=free_unit()
+        open(xmu_unit,file='bracket_XMU.out') 
+        call bracket_density(xmu1,xmu2,0.01d0,300)     
+        write(xmu_unit,*)  xmu1,xmu2
+        close(xmu_unit)
 
-     !    xmu_unit=free_unit()
-     !    open(xmu_unit,file='search_XMU.out') 
-     !    search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
-     !    close(xmu_unit)     
-     !    !        
-     !    xmu=search_mu
-     !    call get_local_hamiltonian_trace
-     !    unit=free_unit()
-     !    open(unit,file='local_hamiltonian_parameters.out')
-     !    write(unit,*) 'Uloc',Uloc
-     !    write(unit,*) 'Ust',Ust
-     !    write(unit,*) 'Jh',Jh
-     !    write(unit,*) 'Jsf',Jsf
-     !    write(unit,*) 'Jph',Jph
-     !    write(unit,*) 'xmu',xmu
-     !    close(unit)           
-     !    call gz_optimization_vdm_Rhop_reduced(R_init,slater_lgr_init,gzproj_lgr_init)
-     !    call get_gz_ground_state(GZ_vector)
-     ! else
-     !    call get_local_hamiltonian_trace
-     !    unit=free_unit()
-     !    open(unit,file='local_hamiltonian_parameters.out')
-     !    write(unit,*) 'Uloc',Uloc
-     !    write(unit,*) 'Ust',Ust
-     !    write(unit,*) 'Jh',Jh
-     !    write(unit,*) 'Jsf',Jsf
-     !    write(unit,*) 'Jph',Jph
-     !    write(unit,*) 'xmu',xmu
-     !    close(unit)           
-     !    call gz_optimization_vdm_Rhop_reduced(R_init,slater_lgr_init,gzproj_lgr_init)
-     !    call get_gz_ground_state(GZ_vector)  
-     ! end if
+        xmu_unit=free_unit()
+        open(xmu_unit,file='search_XMU.out') 
+        search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
+        close(xmu_unit)     
+        !        
+        xmu=search_mu
+        call get_local_hamiltonian_trace
+        unit=free_unit()
+        open(unit,file='local_hamiltonian_parameters.out')
+        write(unit,*) 'Uloc',Uloc
+        write(unit,*) 'Ust',Ust
+        write(unit,*) 'Jh',Jh
+        write(unit,*) 'Jsf',Jsf
+        write(unit,*) 'Jph',Jph
+        write(unit,*) 'xmu',xmu
+        close(unit)           
+        call gz_optimization_vdm_Rhop_reduced(R_init,slater_lgr_init,gzproj_lgr_init)
+        call get_gz_ground_state(GZ_vector)
+     else
+        call get_local_hamiltonian_trace
+        !
+        iorb=1
+        do ispin=1,2
+           istate=index(ispin,iorb)
+           phi_traces_basis_Hloc =  phi_traces_basis_Hloc - Uloc(1)*0.5d0*phi_traces_basis_local_dens(istate,istate,:,:)
+        end do
+        !
+        unit=free_unit()
+        open(unit,file='local_hamiltonian_parameters.out')
+        write(unit,*) 'Uloc',Uloc
+        write(unit,*) 'Ust',Ust
+        write(unit,*) 'Jh',Jh
+        write(unit,*) 'Jsf',Jsf
+        write(unit,*) 'Jph',Jph
+        write(unit,*) 'xmu',xmu
+        close(unit)           
+        call gz_optimization_vdm_Rhop_reduced_new(R_init,slater_lgr_init)
+        call get_gz_ground_state(GZ_vector)  
+     end if
+
+
+     write(*,*) "OPTIMIZEd VDM"
+     do is=1,Ns
+        write(*,*) GZ_opt_VDM(is,:)
+     end do
+
 
      ! !
      call print_output
@@ -297,12 +312,11 @@ CONTAINS
              do ispin=1,2
                 istate=index(ispin,iorb)
                 jstate=index(ispin,jorb)
-                Hk_tb(istate,istate,ik) = epsik(ik)
                 if(iorb.eq.jorb)  then
                    if(iorb.eq.1) then
                       Hk_tb(istate,jstate,ik) = epsik(ik)
                    else
-                      Hk_tb(istate,jstate,ik) = 0.0
+                      Hk_tb(istate,jstate,ik) = 0.000001*epsik(ik)
                    end if
                 else
                    Hk_tb(istate,jstate,ik) = hybik(ik)
@@ -500,18 +514,19 @@ CONTAINS
     !+- R
     x_reduced(1) = x_orig(1)
     x_reduced(2) = x_orig(2)
-    x_reduced(3) = x_orig(3)
+    !x_reduced(3) = x_orig(3)
     !+-
-    x_reduced(4) = x_orig(7)
-    x_reduced(5) = x_orig(8)
-    x_reduced(6) = x_orig(9)
-    x_reduced(7) = x_orig(10)
-    x_reduced(8) = x_orig(11)
-    x_reduced(9) = x_orig(12)
+    x_reduced(3) = x_orig(5)
+    x_reduced(4) = x_orig(6)
+    x_reduced(5) = x_orig(7)
+    x_reduced(6) = x_orig(8)
+    x_reduced(7) = x_orig(9)
+    x_reduced(8) = x_orig(10)
+
     !
-    x_reduced(10) = x_orig(19)
-    x_reduced(11) = x_orig(20)
-    x_reduced(12) = x_orig(21)
+    ! x_reduced(10) = x_orig(19)
+    ! x_reduced(11) = x_orig(20)
+    ! x_reduced(12) = x_orig(21)
     !
   end subroutine stride2reduced
   subroutine stride2orig(x_reduced,x_orig)
@@ -523,18 +538,18 @@ CONTAINS
     !+- R
     x_orig(1) = x_reduced(1)
     x_orig(2) = x_reduced(2)
-    x_orig(3) = x_reduced(3)
     !+-
-    x_orig(7) = x_reduced(4)
-    x_orig(8) = x_reduced(5)
-    x_orig(9) = x_reduced(6)
-    x_orig(10) = x_reduced(7)
-    x_orig(11) = x_reduced(8)
-    x_orig(12) = x_reduced(9)
+    x_orig(5) = x_reduced(3)
+    x_orig(6) = x_reduced(4)
+    x_orig(7) = x_reduced(5)
+    x_orig(8) = x_reduced(6)
+    x_orig(9) = x_reduced(7)
+    x_orig(10) = x_reduced(8)
     !
-    x_orig(19) = x_reduced(10)
-    x_orig(20) = x_reduced(11)
-    x_orig(21) = x_reduced(12)
+    ! x_orig(19) = x_reduced(10)
+    ! x_orig(20) = x_reduced(11)
+    ! x_orig(21) = x_reduced(12)
+    !
   end subroutine stride2orig
 
 
@@ -549,20 +564,27 @@ CONTAINS
     Rhop_mat = zero
     iind=0
     do iorb=1,1
+!       jorb=iorb
        do jorb=1,Norb
           iind=iind+1
           do ispin=1,2
              is=index(ispin,iorb)
              js=index(ispin,jorb)
-             Rhop_mat(is,js) = Rhop_indep(iind)             
-             ! if(jorb.eq.1) then
-             !    Rhop_mat(is,js) = Rhop_indep(1)
-             ! else
-             !    Rhop_mat(is,js) = Rhop_indep(2)
-             ! end if
+             !Rhop_mat(is,js) = Rhop_indep(iind)             
+             if(jorb.eq.1) then
+                Rhop_mat(is,js) = Rhop_indep(1)
+             else
+                Rhop_mat(is,js) = Rhop_indep(2)
+             end if
           end do
        end do
     end do
+    !     do iorb=2,Norb
+    !        do ispin=1,2
+    !           is=index(ispin,iorb)
+    ! !          Rhop_mat(is,is)=1.d0
+    !        end do
+    !     end do
     !
   end subroutine Rhop_vec2mat
   subroutine Rhop_mat2vec(Rhop_mat,Rhop_indep)
@@ -586,11 +608,11 @@ CONTAINS
     is=index(ispin,iorb)
     js=index(ispin,jorb)
     Rhop_indep(2) = Rhop_mat(is,js)
-    iorb=1
-    jorb=3
-    is=index(ispin,iorb)
-    js=index(ispin,jorb)
-    Rhop_indep(3) = Rhop_mat(is,js)
+    ! iorb=3
+    ! jorb=3
+    ! is=index(ispin,iorb)
+    ! js=index(ispin,jorb)
+    ! Rhop_indep(3) = Rhop_mat(is,js)
     !
     !
   end subroutine Rhop_mat2vec
@@ -607,6 +629,7 @@ CONTAINS
     iind=0
     do iorb=1,Norb
        do jorb=iorb,Norb
+          !       jorb=1
           iind=iind+1
           do ispin=1,2
              is=index(ispin,iorb)

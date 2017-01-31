@@ -113,13 +113,15 @@ CONTAINS
        end do
     end if
     !+- CHEMICAL POTENTIAL FOR PH CONDITION -+!
-    mu_ph = Uloc(1)*0.5d0 + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh) !
-    do iorb=1,Norb
-       do ispin=1,2
-          istate=index(ispin,iorb)          
-          phi_traces_basis_Hloc =  phi_traces_basis_Hloc - mu_ph*phi_traces_basis_local_dens(istate,istate,:,:)
+    if(xmu_ph) then
+       mu_ph = Uloc(1)*0.5d0 + dble(Norb-1)*0.5d0*(2.d0*Ust-Jh) !
+       do iorb=1,Norb
+          do ispin=1,2
+             istate=index(ispin,iorb)          
+             phi_traces_basis_Hloc =  phi_traces_basis_Hloc - mu_ph*phi_traces_basis_local_dens(istate,istate,:,:)
+          end do
        end do
-    end do
+    end if
     !
   end subroutine get_local_hamiltonian_trace
 

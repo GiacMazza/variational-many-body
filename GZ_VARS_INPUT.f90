@@ -10,6 +10,7 @@ MODULE GZ_VARS_INPUT
   real(8)              ::  Jh !hund's coupling
   real(8)              :: Jsf,Jph
   real(8)              :: xmu
+  logical              :: xmu_ph
   real(8)              :: beta
   integer,parameter    :: lw=512
   real(8)              :: wini,wfin
@@ -57,6 +58,7 @@ contains
     call parse_input_variable(Jsf,"JSF",INPUTunit,default=0.d0)
     call parse_input_variable(Jph,"JPH",INPUTunit,default=0.d0)
     call parse_input_variable(xmu,"XMU",INPUTunit,default=0.d0)
+    call parse_input_variable(xmu_ph,"XMU_PH",INPUTunit,default=.true.)
     call parse_input_variable(wf_symmetry,"SYMMETRY",INPUTunit,default=0, &
          comment="0:O1cxSU2s;1:O1cxSU2sx(SU2c/O3c)")
     call parse_input_variable(gz_superc,"GZ_SUPERC",INPUTunit,default=.false.)

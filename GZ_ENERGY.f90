@@ -41,6 +41,7 @@ MODULE GZ_ENERGY_MINIMIZATION
 
   public :: slater_minimization_lgr
   public :: slater_minimization_fixed_lgr
+  public :: slater_minimization_fix_offDiag
   !
   public :: slater_minimization_lgr_superc
   public :: slater_minimization_fixed_lgr_superc
@@ -66,21 +67,47 @@ contains
     !
     real(8),dimension(Nphi) :: phi_vector_test    
     !
-    if(.not.allocated(GZ_opt_Rhop)) allocate(GZ_opt_Rhop(Ns,Ns))
+!    if(.not.allocated(GZ_opt_Rhop)) allocate(GZ_opt_Rhop(Ns,Ns))
     if(.not.allocated(GZ_opt_VDM)) allocate(GZ_opt_VDM(Ns,Ns))
     if(.not.allocated(GZ_opt_slater)) allocate(GZ_opt_slater(Ns,Ns,Lk))
     !
+    write(*,*) "PD"
     do is=1,Ns
        do js=1,Ns
           GZ_opt_VDM(is,js) = trace_phi_basis(phi_vec,phi_traces_basis_dens(is,js,:,:))
        end do
+       !TMP
+       write(*,'(20F18.10)') dreal(GZ_opt_VDM(is,:))
+       !TMP
        n0(is) = GZ_opt_VDM(is,is)
     end do
-    GZ_opt_Rhop=hopping_renormalization_normal(phi_vec,n0)            
+    !  write(*,*) "PD"
+    !GZ_opt_Rhop=hopping_renormalization_normal(phi_vec,n0)            
+    ! write(*,*) "get_gz Rhop"
+    ! do is=1,Ns
+    !    !TMP
+    !    write(*,'(20F18.10)') dreal(GZ_opt_Rhop(is,:)),dimag(GZ_opt_Rhop(is,:))
+    !    !TMP
+    ! end do
+
     !
+    !
+    write(*,*) "get_gz lgr_slater"
+    do is=1,Ns
+       !TMP
+       write(*,'(20F18.10)') dreal(GZ_opt_slater_lgr(is,:)),dimag(GZ_opt_slater_lgr(is,:))
+       !TMP
+    end do
     !
     call slater_minimization_fixed_lgr(GZ_opt_Rhop,GZ_opt_slater_lgr,E_Hstar,n0=GZ_opt_VDM,slater_matrix_el=GZ_opt_slater,store=slater_store)
     !
+    ! write(*,*) "get_gz SL_opt_VDM"
+    ! do is=1,Ns
+    !    !TMP
+    !    write(*,'(20F18.10)') dreal(GZ_opt_VDM(is,:)),dimag(GZ_opt_VDM(is,:))
+    !    !TMP
+    ! end do
+
     !    
     !+- GET OBSERVABLES -+!
     ! physical density !

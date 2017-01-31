@@ -85,7 +85,7 @@ program GUTZ_mb
   call initialize_local_fock_space
   !
   !  
-  call init_variational_matrices(wf_symmetry,store_dir_=store_dir,read_dir_=read_dir)  
+  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
   allocate(energy_levels(Ns))
   do iorb=1,Norb
      do ispin=1,2
@@ -208,7 +208,8 @@ program GUTZ_mb
         dir_iter="U"//trim(dir_suffix)
         call system('mkdir -v '//dir_iter)     
         !
-        call gz_optimization_vdm_Rhop_reduced(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
+        !call gz_optimization_vdm_Rhop_reduced(Rhop_init_matrix,slater_lgr_init,gzproj_lgr_init)
+        call gz_optimization_vdm_Rhop_reduced_new(Rhop_init_matrix,slater_lgr_init)
         call get_gz_ground_state(GZ_vector)
         slater_lgr_init=0.d0
         call print_output
@@ -508,7 +509,6 @@ CONTAINS
           vdm_NC_mat(is,is) = vdm_NC_indep(iorb)
        end do
     end do
-    Nopt_odiag = 0
     !
   end subroutine vdm_NC_vec2mat
   subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)

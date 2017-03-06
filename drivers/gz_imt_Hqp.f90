@@ -27,7 +27,7 @@ program GUTZ_mb
   complex(8),dimension(:),allocatable     :: gz_proj_init
   !
   !
-  complex(8),dimension(:),allocatable     :: psi_t,psi_save
+  complex(8),dimension(:),allocatable     :: psi_t,psi_save,psi_t_,psi_tmp
   complex(8),dimension(:,:),allocatable     :: lgr_NC
   real(8) :: lgrU
   !
@@ -107,39 +107,37 @@ program GUTZ_mb
 
   !
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  nDynamics = Nphi
-  allocate(psi_t(nDynamics),psi_save(nDynamics))
-  allocate(slater_init(Ns,Ns,Lk),gz_proj_init(Nphi),Hqp_in(Lk,Ns,Ns))  
-  !
+  nDynamics = Nphi + Ns*Ns*Lk
+  allocate(psi_t(nDynamics),psi_save(nDynamics),psi_t_(nDynamics),psi_tmp(nDynamics))
   
-
+  allocate(slater_init(Ns,Ns,Lk),gz_proj_init(Nphi),Hqp_in(Ns,Ns,Lk))  
+  !
   allocate(lgr_NC(Ns,Ns));lgr_NC=zero
   lgrU=0.d0
-
-  
-
-  
   !
-  !
-
-
   if(beta_init.eq.0.d0) then
      gz_proj_init(1) = sqrt(0.5d0)
      gz_proj_init(2) = 0.5d0
      gz_proj_init(3) = 0.5d0
-     call init_imt_qpH(beta_init,gz_proj_init)
+     !call init_imt_qpH(beta_init,gz_proj_init)
+     Hqp_in = zero
+     !call init_imt_qpH_(beta_init,gz_proj_init)
   else
-     call read_optimized_variational_wf_normal_imt(read_optWF_dir,Hqp_in,gz_proj_init)
-     write(*,*) Hqp_in(10,:,:)
+     call read_optimized_variational_wf_normal_imt_(read_optWF_dir,Hqp_in,gz_proj_init)
+     !write(*,*) Hqp_in(10,:,:)
      call init_imt_qpH(beta_init,gz_proj_init,tmp_Hqp=Hqp_in)
   end if
-  psi_t = gz_proj_init  
+  
 
-  !
-  !
+  !call read_optimized_variational_wf_normal_imt_(read_optWF_dir,Hqp_in,gz_proj_init)
 
   
-  !call wfMatrix_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
+  !gz_proj_init=log(gz_proj_init)!*exp(xi*0.6)
+  
+  call wfMatrix_2_dynamicalVector(Hqp_in,gz_proj_init,psi_t)  
+  !
+  !psi_t = gz_proj_init  
+  !
   !
   ! it=1
   ! Uloc=Uloc_t(:,it)
@@ -187,7 +185,11 @@ program GUTZ_mb
   allocate(dens_constrGZ(Ns,Ns))  
   allocate(dump_vect(Ns*Ns))
 
-  allocate(HK_save(Lk,Ns,Ns))
+  !allocate(HK_save(Lk,Ns,Ns))
+
+  ! t=t_grid(1)-itstep
+  ! psi_t_ = RK4_step(nDynamics,4,-itstep,t,psi_t,gz_imt_equations_of_motion_)     !
+  
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
   do im_it=1,Nit
      !
@@ -195,7 +197,7 @@ program GUTZ_mb
      !
      if(mod(im_it-1,nprint).eq.0) then        
         !
-        call gz_imt_measure(psi_t,t)
+        call gz_imt_measure_(psi_t,t)
         !
         do is=1,Ns
            do js=1,Ns
@@ -227,16 +229,24 @@ program GUTZ_mb
      psi_save=psi_t
      if(im_it.lt.Nit) then
         write(*,*) im_it,Nit
-        call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom)
+        !call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom)
+
+        call  step_imt_dynamics_(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_equations_of_motion_)        
+        !psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
+
+        !psi_t = trpz_implicit(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
+        !psi_t = mp_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
+        ! psi_tmp = psi_t
+        ! psi_t = mp_symm_step(nDynamics,4,itstep,t,psi_t,psi_t_,gz_imt_equations_of_motion_)     !
+        ! psi_t_ = psi_tmp
      end if
      !
-     !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
-     !
+
   end do
 
 
-  allocate(Hqp_out(Lk,Ns,Ns))
-  call gz_imt_measure(psi_t,t,slater_init,gz_proj_init,Hqp_out)
+  allocate(Hqp_out(Ns,Ns,Lk))
+  call gz_imt_measure_(psi_t,t,slater_init,gz_proj_init,Hqp_out)
 
   
   
@@ -450,7 +460,7 @@ CONTAINS
 
   subroutine print_output(slater,gzproj,Hqp_out)
     complex(8),dimension(Ns,Ns,Lk) :: slater
-    complex(8),dimension(Lk,Ns,Ns) :: Hqp_out
+    complex(8),dimension(Ns,Ns,Lk) :: Hqp_out
     complex(8),dimension(Nphi) :: gzproj
     integer :: out_unit,istate,jstate,iorb,iphi,ifock,jfock,is,js,ik
     integer,dimension(Ns) :: fock_state
@@ -495,7 +505,7 @@ CONTAINS
           out_unit=free_unit()
           open(out_unit,file='HQP_IS'//reg(txtfy(is))//'_JS'//reg(txtfy(js))//'.data')
           do ik=1,Lk
-             write(out_unit,'(2F18.10)') dreal(Hqp_out(ik,is,js)),dimag(Hqp_out(ik,is,js))
+             write(out_unit,'(2F18.10)') dreal(Hqp_out(is,js,ik)),dimag(Hqp_out(is,js,ik))
           end do
           close(out_unit)
        end do

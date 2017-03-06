@@ -19,6 +19,10 @@ MODULE RK_IDE
   end interface
   public :: RK4_step
 
+  public :: mp_step,mp_symm_step
+  public :: trpz_implicit
+
+  
 CONTAINS
 
 
@@ -314,8 +318,156 @@ CONTAINS
 
 
 
-  
 
+  FUNCTION mp_step(Nsys,mRK,h,t,y_old,funct) result(y_new)
+    implicit none
+    !INPUT
+    integer                                  ::  mRK      !RK order 
+    integer                                  ::  Nsys     !Number of equations
+    real(8)                                  ::  h        !time step
+    real(8)                                  ::  t        !time
+    complex(8),dimension(Nsys),intent(in)    ::  y_old    !y(t_n)
+    complex(8),dimension(Nsys)               ::  y_new    !(t_{n+1})
+    !
+    interface
+       function funct(t,y,Nsys)
+         implicit none
+         integer                    :: Nsys
+         complex(8),dimension(Nsys) :: y
+         real(8)                    :: t
+         complex(8),dimension(Nsys) :: funct
+       end function funct
+    end interface   
+    !
+    complex(8),dimension(:),allocatable    :: Fn,Yn,dFn
+    complex(8),dimension(Nsys)               :: f
+    integer :: j
+    !
+    allocate(dFn(Nsys),Fn(Nsys),Yn(Nsys))
+    do j = 1,Nsys
+       y_new(j) = y_old(j)
+    end do    
+    !+- intermediate steps -+!
+    Yn = y_old
+    Fn = funct(t,Yn,Nsys)
+    !
+    Yn = y_old + h*0.5d0*Fn
+    Fn = funct(t+h*0.5d0,Yn,Nsys)
+    !
+    y_new = y_old + h*Fn
+    !
+  end FUNCTION mp_step
+
+
+
+  FUNCTION mp_symm_step(Nsys,mRK,h,t,y_old,y_old_,funct) result(y_new)
+    implicit none
+    !INPUT
+    integer                                  ::  mRK      !RK order 
+    integer                                  ::  Nsys     !Number of equations
+    real(8)                                  ::  h        !time step
+    real(8)                                  ::  t        !time
+    complex(8),dimension(Nsys),intent(in)    ::  y_old    !y(t_n)
+    complex(8),dimension(Nsys),intent(in)    ::  y_old_    !y(t_{n-1})
+    complex(8),dimension(Nsys)               ::  y_new    !(t_{n+1})
+    !
+    interface
+       function funct(t,y,Nsys)
+         implicit none
+         integer                    :: Nsys
+         complex(8),dimension(Nsys) :: y
+         real(8)                    :: t
+         complex(8),dimension(Nsys) :: funct
+       end function funct
+    end interface   
+    !
+    complex(8),dimension(:),allocatable    :: Fn,Yn,dFn
+    complex(8),dimension(Nsys)               :: f
+    integer :: j
+    !
+    allocate(dFn(Nsys),Fn(Nsys),Yn(Nsys))
+    do j = 1,Nsys
+       y_new(j) = y_old(j)
+    end do    
+    !+- intermediate steps -+!
+    ! Yn = y_old
+    ! Fn = funct(t,Yn,Nsys)
+    ! !
+    ! Yn = y_old + h*0.5d0*Fn
+    ! Fn = funct(t+h*0.5d0,Yn,Nsys)
+    ! !
+    ! y_new = y_old + h*Fn
+    ! !
+    !
+    y_new = y_old_ + 2.d0*h*funct(t,y_old,Nsys)
+    !
+  end FUNCTION mp_symm_step
+
+
+
+
+  FUNCTION trpz_implicit(Nsys,mRK,h,t,y_old,funct) result(y_new)
+    implicit none
+    !INPUT
+    integer                                  ::  mRK      !RK order 
+    integer                                  ::  Nsys     !Number of equations
+    real(8)                                  ::  h        !time step
+    real(8)                                  ::  t        !time
+    complex(8),dimension(Nsys),intent(in)    ::  y_old    !y(t_n)
+    complex(8),dimension(Nsys)    ::  y_tmp    !y(t_{n-1})
+    complex(8),dimension(Nsys)               ::  y_new    !(t_{n+1})
+    !
+    interface
+       function funct(t,y,Nsys)
+         implicit none
+         integer                    :: Nsys
+         complex(8),dimension(Nsys) :: y
+         real(8)                    :: t
+         complex(8),dimension(Nsys) :: funct
+       end function funct
+    end interface   
+    !
+    complex(8),dimension(:),allocatable    :: Fn,Yn,dFn
+    complex(8),dimension(Nsys)               :: f
+    integer :: j,i
+    real(8) :: err
+    !
+    allocate(dFn(Nsys),Fn(Nsys),Yn(Nsys))
+    do j = 1,Nsys
+       y_new(j) = y_old(j)
+    end do    
+    !+- intermediate steps -+!
+    ! Yn = y_old
+    ! Fn = funct(t,Yn,Nsys)
+    ! !
+    ! Yn = y_old + h*0.5d0*Fn
+    ! Fn = funct(t+h*0.5d0,Yn,Nsys)
+    ! !
+    ! y_new = y_old + h*Fn
+    ! !
+    !
+    !y_tmp=RK_step(Nsys,mRK,h,t,y_old,funct)
+
+    y_tmp = y_old !+ h*funct(t,y_old,Nsys)
+    
+    do i=1,100       
+       y_new = y_old + 0.5*h*funct(t,y_old,Nsys) + 0.5*h*funct(t,y_tmp,Nsys)
+       err=0.d0
+       do j=1,Nsys
+          err=err+(y_new(j)-y_tmp(j))*conjg(y_new(j)-y_tmp(j))
+       end do
+       err=sqrt(err)
+       if(err.lt.1.d-15) then
+          write(899,*) i,err
+          exit
+       end if
+       y_tmp = y_new       
+    end do
+    !
+  end FUNCTION trpz_implicit
+
+
+  
 
   
   !+------------------------------------------------------------------+!

@@ -18,7 +18,7 @@ program GUTZ_mb
   !
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik,auxt
-  real(8) :: t,r,s,tmpU
+  real(8) :: t,r,s,tmpU,ndens
   integer :: Nx,out_unit,is,js,ik,im_it,itt,i,iorb,ispin,it
   integer :: nprint
   !
@@ -66,6 +66,7 @@ program GUTZ_mb
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)  
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
   call parse_input_variable(read_optWF_dir,"EQWF_DIR","inputGZ.conf",default='./')
+  call parse_input_variable(ndens,"NDENS","inputGZ.conf",default=1.d0)
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)
 
   !
@@ -93,18 +94,13 @@ program GUTZ_mb
   itstart = beta_init
   itstop = beta_init + itstep*0.5d0*real(Nit_aux-1)
   t_grid_aux = linspace(itstart,itstop,Nit_aux)
-
-  do im_it=1,Nit
-     write(245,*) t_grid(im_it)
-  end do
-  do im_it=1,Nit_aux
-     write(246,*) t_grid_aux(im_it)
-  end do
+  
   !
   !
   call setup_imt_hamiltonian
   !
-
+  !
+  
   !
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
   nDynamics = Nphi + Ns*Ns*Lk
@@ -116,24 +112,12 @@ program GUTZ_mb
   lgrU=0.d0
   !
   if(beta_init.eq.0.d0) then
-     gz_proj_init(1) = sqrt(0.5d0)
-     gz_proj_init(2) = 0.5d0
-     gz_proj_init(3) = 0.5d0
-     !call init_imt_qpH(beta_init,gz_proj_init)
+     call read_optimized_variational_wf_normal_imt(read_optWF_dir,gz_proj_init)
      Hqp_in = zero
-     !call init_imt_qpH_(beta_init,gz_proj_init)
+     call beta0_init_imt_qpH(gz_proj_init,Hqp_in)
   else
-     call read_optimized_variational_wf_normal_imt_(read_optWF_dir,Hqp_in,gz_proj_init)
-     !write(*,*) Hqp_in(10,:,:)
-     call init_imt_qpH(beta_init,gz_proj_init,tmp_Hqp=Hqp_in)
+     call read_optimized_variational_wf_normal_imt(read_optWF_dir,gz_proj_init,Hqp_in)
   end if
-  
-
-  !call read_optimized_variational_wf_normal_imt_(read_optWF_dir,Hqp_in,gz_proj_init)
-
-  
-  !gz_proj_init=log(gz_proj_init)!*exp(xi*0.6)
-  
   call wfMatrix_2_dynamicalVector(Hqp_in,gz_proj_init,psi_t)  
   !
   !psi_t = gz_proj_init  
@@ -185,111 +169,8 @@ program GUTZ_mb
   allocate(dens_constrGZ(Ns,Ns))  
   allocate(dump_vect(Ns*Ns))
 
-  !allocate(HK_save(Lk,Ns,Ns))
-
-  ! t=t_grid(1)-itstep
-  ! psi_t_ = RK4_step(nDynamics,4,-itstep,t,psi_t,gz_imt_equations_of_motion_)     !
-  
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
   do im_it=1,Nit
-     !
-     t=t_grid(im_it)
-     !
-     if(mod(im_it-1,nprint).eq.0) then        
-        !
-        call gz_imt_measure_(psi_t,t)
-        !
-        do is=1,Ns
-           do js=1,Ns
-              call get_imt_Rhop(is,js,Rhop_matrix(is,js))              
-              call get_imt_local_dens(is,js,local_density_matrix(is,js))              
-              call get_imt_local_dens_dens(is,js,local_dens_dens(is,js))              
-              call get_imt_dens_constr_slater(is,js,dens_constrSL(is,js))
-              call get_imt_dens_constr_gzproj(is,js,dens_constrGZ(is,js))              
-           end do
-        end do
-        !
-        call get_imt_energies(energies)
-        call get_imt_local_angular_momenta(local_angular_momenta)
-        call get_imt_unitary_constr(unitary_constr)
-        !
-        call write_complex_matrix_grid(Rhop_matrix,unit_imt_Rhop,print_grid_Rhop,t)
-        !
-        call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,t)
-        call write_hermitean_matrix(dens_constrSL,unit_imt_dens_constrSL,t)
-        call write_hermitean_matrix(dens_constrGZ,unit_imt_dens_constrGZ,t)
-        call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,t)
-        call write_symmetric_matrix(local_dens_dens,unit_imt_local_dens_dens,t)
-        write(unit_imt_AngMom,'(10F18.10)') t,local_angular_momenta
-        write(unit_imt_ene,'(10F18.10)') t,energies
-        write(unit_imt_constrU,'(10F18.10)') t,unitary_constr
-        !        
-     end if
-     !
-     psi_save=psi_t
-     if(im_it.lt.Nit) then
-        write(*,*) im_it,Nit
-        !call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom)
-
-        call  step_imt_dynamics_(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_equations_of_motion_)        
-        !psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
-
-        !psi_t = trpz_implicit(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
-        !psi_t = mp_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
-        ! psi_tmp = psi_t
-        ! psi_t = mp_symm_step(nDynamics,4,itstep,t,psi_t,psi_t_,gz_imt_equations_of_motion_)     !
-        ! psi_t_ = psi_tmp
-     end if
-     !
-
-  end do
-
-
-  allocate(Hqp_out(Ns,Ns,Lk))
-  call gz_imt_measure_(psi_t,t,slater_init,gz_proj_init,Hqp_out)
-
-  
-  
-  call print_output(slater_init,gz_proj_init,Hqp_out)
-  
-  
-
-  write(344,*)
-  write(567,*)
-  write(567,*)
-
-  write(444,*)
-  write(445,*)
-  write(446,*)
-  
-  stop
-  
-  call system('cp * FORWARD_IMT_DYN')
-
-  close(unit_imt_local_dens_dens)
-  unit_imt_local_dens_dens = free_unit()
-  open(unit_imt_local_dens_dens,file='imt_local_dens_dens.data')
-
-
-  allocate(auxt(Nit))
-  auxt=t_grid
-  do it=1,Nit
-     t_grid(it) = auxt(Nit-(it-1))+itstep     
-  end do
-  deallocate(auxt)
-  allocate(auxt(Nit_aux))
-  auxt=t_grid_aux
-  do it=1,Nit
-     t_grid_aux(it) = auxt(Nit_aux-(it-1))+itstep*0.5d0     
-  end do
-  deallocate(auxt)
-
-  itstep=-1.d0*itstep
-  !call init_imt_qpH(,psi_t)  
-  !gz_imt_qpH=Hk_save  
-
-  do im_it=1,Nit
-     write(*,*) im_it,Nit
      !
      t=t_grid(im_it)
      !
@@ -324,18 +205,108 @@ program GUTZ_mb
         !        
      end if
      !
+     psi_save=psi_t
+     if(im_it.lt.Nit) then
+        write(*,*) im_it,Nit
+        !call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom)        
+        call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_equations_of_motion,ndens)        
+        !psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion)     !
+        !
+        !psi_t = trpz_implicit(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
+        !psi_t = mp_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
+        ! psi_tmp = psi_t
+        ! psi_t = mp_symm_step(nDynamics,4,itstep,t,psi_t,psi_t_,gz_imt_equations_of_motion_)     !
+        ! psi_t_ = psi_tmp
+     end if
+     !
 
-     
-     call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom) 
-     !
-     !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
-     !
   end do
 
+
+  allocate(Hqp_out(Ns,Ns,Lk))
+  call gz_imt_measure(psi_t,t,slater_init,gz_proj_init,Hqp_out)
+
+  
+  
+  call print_output(slater_init,gz_proj_init,Hqp_out)
   
   
 
-  write(800,*) psi_t
+  
+  ! stop
+  
+  ! call system('cp * FORWARD_IMT_DYN')
+
+  ! close(unit_imt_local_dens_dens)
+  ! unit_imt_local_dens_dens = free_unit()
+  ! open(unit_imt_local_dens_dens,file='imt_local_dens_dens.data')
+
+
+  ! allocate(auxt(Nit))
+  ! auxt=t_grid
+  ! do it=1,Nit
+  !    t_grid(it) = auxt(Nit-(it-1))+itstep     
+  ! end do
+  ! deallocate(auxt)
+  ! allocate(auxt(Nit_aux))
+  ! auxt=t_grid_aux
+  ! do it=1,Nit
+  !    t_grid_aux(it) = auxt(Nit_aux-(it-1))+itstep*0.5d0     
+  ! end do
+  ! deallocate(auxt)
+
+  ! itstep=-1.d0*itstep
+  ! !call init_imt_qpH(,psi_t)  
+  ! !gz_imt_qpH=Hk_save  
+
+  ! do im_it=1,Nit
+  !    write(*,*) im_it,Nit
+  !    !
+  !    t=t_grid(im_it)
+  !    !
+  !    if(mod(im_it-1,nprint).eq.0) then        
+  !       !
+  !       call gz_imt_measure(psi_t,t)
+  !       !
+  !       do is=1,Ns
+  !          do js=1,Ns
+  !             call get_imt_Rhop(is,js,Rhop_matrix(is,js))              
+  !             call get_imt_local_dens(is,js,local_density_matrix(is,js))              
+  !             call get_imt_local_dens_dens(is,js,local_dens_dens(is,js))              
+  !             call get_imt_dens_constr_slater(is,js,dens_constrSL(is,js))
+  !             call get_imt_dens_constr_gzproj(is,js,dens_constrGZ(is,js))              
+  !          end do
+  !       end do
+  !       !
+  !       call get_imt_energies(energies)
+  !       call get_imt_local_angular_momenta(local_angular_momenta)
+  !       call get_imt_unitary_constr(unitary_constr)
+  !       !
+  !       call write_complex_matrix_grid(Rhop_matrix,unit_imt_Rhop,print_grid_Rhop,t)
+  !       !
+  !       call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,t)
+  !       call write_hermitean_matrix(dens_constrSL,unit_imt_dens_constrSL,t)
+  !       call write_hermitean_matrix(dens_constrGZ,unit_imt_dens_constrGZ,t)
+  !       call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,t)
+  !       call write_symmetric_matrix(local_dens_dens,unit_imt_local_dens_dens,t)
+  !       write(unit_imt_AngMom,'(10F18.10)') t,local_angular_momenta
+  !       write(unit_imt_ene,'(10F18.10)') t,energies
+  !       write(unit_imt_constrU,'(10F18.10)') t,unitary_constr
+  !       !        
+  !    end if
+  !    !
+
+     
+  !    call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom) 
+  !    !
+  !    !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
+  !    !
+  ! end do
+
+  
+  
+
+  ! write(800,*) psi_t
 
   !
   !
@@ -369,8 +340,6 @@ CONTAINS
        else
           wtk(ix) = 0.d0
        end if
-       wtk(ix) = 1.d0/dble(Lk)
-       !if(ix==1.or.ix==Lk) wtk(ix)=2.d0/Wband*de
        test_k=test_k+wtk(ix)
        write(77,*) epsik(ix),wtk(ix)
     end do

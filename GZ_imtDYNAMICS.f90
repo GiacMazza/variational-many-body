@@ -16,20 +16,16 @@ MODULE GZ_imtDYNAMICS
   !
 
   !
-  public :: step_imt_dynamics!,step_imt_dynamics_
-  !public :: gz_imt_eom
+  public :: step_imt_dynamics
   public :: gz_imt_equations_of_motion
   !
   public :: setup_imt_hamiltonian
-  public :: init_imt_qpH_,beta0_init_imt_qpH
+  public :: beta0_init_imt_qpH,beta0_init_imt_qpH_superc
   !
   public :: setup_imt_dynamics
   public :: setup_imt_dynamics_superc
   !
-  public :: gz_imt_measure!,gz_imt_measure_sp
-  !public :: gz_imt_measure_superc,gz_imt_measure_superc_sp
-  !
-  !public :: gz_imt_measure_
+  public :: gz_imt_measure,gz_imt_measure_superc
   !
   public :: get_imt_local_dens
   public :: get_imt_local_dens_dens
@@ -113,7 +109,7 @@ CONTAINS
     Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
     Rhop_hc = conjg(transpose(Rhop))
     !    
-    
+
     infT_mu=fzero_brentq(beta0_fix_mu,-Wband*0.5d0,Wband*0.5d0)
     write(*,*) infT_mu,beta0_fix_mu(infT_mu)
 
@@ -175,116 +171,6 @@ CONTAINS
 
 
 
-
-
-
-
-
-
-
-  subroutine init_imt_qpH_(beta0,gzproj,lgrNC_,tmp_Hqp)
-    real(8) :: beta0
-    complex(8),dimension(Nphi)  :: gzproj
-    complex(8),dimension(Ns,Ns),optional :: lgrNC_
-    complex(8),dimension(Ns,Ns,Lk),optional :: tmp_Hqp
-    complex(8),dimension(Ns,Ns) :: lgrNC,Hk,Rhop,Rhop_hc
-    real(8),dimension(Ns) :: vdm_diag
-    integer :: is,js,ik
-    !
-    lgrNC = zero
-    if(present(lgrNC_)) lgrNC = lgrNC_
-    allocate(gz_imt_qpH(Lk,Ns,Ns)); gz_imt_qpH=zero
-    allocate(Hksave(Lk,Ns,Ns)); HKsave=zero
-    !
-    do is=1,Ns
-       vdm_diag(is) = dreal(trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:)))
-    end do
-    !
-    Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
-    Rhop_hc = conjg(transpose(Rhop))
-    !
-    do ik=1,Lk
-       Hk=matmul(Hk_tb(:,:,ik),Rhop)
-       Hk=matmul(Rhop_hc,Hk)
-       Hk=Hk+lgrNC       
-       !
-       gz_imt_qpH(ik,:,:) = 2.d0*beta0*Hk  !+- il due, capra!!!
-       !
-    end do
-
-    write(*,*) present(tmp_Hqp)
-
-    if(present(tmp_Hqp)) then
-       !write(*,*) 'initializing read tmp_Hqp'
-       !
-       do ik=1,Lk
-          tmp_Hqp(:,:,ik) = gz_imt_qpH(ik,:,:) 
-       end do
-       !
-       ! gz_imt_qpH=zero
-       ! gz_imt_qpH=tmp_Hqp
-       ! write(*,*) gz_imt_qpH(10,:,:)
-    end if
-
-  end subroutine init_imt_qpH_
-
-
-
-
-
-
-
-  ! subroutine init_imt_qpH_(beta0,gzproj,Hqp,lgrNC_)
-  !   real(8) :: beta0
-  !   complex(8),dimension(Nphi)  :: gzproj
-  !   complex(8),dimension(Lk,Ns,Ns) :: Hqp
-  !   complex(8),dimension(Ns,Ns),optional :: lgrNC_
-
-  !   complex(8),dimension(Ns,Ns) :: lgrNC,Hk,Rhop,Rhop_hc
-  !   real(8),dimension(Ns) :: vdm_diag
-  !   integer :: is,js,ik
-  !   !
-  !   lgrNC = zero
-  !   if(present(lgrNC_)) lgrNC = lgrNC_
-
-  !   !allocate(gz_imt_qpH(Lk,Ns,Ns)); gz_imt_qpH=zero
-  !   !allocate(Hksave(Lk,Ns,Ns)); HKsave=zero
-  !   !
-  !   do is=1,Ns
-  !      vdm_diag(is) = dreal(trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:)))
-  !   end do
-  !   !
-  !   Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
-  !   Rhop_hc = conjg(transpose(Rhop))
-  !   !
-  !   do ik=1,Lk
-  !      Hk=matmul(Hk_tb(:,:,ik),Rhop)
-  !      Hk=matmul(Rhop_hc,Hk)
-  !      Hk=Hk+lgrNC       
-  !      !
-  !      !gz_imt_qpH(ik,:,:) = 2.d0*beta0*Hk  !+- il due, capra!!!
-
-  !      !
-  !   end do
-
-  !   write(*,*) present(tmp_Hqp)
-
-  !   if(present(tmp_Hqp)) then
-  !      write(*,*) 'initializing read tmp_Hqp'
-  !      gz_imt_qpH=zero
-  !      gz_imt_qpH=tmp_Hqp
-  !      write(*,*) gz_imt_qpH(10,:,:)
-  !   end if
-
-  ! end subroutine init_imt_qpH_
-
-
-
-
-
-
-
-
   !
   subroutine setup_imt_dynamics_superc    
     allocate(gz_imt_local_density_matrix(Ns,Ns)); gz_imt_local_density_matrix = 0.d0
@@ -305,6 +191,205 @@ CONTAINS
     allocate(gz_imt_local_sc_order(Ns,Ns)); gz_imt_local_sc_order = 0.d0
     allocate(gz_imt_nqp(Ns,Lk)); gz_imt_nqp = 0.d0
   end subroutine setup_imt_dynamics_superc
+
+
+
+  !+-
+  subroutine beta0_init_imt_qpH_superc(gzproj,Hqp,lgrNC_)
+    real(8) :: beta0
+    complex(8),dimension(Nphi)  :: gzproj
+    complex(8),dimension(Ns,Ns),optional :: lgrNC_
+    complex(8),dimension(3,Ns,Ns,Lk) :: Hqp
+    complex(8),dimension(Ns,Ns) :: lgrNC,Hk_tmp
+    complex(8),dimension(Ns,Ns) :: Rhop,Rhop_hc,Qhop,Qhop_hc
+    complex(8),dimension(2*Ns,2*Ns) :: Hk
+    real(8),dimension(Ns) :: vdm_diag,gz_dens
+    real(8) :: ntarget,infT_mu
+    integer :: is,js,ik,iter,i,i0,Nopt
+
+    real(8),dimension(:),allocatable            :: lgr
+    complex(8),dimension(:),allocatable         :: lgr_cmplx
+    real(8),dimension(:),allocatable            ::   delta_out     !+- real indeendent lgr_vector -+!
+    complex(8),dimension(2,Ns,Ns) :: lgr_multip
+    !
+    beta0=0.d0
+    lgrNC = zero
+    if(present(lgrNC_)) lgrNC = lgrNC_
+    allocate(gz_imt_qpH(Lk,Ns,Ns)); gz_imt_qpH=zero
+    !
+    do is=1,Ns
+       vdm_diag(is) = dreal(trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:))) !+- this is the target -+!
+    end do
+    !
+    Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
+    Rhop_hc = conjg(transpose(Rhop))
+    Qhop = hopping_renormalization_anomalous_sp(gzproj,vdm_diag)
+    Qhop_hc = conjg(transpose(Qhop))    
+    !    
+    Nopt=2*Nvdm_NC_opt + 2*Nvdm_AC_opt;
+    allocate(lgr(Nopt));allocate(delta_out(Nopt))
+    lgr=0.d0
+    !
+
+    call fsolve(beta0_fix_mu,lgr,tol=1.d-10,info=iter)
+    delta_out=beta0_fix_mu(lgr)
+
+    write(*,*)
+    write(*,*)
+    write(*,*) "initializing infinte temperature Hqp"
+    write(*,*)
+    write(*,*)
+    write(*,*) "lgr params",lgr
+    write(*,*) "error",delta_out
+    !
+    allocate(lgr_cmplx(Nvdm_NC_opt))
+    do i=1,Nvdm_NC_opt
+       lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_NC_opt)
+    end do
+    call vdm_NC_stride_v2m(lgr_cmplx,lgr_multip(1,:,:))
+    deallocate(lgr_cmplx)
+    i0=2*Nvdm_NC_opt
+    allocate(lgr_cmplx(Nvdm_AC_opt))  
+    do i=1,Nvdm_AC_opt
+       lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+    end do
+    call vdm_AC_stride_v2m(lgr_cmplx,lgr_multip(2,:,:))  
+    !
+    do ik=1,Lk
+       !
+       Hk_tmp=matmul(Hk_tb(:,:,ik),Rhop)
+       Hk_tmp=matmul(Rhop_hc,Hk_tmp)
+       HK(1:Ns,1:Ns) = Hk_tmp 
+       !
+       Hk_tmp=matmul(Hk_tb(:,:,ik),Qhop)
+       Hk_tmp=matmul(Rhop_hc,Hk_tmp)
+       Hk(1:Ns,1+Ns:2*Ns) = Hk_tmp 
+       Hk(1+Ns:2*Ns,1:Ns) = conjg(transpose(Hk_tmp)) 
+       !
+       Hk_tmp=matmul(Hk_tb(:,:,ik),Qhop)
+       Hk_tmp=matmul(Qhop_hc,Hk_tmp)
+       Hk(1+Ns:2*Ns,1+Ns:2*Ns) = Hk_tmp
+       !
+       !
+       Hqp(1,:,:,ik) = beta0*Hk(1:Ns,1:Ns)  + lgr_multip(1,:,:)
+       Hqp(2,:,:,ik) = beta0*Hk(1:Ns,1+Ns:2*Ns)  + lgr_multip(2,:,:)
+       Hqp(3,:,:,ik) = beta0*Hk(1+Ns:2*Ns,1+Ns:2*Ns) 
+       !
+       !
+    end do
+    !
+  contains
+    !
+    function beta0_fix_mu(lm_) result(delta)
+      real(8),dimension(:)                :: lm_
+      real(8),dimension(size(lm_))        :: delta
+      complex(8),dimension(:),allocatable :: lm_cmplx,delta_cmplx
+      complex(8),dimension(2,Ns,Ns)       :: lm   !+- this may be also (2,Ns,Ns)
+      complex(8),dimension(2,Ns,Ns)       :: delta_local_density_matrix,local_density_matrix
+      complex(8),dimension(2*Ns,2*Ns)     :: Hk,Hqp
+      complex(8),dimension(Ns,Ns)         :: Hk_tmp
+      real(8),dimension(2*Ns)             :: ek
+      integer                             :: iorb,jorb,ispin,jspin,istate,jstate,kstate,ik,imap,jmap,i,i0
+      integer                             :: is,js,ks
+      real(8)                             :: nqp
+      !
+      allocate(lm_cmplx(Nvdm_NC_opt))
+      do i=1,Nvdm_NC_opt
+         lm_cmplx(i) = lm_(i)+xi*lm_(i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lm_cmplx,lm(1,:,:))    
+      deallocate(lm_cmplx)
+      i0=2*Nvdm_NC_opt
+      allocate(lm_cmplx(Nvdm_AC_opt))
+      do i=1,Nvdm_AC_opt
+         lm_cmplx(i) = lm_(i0+i)+xi*lm_(i0+i+Nvdm_AC_opt)
+      end do
+      call vdm_AC_stride_v2m(lm_cmplx,lm(2,:,:))    
+      deallocate(lm_cmplx)
+      !
+      local_density_matrix=0.d0
+      !
+      do ik=1,Lk     
+         Hk=0.d0
+         ek=0.d0
+         !
+         ! hopping renormalization !
+         !
+         Hk_tmp=matmul(Hk_tb(:,:,ik),Rhop)
+         Hk_tmp=matmul(Rhop_hc,Hk_tmp)
+         Hk(1:Ns,1:Ns) = Hk_tmp 
+         !
+         Hk_tmp=matmul(Hk_tb(:,:,ik),Qhop)
+         Hk_tmp=matmul(Rhop_hc,Hk_tmp)
+         Hk(1:Ns,Ns+1:2*Ns) = Hk_tmp 
+         !
+         Hk_tmp=matmul(Hk_tb(:,:,ik),Rhop)
+         Hk_tmp=matmul(Qhop_hc,Hk_tmp)
+         Hk(Ns+1:2*Ns,1:Ns) = Hk_tmp
+         !
+         Hk_tmp=matmul(Hk_tb(:,:,ik),Qhop)
+         Hk_tmp=matmul(Qhop_hc,Hk_tmp)
+         Hk(Ns+1:2*Ns,Ns+1:2*Ns) = Hk_tmp
+         !
+         Hqp = beta0*Hk
+         !add Lagrange multipliers !
+         Hqp(1:Ns,1:Ns)=Hqp(1:Ns,1:Ns)+lm(1,:,:)
+         Hqp(1:Ns,Ns+1:2*Ns)=Hqp(1:Ns,1:Ns)+lm(2,:,:)
+         do is=1,Ns
+            do js=1,Ns
+               Hqp(is+Ns,js) = Hqp(is+Ns,js) + conjg(lm(2,js,is))
+            end do
+         end do
+         !
+         !
+         Hk=Hqp
+         call matrix_diagonalize(Hk,ek)
+         !
+         !
+         do is=1,Ns
+            do js=1,Ns
+               !
+               do ks=1,Ns
+                  nqp = fermi(ek(ks)-ek(ks+Ns),1.d0)                
+                  !
+                  local_density_matrix(1,is,js) = local_density_matrix(1,is,js) + &
+                       conjg(Hk(is,ks))*Hk(js,ks)*nqp*wtk(ik) + conjg(Hk(is,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)*wtk(ik)
+                  !
+                  local_density_matrix(2,is,js) = local_density_matrix(2,is,js) + &
+                       conjg(Hk(is+Ns,ks))*Hk(js,ks)*nqp*wtk(ik) + conjg(Hk(is+Ns,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)*wtk(ik)
+               end do
+               !
+            end do
+         end do
+         !
+         !
+      end do
+
+      delta_local_density_matrix = local_density_matrix
+      do istate=1,Ns
+         delta_local_density_matrix(1,istate,istate) = delta_local_density_matrix(1,istate,istate) - vdm_diag(istate)      
+      end do
+      delta=0.d0
+      allocate(delta_cmplx(Nvdm_NC_opt))
+      call vdm_NC_stride_m2v(delta_local_density_matrix(1,:,:),delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i) = dreal(delta_cmplx(i))
+         delta(i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      deallocate(delta_cmplx)
+      i0 = 2*Nvdm_NC_opt
+      allocate(delta_cmplx(Nvdm_AC_opt))
+      call vdm_AC_stride_m2v(delta_local_density_matrix(2,:,:),delta_cmplx)
+      do i=1,Nvdm_AC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         delta(i0+i+Nvdm_AC_opt) = dimag(delta_cmplx(i))       
+      end do
+      deallocate(delta_cmplx)
+      !
+    end function beta0_fix_mu
+    !
+  end subroutine beta0_init_imt_qpH_superc
+
 
 
 
@@ -447,201 +532,6 @@ CONTAINS
   end subroutine setup_imt_hamiltonian
 
 
-  ! subroutine gz_imt_measure(psi_t,itime,slater_out,gzproj_out,Hqp_out)
-  !   complex(8),dimension(nDynamics) :: psi_t
-  !   real(8)                         :: itime
-  !   complex(8),dimension(Ns,Ns,Lk),optional  :: slater_out
-  !   complex(8),dimension(Lk,Ns,Ns),optional  :: Hqp_out
-  !   complex(8),dimension(Nphi),optional :: gzproj_out
-  !   complex(8),dimension(Ns,Ns,Lk)  :: slater,tmp_slater
-  !   complex(8),dimension(Ns,Ns)     :: tmpHk,Hk
-  !   complex(8),dimension(Nphi)      :: gzproj,gztmp
-  !   real(8)                         :: Estar,Eloc,Egz
-  !   real(8),dimension(Ns)           :: vdm_diag,tmp_eHk
-
-  !   integer                         :: is,js,ik,iphi,iis,jjs,itt,ks
-  !   !
-  !   if(Nphi.ne.nDynamics) stop "gz_imt_measure/ wrong dimensions"
-  !   !call dynamicalVector_2_wfMatrix(psi_t,slater,gzproj)  
-  !   gzproj=psi_t
-  !   if(present(gzproj_out)) gzproj_out=gzproj
-  !   !
-  !   do is=1,Ns
-  !      do js=1,Ns
-  !         gz_imt_local_density_matrix(is,js) = &
-  !              trace_phi_basis_sp(gzproj,phi_spTraces_basis_local_dens(is,js))          
-  !         gz_imt_local_dens_dens(is,js) = &
-  !              trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_dens(is,js))
-  !         !
-  !         gz_imt_dens_constr_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens(is,js))
-  !         !
-  !      end do
-  !      vdm_diag(is) = gz_imt_dens_constr_gzproj(is,is)
-  !   end do
-  !   !
-  !   itt=imt_t2it(itime,0.5d0*itstep,beta_init)
-  !   ! Uloc=Uloc_t(:,itt)
-  !   ! Ust =Ust_t(itt)
-  !   ! Jh=Jh_t(itt)
-  !   ! Jsf=Jsf_t(itt)
-  !   ! Jph=Jph_t(itt)
-  !   ! eLevels = eLevels_t(:,itt)
-  !   eLevels=0.d0
-  !   !
-  !   gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
-  !   Eloc = 0.d0
-  !   do iphi=1,Nphi
-  !      Eloc = Eloc + conjg(gzproj(iphi))*gztmp(iphi)
-  !   end do
-  !   !
-  !   gz_imt_local_angular_momenta(1) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spin2)
-  !   gz_imt_local_angular_momenta(2) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spinZ)
-  !   gz_imt_local_angular_momenta(3) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpin2)
-  !   gz_imt_local_angular_momenta(4) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpinZ)
-  !   !
-  !   gz_imt_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
-  !   !
-  !   gz_imt_unitary_constr = 0.d0
-  !   do iphi=1,Nphi
-  !      gz_imt_unitary_constr = gz_imt_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
-  !   end do
-  !   !+- SLATER -+!
-  !   Estar=0.d0
-  !   !+- first thing first I have to exctract slater(is,js,ik) from the immaginary time integral of the QP hamiltonian
-  !   do ik=1,Lk
-  !      !
-
-  !      Hksave(ik,:,:) = matmul(Hk_tb(:,:,ik),gz_imt_rhop)
-  !      Hksave(ik,:,:) = matmul(conjg(transpose(gz_imt_rhop)),Hksave(ik,:,:))
-
-  !      tmpHk= gz_imt_qpH(ik,:,:) 
-  !      call matrix_diagonalize(tmpHk,tmp_eHk)       
-  !      !
-  !      do is=1,Ns
-  !         do js=1,Ns
-  !            slater(is,js,ik) = zero
-  !            do ks=1,Ns
-  !               slater(is,js,ik) = slater(is,js,ik) + conjg(tmpHk(is,ks))*tmpHk(js,ks)*fermi(tmp_eHk(ks),1.d0)
-  !            end do
-  !         end do
-  !      end do
-  !      !
-
-  !      !<TMP 
-  !      if(present(slater_out)) then
-  !         tmp_slater=zero
-  !         tmpHk= Hksave(ik,:,:) 
-  !         call matrix_diagonalize(tmpHk,tmp_eHk)                 
-  !         do is=1,Ns
-  !            do js=1,Ns
-  !               tmp_slater(is,js,ik) = zero
-  !               do ks=1,Ns
-  !                  tmp_slater(is,js,ik) = tmp_slater(is,js,ik) + conjg(tmpHk(is,ks))*tmpHk(js,ks)*fermi(tmp_eHk(ks),itime)
-  !                  !write(*,*) tmp_slater(is,js,ik)
-  !               end do
-  !            end do
-  !         end do
-  !         write(650,'(10F18.10)') tmp_slater(1,1,ik)
-  !      end if
-  !      !TMP>
-
-  !      ! just a TMP thing here
-  !      if(ik.eq.490) write(631,'(18F18.10)') itime,slater(1,1,ik)
-  !   end do
-  !   if(present(slater_out)) slater_out=slater
-  !   if(present(Hqp_out)) Hqp_out=gz_imt_qpH
-
-
-
-
-  !   !
-  !   gz_imt_dens_constr_slater=0.d0
-  !   do ik=1,Lk
-  !      Hk = Hk_tb(:,:,ik)
-  !      do is=1,Ns
-  !         do js=1,Ns
-  !            gz_imt_dens_constr_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(is,js,ik)*wtk(ik)
-  !            do iis=1,Ns
-  !               do jjs=1,Ns
-  !                  Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*slater(is,js,ik)*wtk(ik)
-  !               end do
-  !            end do
-  !         end do
-  !      end do
-  !   end do
-  !   !
-  !   gz_imt_energies(1) = Estar+Eloc
-  !   gz_imt_energies(2) = Estar
-  !   gz_imt_energies(3) = Eloc
-  !   !  
-  ! end subroutine gz_imt_measure
-  ! !
-  ! subroutine gz_imt_measure_constr(psi_t,itime)
-  !   complex(8),dimension(nDynamics) :: psi_t
-  !   real(8)                         :: itime
-  !   complex(8),dimension(Ns,Ns,Lk)  :: slater
-  !   complex(8),dimension(Ns,Ns)     :: tmpHk,Hk
-  !   complex(8),dimension(Nphi)      :: gzproj
-  !   real(8)                         :: Estar,Eloc,Egz,b0
-  !   real(8),dimension(Ns)           :: vdm_diag,tmp_eHk
-  !   integer                         :: is,js,ik,it,iphi,iis,jjs,itt,ks
-  !   !
-  !   it=imt_t2it(itime,itstep)
-  !   !
-  !   if(Nphi.ne.nDynamics) stop "gz_imt_measure_constr/ wrong dimensions"
-  !   gzproj=psi_t
-  !   !
-  !   do is=1,Ns
-  !      do js=1,Ns
-  !         gz_imt_dens_constr_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens(is,js))
-  !      end do
-  !   end do
-  !   !
-  !   gz_imt_unitary_constr = 0.d0
-  !   do iphi=1,Nphi
-  !      gz_imt_unitary_constr = gz_imt_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
-  !   end do
-  !   !
-  !   Estar=0.d0
-  !   !+- first thing first I have to exctract slater(is,js,ik) from the immaginary time integral of the QP hamiltonian
-  !   do ik=1,Lk
-  !      !
-  !      tmpHk= gz_imt_qpH(ik,:,:) 
-  !      call matrix_diagonalize(tmpHk,tmp_eHk)       
-  !      !
-  !      do is=1,Ns
-  !         do js=1,Ns
-  !            slater(is,js,ik) = zero
-  !            do ks=1,Ns
-  !               slater(is,js,ik) = slater(is,js,ik) + conjg(tmpHk(is,ks))*tmpHk(js,ks)*fermi(tmp_eHk(ks),1.d0)
-  !            end do
-  !         end do
-  !      end do
-  !      !       
-  !   end do
-  !   !
-  !   gz_imt_dens_constr_slater=0.d0
-  !   do ik=1,Lk
-  !      Hk = Hk_tb(:,:,ik)
-  !      do is=1,Ns
-  !         do js=1,Ns
-  !            gz_imt_dens_constr_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(is,js,ik)*wtk(ik)
-  !         end do
-  !      end do
-  !   end do
-  !   ! !
-  ! end subroutine gz_imt_measure_constr
-
-
-
-
-
-
-
-
-
-
-
   subroutine gz_imt_measure(psi_t,itime,slater_out,gzproj_out,Hqp_out)
     complex(8),dimension(nDynamics) :: psi_t
     real(8)                         :: itime
@@ -658,15 +548,10 @@ CONTAINS
     !
     if(size(psi_t).ne.nDynamics) stop "gz_imt_measure_/ wrong dimensions"
     call dynamicalVector_2_wfMatrix(psi_t,Hqp,gzproj)
-    !gzproj=psi_t
+    !
     if(present(gzproj_out)) gzproj_out=gzproj
     if(present(Hqp_out)) Hqp_out=Hqp
     !
-
-    !<TMP
-    write(666,'(10F18.10)') itime,gzproj
-    !TMP>
-
     !
     do is=1,Ns
        do js=1,Ns
@@ -682,12 +567,7 @@ CONTAINS
     end do
     !
     itt=imt_t2it(itime,0.5d0*itstep,beta_init)
-    ! Uloc=Uloc_t(:,itt)
-    ! Ust =Ust_t(itt)
-    ! Jh=Jh_t(itt)
-    ! Jsf=Jsf_t(itt)
-    ! Jph=Jph_t(itt)
-    ! eLevels = eLevels_t(:,itt)
+    !
     eLevels=0.d0
     !
     gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
@@ -724,23 +604,6 @@ CONTAINS
           end do
        end do
        !
-       !<TMP 
-       ! if(present(slater_out)) then
-       !    tmp_slater=zero
-       !    tmpHk= Hksave(ik,:,:) 
-       !    call matrix_diagonalize(tmpHk,tmp_eHk)                 
-       !    do is=1,Ns
-       !       do js=1,Ns
-       !          tmp_slater(is,js,ik) = zero
-       !          do ks=1,Ns
-       !             tmp_slater(is,js,ik) = tmp_slater(is,js,ik) + conjg(tmpHk(is,ks))*tmpHk(js,ks)*fermi(tmp_eHk(ks),itime)
-       !             !write(*,*) tmp_slater(is,js,ik)
-       !          end do
-       !       end do
-       !    end do
-       !    write(650,'(10F18.10)') tmp_slater(1,1,ik)
-       ! end if
-       !TMP>
     end do
     if(present(slater_out)) slater_out=slater
     !
@@ -779,7 +642,6 @@ CONTAINS
     !
     if(size(psi_t).ne.nDynamics) stop "gz_imt_measure_constr/ wrong dimensions"
     call dynamicalVector_2_wfMatrix(psi_t,Hqp,gzproj)
-    !gzproj=psi_t
     !
     do is=1,Ns
        do js=1,Ns
@@ -824,6 +686,136 @@ CONTAINS
     ! !
   end subroutine gz_imt_measure_constr
 
+
+
+
+  !+- SUPERC ROUTINES
+
+  subroutine gz_imt_measure_superc(psi_t,itime,slater_out,gzproj_out,Hqp_out)
+    complex(8),dimension(nDynamics) :: psi_t
+    real(8)                         :: itime
+    complex(8),dimension(2,Ns,Ns,Lk),optional  :: slater_out
+    complex(8),dimension(3,Ns,Ns,Lk),optional  :: Hqp_out
+    complex(8),dimension(Nphi),optional :: gzproj_out
+    complex(8),dimension(2,Ns,Ns,Lk)  :: tmp_slater,slater
+    complex(8),dimension(3,Ns,Ns,Lk) :: Hqp 
+    complex(8),dimension(2*Ns,2*Ns)     :: tmpHk
+    complex(8),dimension(Ns,Ns)     :: Hk
+    complex(8),dimension(Nphi)      :: gzproj,gztmp
+    real(8)                         :: Estar,Eloc,Egz,nqp
+    real(8),dimension(Ns)           :: vdm_diag
+    real(8),dimension(2*Ns) :: tmp_eHk
+
+    integer                         :: is,js,ik,iphi,iis,jjs,itt,ks
+    !
+    if(size(psi_t).ne.nDynamics) stop "gz_imt_measure_/ wrong dimensions"
+    call imt_dynamicalVector_2_wfMatrix_superc(psi_t,Hqp,gzproj)
+    !
+    if(present(gzproj_out)) gzproj_out=gzproj
+    if(present(Hqp_out)) Hqp_out=Hqp
+    !
+    !
+    do is=1,Ns
+       do js=1,Ns
+          gz_imt_local_density_matrix(is,js) = &
+               trace_phi_basis_sp(gzproj,phi_spTraces_basis_local_dens(is,js))          
+          gz_imt_local_dens_dens(is,js) = &
+               trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_dens(is,js))
+          !
+          gz_imt_dens_constr_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens(is,js))
+          gz_imt_dens_constrA_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_anomalous(is,js))
+          !                                                                                                                                             
+          gz_imt_local_sc_order(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_sc_order(is,js))
+          !
+       end do
+       vdm_diag(is) = gz_imt_dens_constr_gzproj(is,is)
+    end do
+    !
+    itt=imt_t2it(itime,0.5d0*itstep,beta_init)
+    !
+    eLevels=0.d0
+    !
+    gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
+    Eloc = 0.d0
+    do iphi=1,Nphi
+       Eloc = Eloc + conjg(gzproj(iphi))*gztmp(iphi)
+    end do
+    !
+    gz_imt_local_angular_momenta(1) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spin2)
+    gz_imt_local_angular_momenta(2) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spinZ)
+    gz_imt_local_angular_momenta(3) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpin2)
+    gz_imt_local_angular_momenta(4) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpinZ)
+    !
+    gz_imt_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
+    !
+    gz_imt_unitary_constr = 0.d0
+    do iphi=1,Nphi
+       gz_imt_unitary_constr = gz_imt_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
+    end do
+    !+- SLATER -+!
+    Estar=0.d0
+    !+- first thing first I have to exctract slater(is,js,ik) from the immaginary time integral of the QP hamiltonian
+    do ik=1,Lk
+       !
+       tmpHk(1:Ns,1:Ns) = Hqp(1,:,:,ik) 
+       tmpHk(1:Ns,1+Ns:2*Ns) = Hqp(2,:,:,ik) 
+       tmpHk(1+Ns:2*Ns,1:Ns) = conjg(transpose(Hqp(2,:,:,ik)))
+       tmpHk(1+Ns:2*Ns,1+Ns:2*Ns) = Hqp(3,:,:,ik) 
+       !
+       call matrix_diagonalize(tmpHk,tmp_eHk)       
+       !
+       do is=1,Ns
+          do js=1,Ns
+             do ks=1,Ns
+                nqp = fermi(tmp_eHk(ks)-tmp_eHk(ks+Ns),1.d0)                
+                slater(1,is,js,ik) = slater(1,is,js,ik) + &
+                     conjg(tmpHk(is,ks))*tmpHk(js,ks)*nqp*wtk(ik) + conjg(tmpHk(is,ks+Ns))*tmpHk(js,ks+Ns)*(1.d0-nqp)
+                slater(2,is,js,ik) = slater(2,is,js,ik) + &
+                     conjg(tmpHk(is+Ns,ks))*tmpHk(js,ks)*nqp*wtk(ik) + conjg(tmpHk(is+Ns,ks+Ns))*tmpHk(js,ks+Ns)*(1.d0-nqp)*wtk(ik)
+             end do
+             !
+          end do
+       end do
+       
+       ! do is=1,Ns
+       !    do js=1,Ns
+       !       slater(is,js,ik) = zero
+       !       do ks=1,Ns
+       !          slater(is,js,ik) = slater(is,js,ik) + conjg(tmpHk(is,ks))*tmpHk(js,ks)*fermi(tmp_eHk(ks),1.d0)
+       !       end do
+       !    end do
+       ! end do
+       !
+    end do
+    if(present(slater_out)) slater_out=slater
+    !
+    gz_imt_dens_constr_slater=0.d0
+    do ik=1,Lk
+       Hk = Hk_tb(:,:,ik)
+       do is=1,Ns
+          do js=1,Ns
+             gz_imt_dens_constr_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(1,is,js,ik)*wtk(ik)
+             gz_imt_dens_constrA_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
+             do iis=1,Ns
+                do jjs=1,Ns
+                   Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*slater(1,is,js,ik)*wtk(ik)
+                   Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*slater(2,is,js,ik)*wtk(ik)
+                   Estar = Estar + conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*conjg(slater(2,js,is,ik))*wtk(ik)
+                   Estar = Estar - conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*slater(1,js,is,ik)*wtk(ik)
+                   if(is.eq.js) then
+                      Estar = Estar + conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*wtk(ik)
+                   end if
+                end do
+             end do
+          end do
+       end do
+    end do
+    !
+    gz_imt_energies(1) = Estar+Eloc
+    gz_imt_energies(2) = Estar
+    gz_imt_energies(3) = Eloc
+    !  
+  end subroutine gz_imt_measure_superc
 
 
 

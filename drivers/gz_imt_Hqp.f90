@@ -114,6 +114,9 @@ program GUTZ_mb
   if(beta_init.eq.0.d0) then
      call read_optimized_variational_wf_normal_imt(read_optWF_dir,gz_proj_init)
      Hqp_in = zero
+     gz_proj_init(1)=1./sqrt(2.d0)
+     gz_proj_init(2)=1./2.d0
+     gz_proj_init(3)=1./2.d0
      call beta0_init_imt_qpH(gz_proj_init,Hqp_in)
   else
      call read_optimized_variational_wf_normal_imt(read_optWF_dir,gz_proj_init,Hqp_in)
@@ -209,8 +212,8 @@ program GUTZ_mb
      if(im_it.lt.Nit) then
         write(*,*) im_it,Nit
         !call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom)        
-        call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_equations_of_motion,ndens)        
-        !psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion)     !
+        !call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_equations_of_motion,ndens)        
+        psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion)     !
         !
         !psi_t = trpz_implicit(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
         !psi_t = mp_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !

@@ -11,13 +11,15 @@ MODULE GZ_imtDYNAMICS
   USE GZ_neqAUX_FUNX
   USE GZ_LOCAL_HAMILTONIAN
   USE MATRIX_SPARSE
+  USE GZ_ENERGY_MINIMIZATION
   implicit none
   private
   !
 
   !
-  public :: step_imt_dynamics
+  public :: step_imt_dynamics,step_imt_dynamics_superc,step_imt_dynamics_superc_lgrA,step_imt_dynamics_superc_
   public :: gz_imt_equations_of_motion
+  public :: gz_imt_equations_of_motion_superc
   !
   public :: setup_imt_hamiltonian
   public :: beta0_init_imt_qpH,beta0_init_imt_qpH_superc
@@ -63,6 +65,10 @@ MODULE GZ_imtDYNAMICS
   complex(8),dimension(:,:,:),allocatable :: gz_imt_qpH,Hksave
 
   complex(8),dimension(:,:),allocatable,public :: imt_lgrNC
+
+
+  complex(8),dimension(:,:,:),allocatable,public :: imt_lgr_NC
+  complex(8),dimension(:,:,:),allocatable,public :: imt_lgr_AC
   real(8) :: imt_lgrU
   real(8) :: imt_lgr_local_dens
   !
@@ -214,7 +220,7 @@ CONTAINS
     !
     beta0=0.d0
     lgrNC = zero
-    if(present(lgrNC_)) lgrNC = lgrNC_
+
     allocate(gz_imt_qpH(Lk,Ns,Ns)); gz_imt_qpH=zero
     !
     do is=1,Ns
@@ -254,6 +260,14 @@ CONTAINS
        lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
     end do
     call vdm_AC_stride_v2m(lgr_cmplx,lgr_multip(2,:,:))  
+    !
+    !if(present(lgrNC_)) lgrNC = lgrNC_
+    !
+    if(present(lgrNC_)) lgrNC_=lgr_multip(1,:,:)
+
+
+
+
     !
     do ik=1,Lk
        !
@@ -334,7 +348,7 @@ CONTAINS
          Hqp = beta0*Hk
          !add Lagrange multipliers !
          Hqp(1:Ns,1:Ns)=Hqp(1:Ns,1:Ns)+lm(1,:,:)
-         Hqp(1:Ns,Ns+1:2*Ns)=Hqp(1:Ns,1:Ns)+lm(2,:,:)
+         Hqp(1:Ns,Ns+1:2*Ns)=Hqp(1:Ns,1+Ns:2*Ns)+lm(2,:,:)  !+--> probs here???
          do is=1,Ns
             do js=1,Ns
                Hqp(is+Ns,js) = Hqp(is+Ns,js) + conjg(lm(2,js,is))
@@ -364,7 +378,7 @@ CONTAINS
          !
          !
       end do
-
+      write(*,*) local_density_matrix(1,:,:)
       delta_local_density_matrix = local_density_matrix
       do istate=1,Ns
          delta_local_density_matrix(1,istate,istate) = delta_local_density_matrix(1,istate,istate) - vdm_diag(istate)      
@@ -695,10 +709,10 @@ CONTAINS
     complex(8),dimension(nDynamics) :: psi_t
     real(8)                         :: itime
     complex(8),dimension(2,Ns,Ns,Lk),optional  :: slater_out
-    complex(8),dimension(3,Ns,Ns,Lk),optional  :: Hqp_out
+    complex(8),dimension(4,Ns,Ns,Lk),optional  :: Hqp_out
     complex(8),dimension(Nphi),optional :: gzproj_out
     complex(8),dimension(2,Ns,Ns,Lk)  :: tmp_slater,slater
-    complex(8),dimension(3,Ns,Ns,Lk) :: Hqp 
+    complex(8),dimension(4,Ns,Ns,Lk) :: Hqp 
     complex(8),dimension(2*Ns,2*Ns)     :: tmpHk
     complex(8),dimension(Ns,Ns)     :: Hk
     complex(8),dimension(Nphi)      :: gzproj,gztmp
@@ -747,6 +761,7 @@ CONTAINS
     gz_imt_local_angular_momenta(4) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpinZ)
     !
     gz_imt_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
+    gz_imt_Qhop = hopping_renormalization_anomalous_sp(gzproj,vdm_diag)
     !
     gz_imt_unitary_constr = 0.d0
     do iphi=1,Nphi
@@ -755,11 +770,12 @@ CONTAINS
     !+- SLATER -+!
     Estar=0.d0
     !+- first thing first I have to exctract slater(is,js,ik) from the immaginary time integral of the QP hamiltonian
+    slater=zero
     do ik=1,Lk
        !
        tmpHk(1:Ns,1:Ns) = Hqp(1,:,:,ik) 
        tmpHk(1:Ns,1+Ns:2*Ns) = Hqp(2,:,:,ik) 
-       tmpHk(1+Ns:2*Ns,1:Ns) = conjg(transpose(Hqp(2,:,:,ik)))
+       tmpHk(1+Ns:2*Ns,1:Ns) = Hqp(4,:,:,ik) !conjg(transpose(Hqp(2,:,:,ik)))
        tmpHk(1+Ns:2*Ns,1+Ns:2*Ns) = Hqp(3,:,:,ik) 
        !
        call matrix_diagonalize(tmpHk,tmp_eHk)       
@@ -769,14 +785,14 @@ CONTAINS
              do ks=1,Ns
                 nqp = fermi(tmp_eHk(ks)-tmp_eHk(ks+Ns),1.d0)                
                 slater(1,is,js,ik) = slater(1,is,js,ik) + &
-                     conjg(tmpHk(is,ks))*tmpHk(js,ks)*nqp*wtk(ik) + conjg(tmpHk(is,ks+Ns))*tmpHk(js,ks+Ns)*(1.d0-nqp)
+                     conjg(tmpHk(is,ks))*tmpHk(js,ks)*nqp + conjg(tmpHk(is,ks+Ns))*tmpHk(js,ks+Ns)*(1.d0-nqp)
                 slater(2,is,js,ik) = slater(2,is,js,ik) + &
-                     conjg(tmpHk(is+Ns,ks))*tmpHk(js,ks)*nqp*wtk(ik) + conjg(tmpHk(is+Ns,ks+Ns))*tmpHk(js,ks+Ns)*(1.d0-nqp)*wtk(ik)
+                     conjg(tmpHk(is+Ns,ks))*tmpHk(js,ks)*nqp + conjg(tmpHk(is+Ns,ks+Ns))*tmpHk(js,ks+Ns)*(1.d0-nqp)
              end do
              !
           end do
        end do
-       
+
        ! do is=1,Ns
        !    do js=1,Ns
        !       slater(is,js,ik) = zero
@@ -790,12 +806,13 @@ CONTAINS
     if(present(slater_out)) slater_out=slater
     !
     gz_imt_dens_constr_slater=0.d0
+    gz_imt_dens_constrA_slater=0.d0
     do ik=1,Lk
        Hk = Hk_tb(:,:,ik)
        do is=1,Ns
           do js=1,Ns
              gz_imt_dens_constr_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(1,is,js,ik)*wtk(ik)
-             gz_imt_dens_constrA_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
+             gz_imt_dens_constrA_slater(is,js) = gz_imt_dens_constrA_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
              do iis=1,Ns
                 do jjs=1,Ns
                    Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*slater(1,is,js,ik)*wtk(ik)
@@ -819,6 +836,102 @@ CONTAINS
 
 
 
+  subroutine gz_imt_measure_constr_superc(psi_t,itime)
+    complex(8),dimension(nDynamics) :: psi_t
+    real(8)                         :: itime
+    ! complex(8),dimension(2,Ns,Ns,Lk),optional  :: slater_out
+    ! complex(8),dimension(3,Ns,Ns,Lk),optional  :: Hqp_out
+    !complex(8),dimension(Nphi),optional :: gzproj_out
+    complex(8),dimension(2,Ns,Ns,Lk)  :: tmp_slater,slater
+    complex(8),dimension(4,Ns,Ns,Lk) :: Hqp 
+    complex(8),dimension(2*Ns,2*Ns)     :: tmpHk
+    complex(8),dimension(Ns,Ns)     :: Hk
+    complex(8),dimension(Nphi)      :: gzproj,gztmp
+    real(8)                         :: Estar,Eloc,Egz,nqp
+    real(8),dimension(Ns)           :: vdm_diag
+    real(8),dimension(2*Ns) :: tmp_eHk
+
+    integer                         :: is,js,ik,iphi,iis,jjs,itt,ks
+    !
+    if(size(psi_t).ne.nDynamics) stop "gz_imt_measure_/ wrong dimensions"
+    call imt_dynamicalVector_2_wfMatrix_superc(psi_t,Hqp,gzproj)
+    !
+    !
+    !
+    do is=1,Ns
+       do js=1,Ns
+          !
+          gz_imt_dens_constr_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens(is,js))
+          gz_imt_dens_constrA_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_anomalous(is,js))
+          !                                                                                                                                             
+       end do
+       vdm_diag(is) = gz_imt_dens_constr_gzproj(is,is)
+    end do
+    !
+    itt=imt_t2it(itime,0.5d0*itstep,beta_init)
+    !
+    eLevels=0.d0
+    !
+    gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
+    Eloc = 0.d0
+    do iphi=1,Nphi
+       Eloc = Eloc + conjg(gzproj(iphi))*gztmp(iphi)
+    end do
+    !
+    !
+    gz_imt_unitary_constr = 0.d0
+    do iphi=1,Nphi
+       gz_imt_unitary_constr = gz_imt_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
+    end do
+    !+- SLATER -+!
+    Estar=0.d0
+    !+- first thing first I have to exctract slater(is,js,ik) from the immaginary time integral of the QP hamiltonian
+    slater=zero
+    do ik=1,Lk
+       !
+       tmpHk(1:Ns,1:Ns) = Hqp(1,:,:,ik) 
+       tmpHk(1:Ns,1+Ns:2*Ns) = Hqp(2,:,:,ik) 
+       tmpHk(1+Ns:2*Ns,1:Ns) = Hqp(4,:,:,ik) !conjg(transpose(Hqp(2,:,:,ik)))
+       tmpHk(1+Ns:2*Ns,1+Ns:2*Ns) = Hqp(3,:,:,ik) 
+       !
+       !write(*,*) ik,'before'
+       ! if(ik.eq.1) then
+       !    write(*,*) Hqp(1,:,:,ik)
+       !    write(*,*) Hqp(2,:,:,ik)
+       !    write(*,*) Hqp(3,:,:,ik)
+       !    write(*,*)
+       ! end if
+       call matrix_diagonalize(tmpHk,tmp_eHk)       
+       !write(*,*) ik,'after'
+       !
+       do is=1,Ns
+          do js=1,Ns
+             do ks=1,Ns
+                nqp = fermi(tmp_eHk(ks)-tmp_eHk(ks+Ns),1.d0)                
+                slater(1,is,js,ik) = slater(1,is,js,ik) + &
+                     conjg(tmpHk(is,ks))*tmpHk(js,ks)*nqp + conjg(tmpHk(is,ks+Ns))*tmpHk(js,ks+Ns)*(1.d0-nqp)
+                slater(2,is,js,ik) = slater(2,is,js,ik) + &
+                     conjg(tmpHk(is+Ns,ks))*tmpHk(js,ks)*nqp + conjg(tmpHk(is+Ns,ks+Ns))*tmpHk(js,ks+Ns)*(1.d0-nqp)
+             end do
+             !
+          end do
+       end do
+       !
+    end do
+    !
+    gz_imt_dens_constr_slater=0.d0
+    gz_imt_dens_constrA_slater=0.d0
+    do ik=1,Lk
+       Hk = Hk_tb(:,:,ik)
+       do is=1,Ns
+          do js=1,Ns
+             gz_imt_dens_constr_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(1,is,js,ik)*wtk(ik)
+             gz_imt_dens_constrA_slater(is,js) = gz_imt_dens_constrA_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
+          end do
+       end do
+    end do
+    !  
+  end subroutine gz_imt_measure_constr_superc
 
 
 
@@ -827,594 +940,10 @@ CONTAINS
 
 
 
-  ! subroutine gz_imt_measure_superc(psi_t,time)
-  !   complex(8),dimension(nDynamics) :: psi_t
-  !   real(8)                         :: time
-  !   complex(8),dimension(2,Ns,Ns,Lk)  :: slater
-  !   complex(8),dimension(3,Ns,Ns,Lk)  :: slater_
-  !   complex(8),dimension(Ns,Ns)     :: Hk,Hk_tmp
-  !   complex(8),dimension(Ns,Ns)     :: Rhop,Qhop,Rhop_dag,Qhop_dag
-  !   complex(8),dimension(2*Ns,2*Ns)     :: Hks
-  !   real(8),dimension(2*Ns)         :: eks
-  !   complex(8),dimension(Nphi)      :: gzproj  !+--> probably there some conflicts with this name variable here when also lgr multipliers are there +-!
-  !   real(8)                         :: Estar,Eloc,Egz
-  !   real(8),dimension(Ns)           :: vdm_diag
-  !   real(8)                         :: nqp
-
-  !   integer                         :: is,js,ik,it,iphi,iis,jjs,itt
-
-  !   it=imt_t2it(time,tstep)
-  !   !
-  !   call dynamicalVector_2_wfMatrix_superc(psi_t,slater,gzproj)  
-  !   slater_(1:2,:,:,:) = slater
-  !   slater_(3,:,:,:) = zero
-  !   do is=1,Ns
-  !      slater_(3,is,is,:) = one 
-  !      do js=1,Ns
-  !         slater_(3,is,js,:) = slater_(3,is,js,:) - slater(1,js,is,:)
-  !      end do
-  !   end do
-  !   !
-  !   Estar=0.d0
-  !   do is=1,Ns
-  !      do js=1,Ns
-  !         gz_imt_local_density_matrix(is,js) = &
-  !              trace_phi_basis(gzproj,phi_traces_basis_local_dens(is,js,:,:))          
-  !         gz_imt_local_dens_dens(is,js) = &
-  !              trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
-  !         !
-  !         !
-  !         gz_imt_dens_constr_gzproj(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens(is,js,:,:))
-  !         gz_imt_dens_constrA_gzproj(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens_anomalous(is,js,:,:))
-  !         !
-  !         gz_imt_local_sc_order(is,js) = trace_phi_basis(gzproj,phi_traces_basis_sc_order(is,js,:,:))
-  !      end do
-  !      vdm_diag(is) = gz_imt_dens_constr_gzproj(is,is)
-  !   end do
-  !   !
-
-  !   itt=imt_t2it(time,0.5d0*tstep)
-  !   Uloc=Uloc_t(:,itt)
-  !   Ust =Ust_t(itt)
-  !   Jh=Jh_t(itt)
-  !   Jsf=Jsf_t(itt)
-  !   Jph=Jph_t(itt)
-  !   eLevels = eLevels_t(:,itt)
-  !   call get_local_hamiltonian_trace(eLevels)  
-
-  !   Eloc = trace_phi_basis(gzproj,phi_traces_basis_Hloc)
-  !   !
-  !   gz_imt_local_angular_momenta(1) = trace_phi_basis(gzproj,phi_traces_basis_spin2(:,:))
-  !   gz_imt_local_angular_momenta(2) = trace_phi_basis(gzproj,phi_traces_basis_spinZ(:,:))
-  !   gz_imt_local_angular_momenta(3) = trace_phi_basis(gzproj,phi_traces_basis_isoSpin2(:,:))
-  !   gz_imt_local_angular_momenta(4) = trace_phi_basis(gzproj,phi_traces_basis_isoSpinZ(:,:))
-  !   !
-  !   gz_imt_Rhop = hopping_renormalization_normal(gzproj,vdm_diag)
-  !   gz_imt_Qhop = hopping_renormalization_anomalous(gzproj,vdm_diag)
-  !   !
-  !   Rhop=gz_imt_Rhop
-  !   Qhop=gz_imt_Qhop
-  !   !
-  !   do is=1,Ns
-  !      do js=1,Ns
-  !         Rhop_dag(is,js) = conjg(Rhop(js,is))
-  !         Qhop_dag(is,js) = conjg(Qhop(js,is))
-  !      end do
-  !   end do
-  !   !
-  !   gz_imt_unitary_constr = 0.d0
-  !   do iphi=1,Nphi
-  !      gz_imt_unitary_constr = gz_imt_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
-  !   end do
-  !   !+- SLATER
-  !   Estar=0.d0
-  !   gz_imt_dens_constr_slater=0.d0
-  !   gz_imt_dens_constrA_slater=0.d0
-  !   do ik=1,Lk
-  !      call get_Hk_t(Hk,ik,time)
-  !      !+- define Hk_renormalized -+!
-  !      Hk_tmp=matmul(Hk,Rhop)
-  !      Hk_tmp=matmul(Rhop_dag,Hk_tmp)
-  !      !
-  !      Hk_tmp=matmul(Hk,Qhop)
-  !      Hk_tmp=matmul(Rhop_dag,Hk_tmp)
-  !      !
-  !      Hk_tmp=matmul(Hk,Rhop)
-  !      Hk_tmp=matmul(Qhop_dag,Hk_tmp)
-  !      !
-  !      Hk_tmp=matmul(Hk,Qhop)
-  !      Hk_tmp=matmul(Qhop_dag,Hk_tmp)
-  !      !       
-  !      do is=1,Ns
-  !         do js=1,Ns
-  !            !
-  !            gz_imt_dens_constr_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(1,is,js,ik)*wtk(ik)
-  !            gz_imt_dens_constrA_slater(is,js) = gz_imt_dens_constrA_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
-  !            !
-  !            do iis=1,Ns
-  !               do jjs=1,Ns
-  !                  !
-  !                  Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*slater(1,is,js,ik)*wtk(ik)
-  !                  Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*slater(2,is,js,ik)*wtk(ik)
-  !                  Estar = Estar + conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*conjg(slater(2,js,is,ik))*wtk(ik)
-  !                  Estar = Estar - conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*slater(1,js,is,ik)*wtk(ik)                   
-  !                  if(is.eq.js) then
-  !                     Estar = Estar + conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*wtk(ik)
-  !                  end if
-  !                  !
-  !               end do
-  !            end do
-  !            !
-  !         end do
-  !      end do
-  !   end do
-  !   !
-  !   gz_imt_energies(1) = Estar+Eloc
-  !   gz_imt_energies(2) = Estar
-  !   gz_imt_energies(3) = Eloc
-  !   !
-  ! end subroutine gz_imt_measure_superc
 
 
 
 
-  ! subroutine gz_imt_measure_superc_sp(psi_t,time,read_slater,read_gzproj)
-  !   implicit none
-  !   complex(8),dimension(nDynamics)   :: psi_t
-  !   real(8)                           :: time
-  !   complex(8),dimension(Nphi),optional   :: read_gzproj
-  !   complex(8),dimension(2,Ns,Ns,Lk),optional  :: read_slater
-  !   complex(8),dimension(2,Ns,Ns,Lk)  :: slater
-  !   complex(8),dimension(3,Ns,Ns,Lk)  :: slater_
-  !   complex(8),dimension(Ns,Ns)     :: Hk,Hk_tmp
-  !   complex(8),dimension(Ns,Ns)     :: Rhop,Qhop,Rhop_dag,Qhop_dag
-  !   complex(8),dimension(2*Ns,2*Ns)     :: Hks
-  !   real(8),dimension(2*Ns)         :: eks
-  !   complex(8),dimension(Nphi)      :: gzproj,gztmp
-  !   real(8)                         :: Estar,Eloc,Egz
-  !   real(8),dimension(Ns)           :: vdm_diag
-  !   real(8)                         :: nqp
-  !   integer                         :: is,js,ik,it,iphi,iis,jjs
-  !   !
-  !   it=imt_t2it(time,tstep)
-  !   !
-  !   call dynamicalVector_2_wfMatrix_superc(psi_t,slater,gzproj)
-  !   if(present(read_slater)) read_slater=slater
-  !   if(present(read_gzproj)) read_gzproj=gzproj
-  !   slater_(1:2,:,:,:) = slater
-  !   slater_(3,:,:,:) = zero
-  !   do is=1,Ns
-  !      slater_(3,is,is,:) = one 
-  !      do js=1,Ns
-  !         slater_(3,is,js,:) = slater_(3,is,js,:) - slater(1,js,is,:)
-  !      end do
-  !   end do
-  !   !
-  !   gz_imt_local_density_matrix=0.d0
-  !   gz_imt_local_dens_dens=0.d0
-  !   gz_imt_dens_constr_gzproj=0.d0
-  !   gz_imt_dens_constrA_gzproj=0.d0
-  !   gz_imt_local_sc_order=0.d0
-  !   vdm_diag=0.d0
-  !   !
-  !   Estar=0.d0
-  !   do is=1,Ns
-  !      do js=1,Ns
-  !         gz_imt_local_density_matrix(is,js) = &
-  !              trace_phi_basis_sp(gzproj,phi_spTraces_basis_local_dens(is,js))          
-  !         gz_imt_local_dens_dens(is,js) = &
-  !              trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_dens(is,js))
-  !         !
-  !         !
-  !         gz_imt_dens_constr_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens(is,js))
-  !         gz_imt_dens_constrA_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_anomalous(is,js))
-  !         !
-  !         gz_imt_local_sc_order(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_sc_order(is,js))
-  !      end do
-  !      vdm_diag(is) = gz_imt_dens_constr_gzproj(is,is)
-  !   end do
-  !   !
-  !   gztmp=zero
-  !   gztmp = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
-  !   Eloc = 0.d0
-  !   do iphi=1,Nphi
-  !      Eloc = Eloc + conjg(gzproj(iphi))*gztmp(iphi)
-  !   end do
-  !   !
-  !   gz_imt_local_angular_momenta=0.d0
-  !   gz_imt_local_angular_momenta(1) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spin2)
-  !   gz_imt_local_angular_momenta(2) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_spinZ)
-  !   gz_imt_local_angular_momenta(3) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpin2)
-  !   gz_imt_local_angular_momenta(4) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_isoSpinZ)
-  !   !
-  !   write(*,*) 'measuring using spMv representation'
-  !   gz_imt_Rhop=zero
-  !   gz_imt_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)   
-  !   gz_imt_Qhop=zero
-  !   gz_imt_Qhop = hopping_renormalization_anomalous_sp(gzproj,vdm_diag)
-  !   !
-  !   !
-  !   Rhop=gz_imt_Rhop
-  !   Qhop=gz_imt_Qhop
-  !   !
-  !   !
-  !   do is=1,Ns
-  !      do js=1,Ns
-  !         Rhop_dag(is,js) = conjg(Rhop(js,is))
-  !         Qhop_dag(is,js) = conjg(Qhop(js,is))
-  !      end do
-  !   end do
-  !   !
-  !   gz_imt_unitary_constr = 0.d0
-  !   do iphi=1,Nphi
-  !      gz_imt_unitary_constr = gz_imt_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
-  !   end do
-  !   !
-  !   !+- SLATER
-  !   Estar=0.d0
-  !   gz_imt_dens_constr_slater=0.d0
-  !   gz_imt_dens_constrA_slater=0.d0
-  !   do ik=1,Lk
-  !      call get_Hk_t(Hk,ik,time)
-  !      !+- define Hk_renormalized -+!
-  !      Hk_tmp=matmul(Hk,Rhop)
-  !      Hk_tmp=matmul(Rhop_dag,Hk_tmp)
-  !      !Hks(1:Ns,1:Ns) = Hk_tmp 
-  !      !
-  !      Hk_tmp=matmul(Hk,Qhop)
-  !      Hk_tmp=matmul(Rhop_dag,Hk_tmp)
-  !      !Hks(1:Ns,Ns+1:2*Ns) = Hk_tmp 
-  !      !
-  !      Hk_tmp=matmul(Hk,Rhop)
-  !      Hk_tmp=matmul(Qhop_dag,Hk_tmp)
-  !      !Hks(Ns+1:2*Ns,1:Ns) = Hk_tmp
-  !      !
-  !      Hk_tmp=matmul(Hk,Qhop)
-  !      Hk_tmp=matmul(Qhop_dag,Hk_tmp)
-  !      !Hks(Ns+1:2*Ns,Ns+1:2*Ns) = Hk_tmp
-  !      !       
-  !      do is=1,Ns
-  !         do js=1,Ns
-  !            !
-  !            gz_imt_dens_constr_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(1,is,js,ik)*wtk(ik)
-  !            gz_imt_dens_constrA_slater(is,js) = gz_imt_dens_constrA_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
-  !            !
-  !            do iis=1,Ns
-  !               do jjs=1,Ns
-  !                  !
-  !                  Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*slater(1,is,js,ik)*wtk(ik)
-  !                  Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*slater(2,is,js,ik)*wtk(ik)
-  !                  Estar = Estar + conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*conjg(slater(2,js,is,ik))*wtk(ik)
-  !                  Estar = Estar - conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*slater(1,js,is,ik)*wtk(ik)                   
-  !                  if(is.eq.js) then
-  !                     Estar = Estar + conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*wtk(ik)
-  !                  end if
-  !                  !
-  !               end do
-  !            end do
-  !            !
-  !         end do
-  !      end do
-  !   end do
-  !   !
-  !   gz_imt_energies(1) = Estar+Eloc
-  !   gz_imt_energies(2) = Estar
-  !   gz_imt_energies(3) = Eloc
-  !   !
-  ! end subroutine gz_imt_measure_superc_sp
-
-
-
-
-
-
-
-
-  ! subroutine gz_imt_measure_constr_superc_sp(psi_t,time)
-  !   complex(8),dimension(nDynamics) :: psi_t
-  !   real(8) :: time
-  !   complex(8),dimension(2,Ns,Ns,Lk) :: slater
-  !   complex(8),dimension(3,Ns,Ns,Lk) :: slater_
-  !   complex(8),dimension(Ns,Ns) :: Hk,Hk_tmp
-  !   complex(8),dimension(Ns,Ns) :: Rhop,Qhop,Rhop_dag,Qhop_dag
-  !   complex(8),dimension(2*Ns,2*Ns) :: Hks
-  !   real(8),dimension(2*Ns) ::eks
-  !   complex(8),dimension(Nphi) :: gzproj
-  !   real(8) :: Estar,Eloc,Egz
-  !   real(8),dimension(Ns) :: vdm_diag
-  !   real(8) :: nqp
-
-  !   integer                         :: is,js,ik,it,iphi,iis,jjs
-
-  !   it=imt_t2it(time,tstep)
-  !   !
-  !   call dynamicalVector_2_wfMatrix_superc(psi_t,slater,gzproj)  
-  !   slater_(1:2,:,:,:) = slater
-  !   slater_(3,:,:,:) = zero
-  !   do is=1,Ns
-  !      slater_(3,is,is,:) = one 
-  !      do js=1,Ns
-  !         slater_(3,is,js,:) = slater_(3,is,js,:) - slater(1,js,is,:)
-  !      end do
-  !   end do
-  !   !
-
-  !   !
-  !   do is=1,Ns
-  !      do js=1,Ns
-  !         !
-  !         gz_imt_dens_constr_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens(is,js))
-  !         gz_imt_dens_constrA_gzproj(is,js) = trace_phi_basis_sp(gzproj,phi_spTraces_basis_dens_anomalous(is,js))          
-  !         !
-  !      end do
-  !      vdm_diag(is) = gz_imt_dens_constr_gzproj(is,is)
-  !   end do
-  !   !
-  !   gz_imt_Rhop = hopping_renormalization_normal_sp(gzproj,vdm_diag)
-  !   gz_imt_Qhop = hopping_renormalization_anomalous_sp(gzproj,vdm_diag)
-  !   !
-  !   Rhop=gz_imt_Rhop
-  !   Qhop=gz_imt_Qhop
-  !   !
-  !   do is=1,Ns
-  !      do js=1,Ns
-  !         Rhop_dag(is,js) = conjg(Rhop(js,is))
-  !         Qhop_dag(is,js) = conjg(Qhop(js,is))
-  !      end do
-  !   end do
-  !   !
-  !   gz_imt_unitary_constr = 0.d0
-  !   do iphi=1,Nphi
-  !      gz_imt_unitary_constr = gz_imt_unitary_constr + gzproj(iphi)*conjg(gzproj(iphi))
-  !   end do
-
-  !   !+- SLATER
-  !   Estar=0.d0
-  !   gz_imt_dens_constr_slater=0.d0
-  !   gz_imt_dens_constrA_slater=0.d0
-  !   do ik=1,Lk
-  !      call get_Hk_t(Hk,ik,time)
-  !      !+- define Hk_renormalized -+!
-  !      Hk_tmp=matmul(Hk,Rhop)
-  !      Hk_tmp=matmul(Rhop_dag,Hk_tmp)
-  !      !
-  !      Hk_tmp=matmul(Hk,Qhop)
-  !      Hk_tmp=matmul(Rhop_dag,Hk_tmp)
-  !      !
-  !      Hk_tmp=matmul(Hk,Rhop)
-  !      Hk_tmp=matmul(Qhop_dag,Hk_tmp)
-  !      !
-  !      Hk_tmp=matmul(Hk,Qhop)
-  !      Hk_tmp=matmul(Qhop_dag,Hk_tmp)
-  !      !
-  !      do is=1,Ns
-  !         do js=1,Ns
-  !            !
-  !            gz_imt_dens_constr_slater(is,js) = gz_imt_dens_constr_slater(is,js) + slater(1,is,js,ik)*wtk(ik)
-  !            gz_imt_dens_constrA_slater(is,js) = gz_imt_dens_constrA_slater(is,js) + slater(2,is,js,ik)*wtk(ik)
-  !            !
-  !         end do
-  !      end do
-  !   end do
-  !   !
-  ! end subroutine gz_imt_measure_constr_superc_sp
-
-
-
-
-  ! subroutine step_imt_dynamics(nsys,tstep,t,yt,itd_lgrNC,itd_lgrU,eom_funct) 
-  !   integer                                   :: nsys
-  !   real(8)                                   :: tstep,t
-  !   complex(8),dimension(nsys),intent(inout)  :: yt
-  !   complex(8),dimension(nsys)                :: yt_old,yt_new
-  !   complex(8),dimension(Ns,Ns)                ::lgrNC_old,lgrNC_new
-  !   complex(8),dimension(Ns,Ns),intent(inout) :: itd_lgrNC
-  !   real(8),intent(inout)                     :: itd_lgrU
-
-  !   real(8),dimension(:),allocatable          :: lgr,delta_out
-  !   complex(8),dimension(:),allocatable       :: lgr_cmplx
-  !   integer                                   :: iter,Nopt
-  !   integer                                   :: i,i0
-  !   real(8)                                   :: delta
-  !   interface
-  !      function eom_funct(t,y,Nsys)
-  !        implicit none
-  !        integer                              :: Nsys
-  !        real(8)                              :: t   
-  !        complex(8),dimension(Nsys)           :: eom_funct
-  !        complex(8),dimension(Nsys)           :: y
-  !      end function eom_funct
-  !   end interface
-  !   !
-  !   !+- defines the initial time of the step (used for computing the increment integral)
-  !   imt_tstep = t
-  !   !+- number of lagrange params to be optimized -+!
-  !   Nopt = Nvdm_NC_opt
-  !   allocate(lgr_cmplx(Nvdm_NC_opt))
-  !   allocate(lgr(2*Nopt));allocate(delta_out(2*Nopt))
-  !   !
-  !   call vdm_NC_stride_m2v(itd_lgrNC,lgr_cmplx)    
-  !   do i=1,Nvdm_NC_opt
-  !      lgr(i) = dreal(lgr_cmplx(i))
-  !      lgr(i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
-  !   end do
-  !   !
-  !   yt_old = yt
-
-  !   lgrNC_old = itd_lgrNC
-  !   if(.not.allocated(imt_lgrNC)) allocate(imt_lgrNC(Ns,Ns))
-  !   imt_lgrNC=itd_lgrNC
-  !   !
-  !   ! delta_out = fix_anomalous_vdm(lgr)
-  !   ! delta=0.d0
-  !   ! do i=1,2*Nopt
-  !   !    delta = delta + delta_out(i)**2.d0
-  !   ! end do   
-  !   !    
-  !   ! yt_new = RK4_step(nDynamics,4,tstep,t,yt_old,eom_funct)
-  !   ! yt = yt_new
-
-  !   ! select case(lgr_method)
-  !   ! case('CG_min')
-  !   !    call fmin_cgminimize(lgr,imt_fix_constr_,iter,delta,ftol=1.d-04,itmax=20)    
-  !   ! case('f_zero')
-  !   call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
-  !   ! case default
-  !   !    call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
-  !   ! end select
-  !   ! !
-  !   delta_out = imt_fix_constr(lgr)
-  !   delta=0.d0
-  !   do i=1,2*Nopt
-  !      delta = delta + delta_out(i)**2.d0
-  !   end do
-  !   ! ! !
-  !   write(*,*) 'Immaginary Time Dynamics -> lagrange parameters'
-  !   write(*,*) lgr
-  !   write(*,*) delta_out
-  !   write(*,*)
-  !   ! ! ! !
-  !   yt=yt_new
-  !   ! ! ! !
-  !   lgr_cmplx=zero
-  !   do i=1,Nvdm_AC_opt
-  !      lgr_cmplx(i) = lgr(i)+xi*lgr(i+Nvdm_NC_opt)
-  !   end do
-  !   call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC)
-  !   itd_lgrU = imt_lgrU !(computed in the derivative)
-  !   ! !
-  !   ! !
-  !   lgrNC_new = itd_lgrNC    
-  !   !lgrNC_new = lgrNC_old
-  !   write(600,'(10F18.10)') t,gz_imt_qpH(490,1,1),gz_imt_qpH(490,1,1)
-  !   call update_qpH_integral(yt_old,yt_new,lgrNC_old,lgrNC_new)
-  !   write(601,'(10F18.10)') t,gz_imt_qpH(490,1,1),gz_imt_qpH(490,1,1)
-  !   !    
-  !   !
-  ! contains
-
-  !   function imt_fix_constr(lgr) result(delta)
-  !     real(8),dimension(:) :: lgr
-  !     real(8),dimension(size(lgr)) :: delta
-  !     complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
-  !     complex(8),dimension(Ns,Ns) :: normal_constrGZ,normal_constrSL,delta_constr
-  !     real(8) :: unitary_constrGZ
-  !     integer :: i0,i,is,js
-  !     real(8) :: tmp_test
-  !     !
-  !     if(allocated(imt_lgrNC)) deallocate(imt_lgrNC)
-  !     allocate(imt_lgrNC(Ns,Ns)); 
-  !     imt_lgrNC=zero
-  !     !
-  !     !+- dump slater_lgr_multipliers
-  !     allocate(lgr_cmplx(Nvdm_NC_opt))
-  !     do i=1,Nvdm_NC_opt
-  !        lgr_cmplx(i) = lgr(i) + xi*lgr(i+Nvdm_NC_opt)
-  !     end do
-  !     call vdm_NC_stride_v2m(lgr_cmplx,imt_lgrNC)
-  !     !
-  !     yt_new = RK4_step(nDynamics,4,itstep,t,yt_old,eom_funct)
-  !     !
-  !     call gz_imt_measure_constr(yt_new,t) 
-  !     !
-  !     do is=1,Ns
-  !        do js=1,Ns
-  !           call get_imt_dens_constr_slater(is,js,normal_constrSL(is,js))
-  !           call get_imt_dens_constr_gzproj(is,js,normal_constrGZ(is,js))
-  !           delta_constr(is,js) = normal_constrGZ(is,js)-normal_constrSL(is,js)
-  !        end do
-  !     end do
-  !     call get_imt_unitary_constr(unitary_constrGZ)
-  !     !
-  !     !
-  !     !Re-construct solution
-  !     !      
-  !     !
-  !     delta=0.d0
-  !     allocate(delta_cmplx(Nvdm_NC_opt))
-  !     call vdm_NC_stride_m2v(delta_constr,delta_cmplx)
-  !     do i=1,Nvdm_NC_opt
-  !        delta(i) = dreal(delta_cmplx(i))
-  !        delta(i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
-  !     end do
-  !     deallocate(delta_cmplx)
-  !     ! tmp_test=0.d0
-  !     ! do i=1,size(lgr)
-  !     !    tmp_test=tmp_test+delta(i)**2.d0
-  !     ! end do
-  !     if(GZneq_verbose) then
-  !        write(*,*) 'imt-dep LAGRANGE'
-  !        do is=1,Ns
-  !           write(*,'(20F18.10)') imt_lgrNC(is,:)         
-  !        end do
-  !        write(*,'(20F18.10)') imt_lgrU         
-  !        write(*,*)
-  !        write(*,*) 'deviation from constraint conservation'
-  !        write(*,'(20F18.10)') delta
-  !     end if
-  !     !
-  !   end function imt_fix_constr
-  !   !
-
-
-  !   function imt_fix_constr_(lgr) result(delta)
-  !     real(8),dimension(:) :: lgr
-  !     real(8) :: delta
-  !     complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
-  !     complex(8),dimension(Ns,Ns) :: normal_constrGZ,normal_constrSL,delta_constr
-  !     real(8) :: unitary_constrGZ
-  !     integer :: i0,i,is,js
-  !     real(8) :: tmp_test
-  !     !
-  !     if(allocated(imt_lgrNC)) deallocate(imt_lgrNC)
-  !     allocate(imt_lgrNC(Ns,Ns)); 
-  !     imt_lgrNC=zero;imt_lgrU = 0.d0
-  !     !
-  !     !+- dump slater_lgr_multipliers
-  !     allocate(lgr_cmplx(Nvdm_NC_opt))
-  !     do i=1,Nvdm_NC_opt
-  !        lgr_cmplx(i) = lgr(i) + xi*lgr(i+Nvdm_NC_opt)
-  !     end do
-  !     call vdm_NC_stride_v2m(lgr_cmplx,imt_lgrNC)
-  !     !
-  !     yt_new = RK_step(nDynamics,4,itstep,t,yt_old,eom_funct)
-  !     !
-  !     call gz_imt_measure_constr(yt_new,t) 
-  !     !
-  !     do is=1,Ns
-  !        do js=1,Ns
-  !           call get_imt_dens_constr_slater(is,js,normal_constrSL(is,js))
-  !           call get_imt_dens_constr_gzproj(is,js,normal_constrGZ(is,js))
-  !           delta_constr(is,js) = normal_constrGZ(is,js)-normal_constrSL(is,js)
-  !        end do
-  !     end do
-  !     call get_imt_unitary_constr(unitary_constrGZ)
-  !     !
-  !     !
-  !     !Re-construct solution
-  !     !      
-  !     !
-  !     delta=0.d0
-  !     do is=1,Ns
-  !        do js=1,Ns
-  !           delta = delta + delta_constr(is,js)*conjg(delta_constr(is,js))
-  !        end do
-  !     end do
-  !     if(GZneq_verbose) then
-  !        write(*,*) 'imt-dep LAGRANGE CG_min'
-  !        do is=1,Ns
-  !           write(*,'(20F18.10)') imt_lgrNC(is,:)         
-  !        end do
-  !        write(*,'(20F18.10)') imt_lgrU         
-  !        write(*,*)
-  !        write(*,*) 'deviation from constraint conservation'
-  !        write(*,'(20F18.10)') delta
-  !     end if
-  !     !
-  !   end function imt_fix_constr_
-
-  ! end subroutine step_imt_dynamics
-  
 
 
 
@@ -1546,7 +1075,7 @@ CONTAINS
          end do
          call get_imt_local_dens(is,is,tmp_dens)
          tot_dens = tot_dens + tmp_dens
-      end do      
+      end do
       !
       !
       !call get_imt_unitary_constr(unitary_constrGZ)
@@ -1647,6 +1176,1162 @@ CONTAINS
 
 
 
+
+
+
+
+
+  subroutine step_imt_dynamics_superc(nsys,tstep,t,yt,itd_lgrNC,itd_lgrAC,itd_lgr_local_dens,imt_vdm,eom_funct,ndens) 
+    integer                                     :: nsys
+    real(8)                                     :: tstep,t
+    complex(8),dimension(nsys),intent(inout)    :: yt
+    complex(8),dimension(nsys)                  :: yt_old,yt_new
+    complex(8),dimension(2,Ns,Ns),intent(inout) :: itd_lgrNC !+- (1,:,:) -> VDM ; (2,:,:) -> gz=sl
+    complex(8),dimension(2,Ns,Ns),intent(inout)   :: itd_lgrAC !+- (1,:,:) -> SL ; (2,:,:) -> GZ
+    real(8),intent(inout)                       :: itd_lgr_local_dens
+    complex(8),dimension(Ns,Ns)                 :: imt_vdm
+    real(8),intent(in)                          :: ndens
+
+    real(8),dimension(:),allocatable            :: lgr,delta_out
+    complex(8),dimension(:),allocatable         :: lgr_cmplx
+    integer                                     :: iter,Nopt
+    integer                                     :: i,i0,is
+    real(8)                                     :: delta
+    interface
+       function eom_funct(t,y,Nsys)
+         implicit none
+         integer                                :: Nsys
+         real(8)                                :: t   
+         complex(8),dimension(Nsys)             :: eom_funct
+         complex(8),dimension(Nsys)             :: y
+       end function eom_funct
+    end interface
+    !
+    !+- defines the initial time of the step (used for computing the increment integral)
+    imt_tstep = t
+    !+- number of lagrange params to be optimized -+!
+    Nopt = 2*Nvdm_NC_opt !+ 1
+    allocate(lgr(Nopt));allocate(delta_out(Nopt))
+    !
+    allocate(lgr_cmplx(Nvdm_NC_opt))
+    i0=0
+    call vdm_NC_stride_m2v(itd_lgrNC(1,:,:),lgr_cmplx)    
+    do i=1,Nvdm_NC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    end do
+    i0=i0+Nvdm_NC_opt
+    call vdm_NC_stride_m2v(itd_lgrNC(2,:,:),lgr_cmplx)    
+    do i=1,Nvdm_NC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    end do
+    deallocate(lgr_cmplx)
+    i0=i0+Nvdm_NC_opt
+    ! allocate(lgr_cmplx(Nvdm_AC_opt))   
+    ! call vdm_AC_stride_m2v(itd_lgrAC(1,:,:),lgr_cmplx)    
+    ! do i=1,Nvdm_AC_opt
+    !    lgr(i0+i) = dreal(lgr_cmplx(i))
+    !    !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    ! end do
+    ! i0=i0+Nvdm_AC_opt
+    ! call vdm_AC_stride_m2v(itd_lgrAC(2,:,:),lgr_cmplx)    
+    ! do i=1,Nvdm_AC_opt
+    !    lgr(i0+i) = dreal(lgr_cmplx(i))
+    !    !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    ! end do
+    ! deallocate(lgr_cmplx)
+    ! i0=i0+Nvdm_AC_opt
+    !lgr(i0+1) = itd_lgr_local_dens
+    !lgr(i0+2) = 0.d0    
+    !
+    yt_old = yt
+    !
+
+
+    ! select case(lgr_method)
+    ! case('CG_min')
+    !call fmin_cgminimize(lgr,imt_fix_constr_,iter,delta,ftol=1.d-10,itmax=200)    
+    ! case('f_zero')
+
+
+    !+- as a first adjustment one could think to compute first the lgr-independent part of the 
+    !   derivative and than adjsut lgr... -+!    
+    !call fsolve(imt_fix_constr,lgr,tol=1.d-06,info=iter)    
+    ! case default
+    !    call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
+    ! end select
+    !
+
+    ! lgr(4)=0.d0
+    ! lgr(2)=0.d0
+    !
+    !
+    delta_out = imt_fix_constr(lgr)
+    delta=0.d0
+    do i=1,Nopt
+       delta = delta + delta_out(i)**2.d0
+    end do
+    ! ! !
+    write(*,*) 'Immaginary Time Dynamics -> lagrange parameters'
+    write(*,*) lgr
+    write(*,*) 'Immaginary Time Dynamics -> error'
+    write(*,*) delta_out
+    write(*,*)
+    ! ! ! !
+    !
+    !stop
+    yt_new = RK4_step(nDynamics,4,tstep,t,yt_old,eom_funct)
+    yt=yt_new
+    ! ! ! !
+    !
+    i0=0
+    allocate(lgr_cmplx(Nvdm_NC_opt))    
+    do i=1,Nvdm_NC_opt
+       lgr_cmplx(i) = lgr(i0+i)!+xi*lgr(i0+i+Nvdm_NC_opt)
+    end do
+    call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC(1,:,:))
+    i0=i0+Nvdm_NC_opt
+    do i=1,Nvdm_NC_opt
+       lgr_cmplx(i) = lgr(i0+i)!+xi*lgr(i0+i+Nvdm_NC_opt)
+    end do
+    call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC(2,:,:))
+    deallocate(lgr_cmplx)
+    i0=i0+Nvdm_NC_opt
+    ! allocate(lgr_cmplx(Nvdm_AC_opt))    
+    ! do i=1,Nvdm_AC_opt
+    !    lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+    ! end do
+    ! call vdm_AC_stride_v2m(lgr_cmplx,itd_lgrAC(1,:,:))
+    ! i0=i0+Nvdm_AC_opt
+    ! do i=1,Nvdm_AC_opt
+    !    lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+    ! end do
+    ! call vdm_AC_stride_v2m(lgr_cmplx,itd_lgrAC(2,:,:))
+    ! i0=i0+Nvdm_AC_opt
+    ! itd_lgr_local_dens = lgr(i0+1)
+    !
+    !
+    ! do is=1,Ns
+    !    write(*,'(10F18.10)') itd_lgrNC(1,is,:)
+    ! end do
+    ! !
+    ! write(*,*)
+    ! do is=1,Ns
+    !    write(*,'(10F18.10)') itd_lgrNC(2,is,:)
+    ! end do
+
+  contains
+    !
+    function imt_fix_constr(lgr) result(delta)
+      real(8),dimension(:)                :: lgr
+      real(8),dimension(size(lgr))        :: delta
+      complex(8),dimension(:),allocatable :: lgr_cmplx,delta_cmplx
+      complex(8),dimension(Ns,Ns)         :: delta_VDM,delta_constr
+      complex(8),dimension(2,Ns,Ns)       :: constrGZ,constrSL,delta_anomalous
+      real(8)                             :: unitary_constrGZ
+      integer                             :: i0,i,is,js
+      complex(8)                          :: tot_dens,tmp_dens
+      !
+      if(allocated(imt_lgr_NC)) deallocate(imt_lgr_NC)
+      allocate(imt_lgr_NC(2,Ns,Ns)); 
+      !
+      if(allocated(imt_lgr_AC)) deallocate(imt_lgr_AC)
+      allocate(imt_lgr_AC(2,Ns,Ns)); 
+      !
+      !+- dump slater_lgr_multipliers
+      allocate(lgr_cmplx(Nvdm_NC_opt))
+
+
+      write(444,*) lgr
+
+      i0=0
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(1,:,:))   
+      i0=i0+Nvdm_NC_opt
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(2,:,:))   
+      deallocate(lgr_cmplx)
+      i0=i0+Nvdm_NC_opt
+      ! allocate(lgr_cmplx(Nvdm_AC_opt))
+      ! do i=1,Nvdm_AC_opt
+      !    lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      ! end do
+      ! call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(1,:,:))   
+      ! i0=i0+Nvdm_AC_opt
+      ! do i=1,Nvdm_AC_opt
+      !    lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      ! end do
+      ! call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(2,:,:))   
+      ! i0=i0+Nvdm_AC_opt
+      ! deallocate(lgr_cmplx)
+      imt_lgr_local_dens = 0.d0!lgr(i0+1)
+      !
+      !
+      yt_new = RK4_step(nDynamics,4,itstep,t,yt_old,eom_funct)
+      !
+      call gz_imt_measure_constr_superc(yt_new,t) 
+      !
+      tot_dens=0.d0
+      do is=1,Ns
+         do js=1,Ns
+            call get_imt_dens_constr_slater(is,js,constrSL(1,is,js))
+            call get_imt_dens_constrA_slater(is,js,constrSL(2,is,js))
+            call get_imt_dens_constr_gzproj(is,js,constrGZ(1,is,js))
+            call get_imt_dens_constrA_gzproj(is,js,constrGZ(2,is,js))
+            delta_VDM(is,js) = constrSL(1,is,js) - imt_vdm(is,js)
+            delta_constr(is,js) = constrGZ(1,is,js)-imt_vdm(is,js)
+            delta_anomalous(1,is,js) = constrSL(2,is,js)
+            delta_anomalous(2,is,js) = constrGZ(2,is,js)
+         end do
+         call get_imt_local_dens(is,is,tmp_dens)
+         tot_dens = tot_dens + tmp_dens
+      end do
+      !
+      !
+      !Re-construct solution
+      !write(*,*) delta_VDM
+      !write(*,*) tot_dens
+      !      
+      !
+      delta=0.d0
+      i0=0
+      allocate(delta_cmplx(Nvdm_NC_opt))     
+      call vdm_NC_stride_m2v(delta_VDM,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0=i0+Nvdm_NC_opt
+      call vdm_NC_stride_m2v(delta_constr,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      deallocate(delta_cmplx)
+      i0=i0+Nvdm_NC_opt
+      !
+      ! allocate(delta_cmplx(Nvdm_AC_opt))     
+      ! call vdm_AC_stride_m2v(delta_anomalous(1,:,:),delta_cmplx)
+      ! do i=1,Nvdm_AC_opt
+      !    delta(i0+i) = dreal(delta_cmplx(i))
+      !    !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      ! end do
+      ! i0 = i0 + Nvdm_AC_opt
+      ! call vdm_AC_stride_m2v(delta_anomalous(2,:,:),delta_cmplx)
+      ! do i=1,Nvdm_AC_opt
+      !    delta(i0+i) = dreal(delta_cmplx(i))
+      !    !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      ! end do
+      ! i0 = i0 + Nvdm_AC_opt
+      ! deallocate(delta_cmplx)
+      !delta(i0+1) = dreal(tot_dens-ndens)
+      !delta(i0+2) = dimag(tot_dens-ndens)
+      !      
+      ! tmp_test=0.d0
+      ! do i=1,size(lgr)
+      !    tmp_test=tmp_test+delta(i)**2.d0
+      ! end do
+      !
+      if(GZneq_verbose) then
+         write(*,*) 'imt-dep LAGRANGE'
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(1,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(2,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         ! do is=1,Ns
+         !    write(*,'(20F10.6)') imt_lgr_AC(1,is,:)         
+         ! end do
+         ! write(*,'(20F10.6)')
+         ! do is=1,Ns
+         !    write(*,'(20F10.6)') imt_lgr_AC(2,is,:)         
+         ! end do
+         write(*,'(20F10.6)')
+         write(*,'(20F10.6)') imt_lgr_local_dens
+         write(*,*)
+         write(*,*) 'deviation from constraint conservation'
+         write(*,'(20F18.10)') delta
+         write(*,*) '!+----------------+!'
+      end if
+      !
+    end function imt_fix_constr
+    !
+  end subroutine step_imt_dynamics_superc
+
+
+  subroutine step_imt_dynamics_superc_(nsys,tstep,t,yt,itd_lgrNC,itd_lgrAC,itd_lgr_local_dens,imt_vdm,eom_funct,ndens) 
+    integer                                     :: nsys
+    real(8)                                     :: tstep,t
+    complex(8),dimension(nsys),intent(inout)    :: yt
+    complex(8),dimension(nsys)                  :: yt_old,yt_new
+    complex(8),dimension(2,Ns,Ns),intent(inout) :: itd_lgrNC !+- (1,:,:) -> VDM ; (2,:,:) -> gz=sl
+    complex(8),dimension(2,Ns,Ns),intent(inout)   :: itd_lgrAC !+- (1,:,:) -> SL ; (2,:,:) -> GZ
+    real(8),intent(inout)                       :: itd_lgr_local_dens
+    complex(8),dimension(Ns,Ns)                 :: imt_vdm
+    real(8),intent(in)                          :: ndens
+
+    real(8),dimension(:),allocatable            :: lgr,delta_out
+    complex(8),dimension(:),allocatable         :: lgr_cmplx
+    integer                                     :: iter,Nopt
+    integer                                     :: i,i0,is
+    real(8)                                     :: delta
+    interface
+       function eom_funct(t,y,Nsys)
+         implicit none
+         integer                                :: Nsys
+         real(8)                                :: t   
+         complex(8),dimension(Nsys)             :: eom_funct
+         complex(8),dimension(Nsys)             :: y
+       end function eom_funct
+    end interface
+    !
+    !+- defines the initial time of the step (used for computing the increment integral)
+    imt_tstep = t
+    !+- number of lagrange params to be optimized -+!
+    Nopt = 2*Nvdm_NC_opt + 1
+    allocate(lgr(Nopt));allocate(delta_out(Nopt))
+    !
+    allocate(lgr_cmplx(Nvdm_NC_opt))
+    i0=0
+    call vdm_NC_stride_m2v(itd_lgrNC(1,:,:),lgr_cmplx)    
+    do i=1,Nvdm_NC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    end do
+    i0=i0+Nvdm_NC_opt
+    call vdm_NC_stride_m2v(itd_lgrNC(2,:,:),lgr_cmplx)    
+    do i=1,Nvdm_NC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    end do
+    deallocate(lgr_cmplx)
+    i0=i0+Nvdm_NC_opt
+    ! allocate(lgr_cmplx(Nvdm_AC_opt))   
+    ! call vdm_AC_stride_m2v(itd_lgrAC(1,:,:),lgr_cmplx)    
+    ! do i=1,Nvdm_AC_opt
+    !    lgr(i0+i) = dreal(lgr_cmplx(i))
+    !    !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    ! end do
+    ! i0=i0+Nvdm_AC_opt
+    ! call vdm_AC_stride_m2v(itd_lgrAC(2,:,:),lgr_cmplx)    
+    ! do i=1,Nvdm_AC_opt
+    !    lgr(i0+i) = dreal(lgr_cmplx(i))
+    !    !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    ! end do
+    ! deallocate(lgr_cmplx)
+    ! i0=i0+Nvdm_AC_opt
+    lgr(i0+1) = itd_lgr_local_dens
+    !lgr(i0+2) = 0.d0    
+    !
+    yt_old = yt
+    !
+
+
+    ! select case(lgr_method)
+    ! case('CG_min')
+    call fmin_cgminimize(lgr,imt_fix_constr_,iter,delta,ftol=1.d-10,itmax=200)    
+    ! case('f_zero')
+
+
+    !+- as a first adjustment one could think to compute first the lgr-independent part of the 
+    !   derivative and than adjsut lgr... -+!    
+    !call fsolve(imt_fix_constr,lgr,tol=1.d-06,info=iter)    
+    ! case default
+    !    call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
+    ! end select
+    !
+
+    ! lgr(4)=0.d0
+    ! lgr(2)=0.d0
+    !
+    !
+    delta_out = imt_fix_constr(lgr)
+    delta=0.d0
+    do i=1,Nopt
+       delta = delta + delta_out(i)**2.d0
+    end do
+    ! ! !
+    write(*,*) 'Immaginary Time Dynamics -> lagrange parameters'
+    write(*,*) lgr
+    write(*,*) 'Immaginary Time Dynamics -> error'
+    write(*,*) delta_out
+    write(*,*)
+    ! ! ! !
+
+    !stop
+    !yt_new = RK4_step(nDynamics,4,tstep,t,yt_old,eom_funct)
+    yt=yt_new
+    ! ! ! !
+
+    i0=0
+    allocate(lgr_cmplx(Nvdm_NC_opt))    
+    do i=1,Nvdm_NC_opt
+       lgr_cmplx(i) = lgr(i0+i)!+xi*lgr(i0+i+Nvdm_NC_opt)
+    end do
+    call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC(1,:,:))
+    i0=i0+Nvdm_NC_opt
+    do i=1,Nvdm_NC_opt
+       lgr_cmplx(i) = lgr(i0+i)!+xi*lgr(i0+i+Nvdm_NC_opt)
+    end do
+    call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC(2,:,:))
+    deallocate(lgr_cmplx)
+    i0=i0+Nvdm_NC_opt
+    ! allocate(lgr_cmplx(Nvdm_AC_opt))    
+    ! do i=1,Nvdm_AC_opt
+    !    lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+    ! end do
+    ! call vdm_AC_stride_v2m(lgr_cmplx,itd_lgrAC(1,:,:))
+    ! i0=i0+Nvdm_AC_opt
+    ! do i=1,Nvdm_AC_opt
+    !    lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+    ! end do
+    ! call vdm_AC_stride_v2m(lgr_cmplx,itd_lgrAC(2,:,:))
+    ! i0=i0+Nvdm_AC_opt
+    itd_lgr_local_dens = lgr(i0+1)
+    !
+    !
+    ! do is=1,Ns
+    !    write(*,'(10F18.10)') itd_lgrNC(1,is,:)
+    ! end do
+    ! !
+    ! write(*,*)
+    ! do is=1,Ns
+    !    write(*,'(10F18.10)') itd_lgrNC(2,is,:)
+    ! end do
+
+  contains
+    !
+    function imt_fix_constr(lgr) result(delta)
+      real(8),dimension(:)                :: lgr
+      real(8),dimension(size(lgr))        :: delta
+      complex(8),dimension(:),allocatable :: lgr_cmplx,delta_cmplx
+      complex(8),dimension(Ns,Ns)         :: delta_VDM,delta_constr
+      complex(8),dimension(2,Ns,Ns)       :: constrGZ,constrSL,delta_anomalous
+      real(8)                             :: unitary_constrGZ
+      integer                             :: i0,i,is,js
+      complex(8)                          :: tot_dens,tmp_dens
+      !
+      if(allocated(imt_lgr_NC)) deallocate(imt_lgr_NC)
+      allocate(imt_lgr_NC(2,Ns,Ns)); 
+      !
+      if(allocated(imt_lgr_AC)) deallocate(imt_lgr_AC)
+      allocate(imt_lgr_AC(2,Ns,Ns)); 
+      !
+      !+- dump slater_lgr_multipliers
+      allocate(lgr_cmplx(Nvdm_NC_opt))
+
+
+      write(444,*) lgr
+
+      i0=0
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(1,:,:))   
+      i0=i0+Nvdm_NC_opt
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(2,:,:))   
+      deallocate(lgr_cmplx)
+      i0=i0+Nvdm_NC_opt
+      ! allocate(lgr_cmplx(Nvdm_AC_opt))
+      ! do i=1,Nvdm_AC_opt
+      !    lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      ! end do
+      ! call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(1,:,:))   
+      ! i0=i0+Nvdm_AC_opt
+      ! do i=1,Nvdm_AC_opt
+      !    lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      ! end do
+      ! call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(2,:,:))   
+      ! i0=i0+Nvdm_AC_opt
+      ! deallocate(lgr_cmplx)
+      imt_lgr_local_dens = lgr(i0+1)
+      !
+      !
+      yt_new = RK4_step(nDynamics,4,itstep,t,yt_old,eom_funct)
+      !
+      call gz_imt_measure_constr_superc(yt_new,t) 
+      !
+      tot_dens=0.d0
+      do is=1,Ns
+         do js=1,Ns
+            call get_imt_dens_constr_slater(is,js,constrSL(1,is,js))
+            call get_imt_dens_constrA_slater(is,js,constrSL(2,is,js))
+            call get_imt_dens_constr_gzproj(is,js,constrGZ(1,is,js))
+            call get_imt_dens_constrA_gzproj(is,js,constrGZ(2,is,js))
+            delta_VDM(is,js) = constrSL(1,is,js) - imt_vdm(is,js)
+            delta_constr(is,js) = constrGZ(1,is,js)-imt_vdm(is,js)
+            delta_anomalous(1,is,js) = constrSL(2,is,js)
+            delta_anomalous(2,is,js) = constrGZ(2,is,js)
+         end do
+         call get_imt_local_dens(is,is,tmp_dens)
+         tot_dens = tot_dens + tmp_dens
+      end do
+      !
+      !
+      !Re-construct solution
+      !write(*,*) delta_VDM
+      !write(*,*) tot_dens
+      !      
+      !
+      delta=0.d0
+      i0=0
+      allocate(delta_cmplx(Nvdm_NC_opt))     
+      call vdm_NC_stride_m2v(delta_VDM,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0=i0+Nvdm_NC_opt
+      call vdm_NC_stride_m2v(delta_constr,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      deallocate(delta_cmplx)
+      i0=i0+Nvdm_NC_opt
+      !
+      ! allocate(delta_cmplx(Nvdm_AC_opt))     
+      ! call vdm_AC_stride_m2v(delta_anomalous(1,:,:),delta_cmplx)
+      ! do i=1,Nvdm_AC_opt
+      !    delta(i0+i) = dreal(delta_cmplx(i))
+      !    !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      ! end do
+      ! i0 = i0 + Nvdm_AC_opt
+      ! call vdm_AC_stride_m2v(delta_anomalous(2,:,:),delta_cmplx)
+      ! do i=1,Nvdm_AC_opt
+      !    delta(i0+i) = dreal(delta_cmplx(i))
+      !    !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      ! end do
+      ! i0 = i0 + Nvdm_AC_opt
+      ! deallocate(delta_cmplx)
+      delta(i0+1) = dreal(tot_dens-ndens)
+      !delta(i0+2) = dimag(tot_dens-ndens)
+      !      
+      ! tmp_test=0.d0
+      ! do i=1,size(lgr)
+      !    tmp_test=tmp_test+delta(i)**2.d0
+      ! end do
+      !
+      if(GZneq_verbose) then
+         write(*,*) 'imt-dep LAGRANGE'
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(1,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(2,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         ! do is=1,Ns
+         !    write(*,'(20F10.6)') imt_lgr_AC(1,is,:)         
+         ! end do
+         ! write(*,'(20F10.6)')
+         ! do is=1,Ns
+         !    write(*,'(20F10.6)') imt_lgr_AC(2,is,:)         
+         ! end do
+         write(*,'(20F10.6)')
+         write(*,'(20F10.6)') imt_lgr_local_dens
+         write(*,*)
+         write(*,*) 'deviation from constraint conservation'
+         write(*,'(20F18.10)') delta
+         write(*,*) '!+----------------+!'
+      end if
+      !
+    end function imt_fix_constr
+    !
+
+
+    function imt_fix_constr_(lgr) result(delta_out)
+      real(8),dimension(:)                :: lgr
+      real(8) :: delta_out
+      real(8),dimension(size(lgr))        :: delta
+      complex(8),dimension(:),allocatable :: lgr_cmplx,delta_cmplx
+      complex(8),dimension(Ns,Ns)         :: delta_VDM,delta_constr
+      complex(8),dimension(2,Ns,Ns)       :: constrGZ,constrSL,delta_anomalous
+      real(8)                             :: unitary_constrGZ
+      integer                             :: i0,i,is,js
+      complex(8)                          :: tot_dens,tmp_dens
+      !
+      if(allocated(imt_lgr_NC)) deallocate(imt_lgr_NC)
+      allocate(imt_lgr_NC(2,Ns,Ns)); 
+      !
+      if(allocated(imt_lgr_AC)) deallocate(imt_lgr_AC)
+      allocate(imt_lgr_AC(2,Ns,Ns)); 
+      !
+      !+- dump slater_lgr_multipliers
+      allocate(lgr_cmplx(Nvdm_NC_opt))
+
+
+      write(446,*) lgr
+
+      i0=0
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(1,:,:))   
+      i0=i0+Nvdm_NC_opt
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(2,:,:))   
+      deallocate(lgr_cmplx)
+      i0=i0+Nvdm_NC_opt
+      ! allocate(lgr_cmplx(Nvdm_AC_opt))
+      ! do i=1,Nvdm_AC_opt
+      !    lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      ! end do
+      ! call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(1,:,:))   
+      ! i0=i0+Nvdm_AC_opt
+      ! do i=1,Nvdm_AC_opt
+      !    lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      ! end do
+      ! call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(2,:,:))   
+      ! i0=i0+Nvdm_AC_opt
+      ! deallocate(lgr_cmplx)
+      imt_lgr_local_dens = lgr(i0+1)
+      !
+      !
+      yt_new = RK4_step(nDynamics,4,itstep,t,yt_old,eom_funct)
+      !
+      call gz_imt_measure_constr_superc(yt_new,t) 
+      !
+      tot_dens=0.d0
+      do is=1,Ns
+         do js=1,Ns
+            call get_imt_dens_constr_slater(is,js,constrSL(1,is,js))
+            call get_imt_dens_constrA_slater(is,js,constrSL(2,is,js))
+            call get_imt_dens_constr_gzproj(is,js,constrGZ(1,is,js))
+            call get_imt_dens_constrA_gzproj(is,js,constrGZ(2,is,js))
+            delta_VDM(is,js) = constrSL(1,is,js) - imt_vdm(is,js)
+            delta_constr(is,js) = constrGZ(1,is,js)-imt_vdm(is,js)
+            delta_anomalous(1,is,js) = constrSL(2,is,js)
+            delta_anomalous(2,is,js) = constrGZ(2,is,js)
+         end do
+         call get_imt_local_dens(is,is,tmp_dens)
+         tot_dens = tot_dens + tmp_dens
+      end do
+      !
+      !
+      !Re-construct solution
+      !write(*,*) delta_VDM
+      !write(*,*) tot_dens
+      !      
+      !
+      delta=0.d0
+      i0=0
+      allocate(delta_cmplx(Nvdm_NC_opt))     
+      call vdm_NC_stride_m2v(delta_VDM,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0=i0+Nvdm_NC_opt
+      call vdm_NC_stride_m2v(delta_constr,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      deallocate(delta_cmplx)
+      i0=i0+Nvdm_NC_opt
+      !
+      ! allocate(delta_cmplx(Nvdm_AC_opt))     
+      ! call vdm_AC_stride_m2v(delta_anomalous(1,:,:),delta_cmplx)
+      ! do i=1,Nvdm_AC_opt
+      !    delta(i0+i) = dreal(delta_cmplx(i))
+      !    !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      ! end do
+      ! i0 = i0 + Nvdm_AC_opt
+      ! call vdm_AC_stride_m2v(delta_anomalous(2,:,:),delta_cmplx)
+      ! do i=1,Nvdm_AC_opt
+      !    delta(i0+i) = dreal(delta_cmplx(i))
+      !    !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      ! end do
+      ! i0 = i0 + Nvdm_AC_opt
+      ! deallocate(delta_cmplx)
+      delta(i0+1) = dreal(tot_dens-ndens)
+      !delta(i0+2) = dimag(tot_dens-ndens)
+      !      
+      ! tmp_test=0.d0
+      ! do i=1,size(lgr)
+      !    tmp_test=tmp_test+delta(i)**2.d0
+      ! end do
+      !
+      if(GZneq_verbose) then
+         write(*,*) 'imt-dep LAGRANGE'
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(1,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(2,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         ! do is=1,Ns
+         !    write(*,'(20F10.6)') imt_lgr_AC(1,is,:)         
+         ! end do
+         ! write(*,'(20F10.6)')
+         ! do is=1,Ns
+         !    write(*,'(20F10.6)') imt_lgr_AC(2,is,:)         
+         ! end do
+         write(*,'(20F10.6)')
+         write(*,'(20F10.6)') imt_lgr_local_dens
+         write(*,*)
+         write(*,*) 'deviation from constraint conservation'
+         write(*,'(20F18.10)') delta
+         write(*,*) '!+----------------+!'
+      end if
+      !
+      delta_out=0.d0
+      do i=1,size(delta)
+         delta_out = delta_out + delta(i)**2.d0
+      end do
+      delta_out=sqrt(delta_out)
+    end function imt_fix_constr_
+
+  end subroutine step_imt_dynamics_superc_
+
+
+  subroutine step_imt_dynamics_superc_lgrA(nsys,tstep,t,yt,itd_lgrNC,itd_lgrAC,itd_lgr_local_dens,imt_vdm,eom_funct,ndens) 
+    integer                                     :: nsys
+    real(8)                                     :: tstep,t
+    complex(8),dimension(nsys),intent(inout)    :: yt
+    complex(8),dimension(nsys)                  :: yt_old,yt_new
+    complex(8),dimension(2,Ns,Ns),intent(inout) :: itd_lgrNC !+- (1,:,:) -> VDM ; (2,:,:) -> gz=sl
+    complex(8),dimension(2,Ns,Ns),intent(inout)   :: itd_lgrAC !+- (1,:,:) -> SL ; (2,:,:) -> GZ
+    real(8),intent(inout)                       :: itd_lgr_local_dens
+    complex(8),dimension(Ns,Ns)                 :: imt_vdm
+    real(8),intent(in)                          :: ndens
+
+    real(8),dimension(:),allocatable            :: lgr,delta_out
+    complex(8),dimension(:),allocatable         :: lgr_cmplx
+    integer                                     :: iter,Nopt
+    integer                                     :: i,i0,is
+    real(8)                                     :: delta
+    interface
+       function eom_funct(t,y,Nsys)
+         implicit none
+         integer                                :: Nsys
+         real(8)                                :: t   
+         complex(8),dimension(Nsys)             :: eom_funct
+         complex(8),dimension(Nsys)             :: y
+       end function eom_funct
+    end interface
+    !
+    !+- defines the initial time of the step (used for computing the increment integral)
+    imt_tstep = t
+    !+- number of lagrange params to be optimized -+!
+    Nopt = 2*Nvdm_NC_opt + 2*Nvdm_AC_opt + 1
+    allocate(lgr(Nopt));allocate(delta_out(Nopt))
+    !
+    allocate(lgr_cmplx(Nvdm_NC_opt))
+    i0=0
+    call vdm_NC_stride_m2v(itd_lgrNC(1,:,:),lgr_cmplx)    
+    do i=1,Nvdm_NC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    end do
+    i0=i0+Nvdm_NC_opt
+    call vdm_NC_stride_m2v(itd_lgrNC(2,:,:),lgr_cmplx)    
+    do i=1,Nvdm_NC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    end do
+    deallocate(lgr_cmplx)
+    allocate(lgr_cmplx(Nvdm_AC_opt))
+    i0=i0+Nvdm_NC_opt
+    call vdm_AC_stride_m2v(itd_lgrAC(1,:,:),lgr_cmplx)    
+    do i=1,Nvdm_AC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    end do
+    i0=i0+Nvdm_AC_opt
+    call vdm_AC_stride_m2v(itd_lgrAC(2,:,:),lgr_cmplx)    
+    do i=1,Nvdm_AC_opt
+       lgr(i0+i) = dreal(lgr_cmplx(i))
+       !lgr(i0+i+Nvdm_NC_opt) = dimag(lgr_cmplx(i))
+    end do
+    deallocate(lgr_cmplx)
+    i0=i0+Nvdm_AC_opt
+    lgr(i0+1) = itd_lgr_local_dens
+    !lgr(i0+2) = 0.d0    
+    !
+    yt_old = yt
+    !
+
+
+    ! select case(lgr_method)
+    ! case('CG_min')
+    !call fmin_cgminimize(lgr,imt_fix_constr_,iter,delta,ftol=1.d-10,itmax=200)    
+    ! case('f_zero')
+
+
+    !+- as a first adjustment one could think to compute first the lgr-independent part of the 
+    !   derivative and than adjsut lgr... -+!    
+    call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
+    ! case default
+    !    call fsolve(imt_fix_constr,lgr,tol=1.d-04,info=iter)    
+    ! end select
+    !
+
+    ! lgr(4)=0.d0
+    ! lgr(2)=0.d0
+    !
+    !
+    delta_out = imt_fix_constr(lgr)
+    delta=0.d0
+    do i=1,Nopt
+       delta = delta + delta_out(i)**2.d0
+    end do
+    ! ! !
+    write(*,*) 'Immaginary Time Dynamics -> lagrange parameters'
+    write(*,*) lgr
+    write(*,*) 'Immaginary Time Dynamics -> error'
+    write(*,*) delta_out
+    write(*,*)
+    ! ! ! !
+
+    !stop
+    !yt_new = RK4_step(nDynamics,4,tstep,t,yt_old,eom_funct)
+    yt=yt_new
+    ! ! ! !
+
+    i0=0
+    allocate(lgr_cmplx(Nvdm_NC_opt))    
+    do i=1,Nvdm_NC_opt
+       lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_NC_opt)
+    end do
+    call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC(1,:,:))
+    i0=i0+Nvdm_NC_opt
+    do i=1,Nvdm_NC_opt
+       lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_NC_opt)
+    end do
+    call vdm_NC_stride_v2m(lgr_cmplx,itd_lgrNC(2,:,:))
+    i0=i0+Nvdm_NC_opt
+    deallocate(lgr_cmplx)
+    allocate(lgr_cmplx(Nvdm_AC_opt))    
+    do i=1,Nvdm_AC_opt
+       lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+    end do
+    call vdm_AC_stride_v2m(lgr_cmplx,itd_lgrAC(1,:,:))
+    i0=i0+Nvdm_AC_opt
+    do i=1,Nvdm_AC_opt
+       lgr_cmplx(i) = lgr(i0+i)+xi*lgr(i0+i+Nvdm_AC_opt)
+    end do
+    call vdm_AC_stride_v2m(lgr_cmplx,itd_lgrAC(2,:,:))
+    i0=i0+Nvdm_AC_opt
+    itd_lgr_local_dens = lgr(i0+1)
+    !
+    !
+    ! do is=1,Ns
+    !    write(*,'(10F18.10)') itd_lgrNC(1,is,:)
+    ! end do
+    ! !
+    ! write(*,*)
+    ! do is=1,Ns
+    !    write(*,'(10F18.10)') itd_lgrNC(2,is,:)
+    ! end do
+
+  contains
+    !
+    function imt_fix_constr(lgr) result(delta)
+      real(8),dimension(:)                :: lgr
+      real(8),dimension(size(lgr))        :: delta
+      complex(8),dimension(:),allocatable :: lgr_cmplx,delta_cmplx
+      complex(8),dimension(Ns,Ns)         :: delta_VDM,delta_constr
+      complex(8),dimension(2,Ns,Ns)       :: constrGZ,constrSL,delta_anomalous
+      real(8)                             :: unitary_constrGZ
+      integer                             :: i0,i,is,js
+      complex(8)                          :: tot_dens,tmp_dens
+      !
+      if(allocated(imt_lgr_NC)) deallocate(imt_lgr_NC)
+      allocate(imt_lgr_NC(2,Ns,Ns)); 
+      !
+      if(allocated(imt_lgr_AC)) deallocate(imt_lgr_AC)
+      allocate(imt_lgr_AC(2,Ns,Ns)); 
+      !
+      write(445,*) lgr
+
+      !+- dump slater_lgr_multipliers
+      allocate(lgr_cmplx(Nvdm_NC_opt))
+      i0=0
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(1,:,:))   
+      i0=i0+Nvdm_NC_opt
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(2,:,:))   
+      deallocate(lgr_cmplx)
+      allocate(lgr_cmplx(Nvdm_AC_opt))
+      i0=i0+Nvdm_NC_opt
+      do i=1,Nvdm_AC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(1,:,:))   
+      i0=i0+Nvdm_AC_opt
+      do i=1,Nvdm_AC_opt
+         lgr_cmplx(i) = lgr(i0+i) !+ xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(2,:,:))   
+      i0=i0+Nvdm_AC_opt
+      deallocate(lgr_cmplx)
+      imt_lgr_local_dens = lgr(i0+1)
+      !
+      !
+      yt_new = RK4_step(nDynamics,4,itstep,t,yt_old,eom_funct)
+      !
+      call gz_imt_measure_constr_superc(yt_new,t) 
+      !
+      tot_dens=0.d0
+      do is=1,Ns
+         do js=1,Ns
+            call get_imt_dens_constr_slater(is,js,constrSL(1,is,js))
+            call get_imt_dens_constrA_slater(is,js,constrSL(2,is,js))
+            call get_imt_dens_constr_gzproj(is,js,constrGZ(1,is,js))
+            call get_imt_dens_constrA_gzproj(is,js,constrGZ(2,is,js))
+            delta_VDM(is,js) = constrSL(1,is,js) - imt_vdm(is,js)
+            delta_constr(is,js) = constrGZ(1,is,js)-imt_vdm(is,js)
+            delta_anomalous(1,is,js) = constrSL(2,is,js)
+            delta_anomalous(2,is,js) = constrGZ(2,is,js)
+         end do
+         call get_imt_local_dens(is,is,tmp_dens)
+         tot_dens = tot_dens + tmp_dens
+      end do
+      !
+      !
+      !Re-construct solution
+      !write(*,*) delta_VDM
+      !write(*,*) tot_dens
+      !      
+      !
+      delta=0.d0
+      i0=0
+      allocate(delta_cmplx(Nvdm_NC_opt))     
+      call vdm_NC_stride_m2v(delta_VDM,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0=i0+Nvdm_NC_opt
+      call vdm_NC_stride_m2v(delta_constr,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0=i0+Nvdm_NC_opt
+      deallocate(delta_cmplx)
+      !
+      allocate(delta_cmplx(Nvdm_AC_opt))     
+      call vdm_AC_stride_m2v(delta_anomalous(1,:,:),delta_cmplx)
+      do i=1,Nvdm_AC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0 = i0 + Nvdm_AC_opt
+      call vdm_AC_stride_m2v(delta_anomalous(2,:,:),delta_cmplx)
+      do i=1,Nvdm_AC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         !delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0 = i0 + Nvdm_AC_opt
+      deallocate(delta_cmplx)
+      delta(i0+1) = dreal(tot_dens-ndens)
+      !delta(i0+2) = dimag(tot_dens-ndens)
+      !      
+      ! tmp_test=0.d0
+      ! do i=1,size(lgr)
+      !    tmp_test=tmp_test+delta(i)**2.d0
+      ! end do
+      !
+      if(GZneq_verbose) then
+         write(*,*) 'imt-dep LAGRANGE'
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(1,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(2,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_AC(1,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_AC(2,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         write(*,'(20F10.6)') imt_lgrU         
+         write(*,*)
+         write(*,*) 'deviation from constraint conservation'
+         write(*,'(20F18.10)') delta
+         write(*,*) '!+----------------+!'
+      end if
+      !
+    end function imt_fix_constr
+    !
+
+
+    function imt_fix_constr_(lgr) result(delta_out)
+      real(8),dimension(:) :: lgr
+      real(8) :: delta_out
+      ! real(8),dimension(:)                :: lgr
+      real(8),dimension(size(lgr))        :: delta
+      complex(8),dimension(:),allocatable :: lgr_cmplx,delta_cmplx
+      complex(8),dimension(Ns,Ns)         :: delta_VDM,delta_constr
+      complex(8),dimension(2,Ns,Ns)       :: constrGZ,constrSL,delta_anomalous
+      real(8)                             :: unitary_constrGZ
+      integer                             :: i0,i,is,js
+      complex(8)                          :: tot_dens,tmp_dens
+      !
+      if(allocated(imt_lgr_NC)) deallocate(imt_lgr_NC)
+      allocate(imt_lgr_NC(2,Ns,Ns)); 
+      !
+      if(allocated(imt_lgr_AC)) deallocate(imt_lgr_AC)
+      allocate(imt_lgr_AC(2,Ns,Ns)); 
+      !
+      !+- dump slater_lgr_multipliers
+      allocate(lgr_cmplx(Nvdm_NC_opt))
+      i0=0
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) + xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(1,:,:))   
+      i0=i0+Nvdm_NC_opt
+      do i=1,Nvdm_NC_opt
+         lgr_cmplx(i) = lgr(i0+i) + xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_NC_stride_v2m(lgr_cmplx,imt_lgr_NC(2,:,:))   
+      deallocate(lgr_cmplx)
+      allocate(lgr_cmplx(Nvdm_AC_opt))
+      i0=i0+Nvdm_NC_opt
+      do i=1,Nvdm_AC_opt
+         lgr_cmplx(i) = lgr(i0+i) + xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(1,:,:))   
+      i0=i0+Nvdm_AC_opt
+      do i=1,Nvdm_AC_opt
+         lgr_cmplx(i) = lgr(i0+i) + xi*lgr(i0+i+Nvdm_NC_opt)
+      end do
+      call vdm_AC_stride_v2m(lgr_cmplx,imt_lgr_AC(2,:,:))   
+      i0=i0+Nvdm_AC_opt
+      deallocate(lgr_cmplx)
+      imt_lgr_local_dens = lgr(i0+1)
+      !
+      !
+      yt_new = RK4_step(nDynamics,4,itstep,t,yt_old,eom_funct)
+      !
+      call gz_imt_measure_constr_superc(yt_new,t) 
+      !
+      tot_dens=0.d0
+      do is=1,Ns
+         do js=1,Ns
+            call get_imt_dens_constr_slater(is,js,constrSL(1,is,js))
+            call get_imt_dens_constrA_slater(is,js,constrSL(2,is,js))
+            call get_imt_dens_constr_gzproj(is,js,constrGZ(1,is,js))
+            call get_imt_dens_constrA_gzproj(is,js,constrGZ(2,is,js))
+            delta_VDM(is,js) = constrSL(1,is,js) - imt_vdm(is,js)
+            delta_constr(is,js) = constrGZ(1,is,js)-imt_vdm(is,js)
+            delta_anomalous(1,is,js) = constrSL(2,is,js)
+            delta_anomalous(2,is,js) = constrGZ(2,is,js)
+         end do
+         call get_imt_local_dens(is,is,tmp_dens)
+         tot_dens = tot_dens + tmp_dens
+      end do
+      !
+      !
+      !Re-construct solution
+      !write(*,*) delta_VDM
+
+      !      
+      !
+      delta=0.d0
+      i0=0
+      allocate(delta_cmplx(Nvdm_NC_opt))     
+      call vdm_NC_stride_m2v(delta_VDM,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0=i0+Nvdm_NC_opt
+      call vdm_NC_stride_m2v(delta_constr,delta_cmplx)
+      do i=1,Nvdm_NC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0=i0+Nvdm_NC_opt
+      deallocate(delta_cmplx)
+      !
+      allocate(delta_cmplx(Nvdm_AC_opt))     
+      call vdm_AC_stride_m2v(delta_anomalous(1,:,:),delta_cmplx)
+      do i=1,Nvdm_AC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0 = i0 + Nvdm_AC_opt
+      call vdm_AC_stride_m2v(delta_anomalous(2,:,:),delta_cmplx)
+      do i=1,Nvdm_AC_opt
+         delta(i0+i) = dreal(delta_cmplx(i))
+         delta(i0+i+Nvdm_NC_opt) = dimag(delta_cmplx(i))
+      end do
+      i0 = i0 + Nvdm_AC_opt
+      deallocate(delta_cmplx)
+      delta(i0+1) = dreal(tot_dens-ndens)
+      delta(i0+2) = dimag(tot_dens-ndens)
+      !      
+      ! tmp_test=0.d0
+      ! do i=1,size(lgr)
+      !    tmp_test=tmp_test+delta(i)**2.d0
+      ! end do
+      !
+      if(GZneq_verbose) then
+         write(*,*) 'imt-dep LAGRANGE'
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(1,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_NC(2,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_AC(1,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         do is=1,Ns
+            write(*,'(20F10.6)') imt_lgr_AC(2,is,:)         
+         end do
+         write(*,'(20F10.6)')
+         write(*,'(20F10.6)') imt_lgrU         
+         write(*,*)
+         write(*,*) 'deviation from constraint conservation'
+         write(*,'(20F18.10)') delta
+         write(*,*) '!+----------------+!'
+      end if
+      !
+      delta_out=0.d0
+      do i=1,size(delta)
+         delta_out = delta_out + delta(i)**2.d0
+      end do
+      delta_out=sqrt(delta_out)
+    end function imt_fix_constr_
+
+  end subroutine step_imt_dynamics_superc_lgrA
+
+  
 
 
 

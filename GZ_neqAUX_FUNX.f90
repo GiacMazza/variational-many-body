@@ -1005,7 +1005,7 @@ CONTAINS
 
 
   subroutine imt_wfMatrix_superc_2_dynamicalVector(slater,gzproj,dynVect)
-    complex(8),dimension(3,Ns,Ns,Lk) :: slater
+    complex(8),dimension(4,Ns,Ns,Lk) :: slater
     complex(8),dimension(Nphi)      :: gzproj
     complex(8),dimension(nDynamics):: dynVect
     integer :: i,j,is,js,iphi,idyn,ik    
@@ -1034,6 +1034,14 @@ CONTAINS
           end do
        end do
     end do
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             dynVect(idyn) = slater(4,is,js,ik)
+          end do
+       end do
+    end do
     do iphi=1,Nphi
        idyn=idyn+1
        dynVect(idyn) = gzproj(iphi)
@@ -1042,7 +1050,7 @@ CONTAINS
   end subroutine imt_wfMatrix_superc_2_dynamicalVector
   !
   subroutine imt_dynamicalVector_2_wfMatrix_superc(dynVect,slater,gzproj)
-    complex(8),dimension(3,Ns,Ns,Lk) :: slater
+    complex(8),dimension(4,Ns,Ns,Lk) :: slater
     complex(8),dimension(Nphi)      :: gzproj
     complex(8),dimension(nDynamics):: dynVect
     integer :: i,j,is,js,iphi,idyn,ik  
@@ -1068,6 +1076,14 @@ CONTAINS
           do js=1,Ns
              idyn=idyn+1
              slater(3,is,js,ik) = dynVect(idyn)
+          end do
+       end do
+    end do
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             slater(4,is,js,ik) = dynVect(idyn)
           end do
        end do
     end do

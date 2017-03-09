@@ -28,9 +28,9 @@ program GUTZ_mb
   !
   !
   complex(8),dimension(:),allocatable     :: psi_t,psi_save,psi_t_,psi_tmp
-  complex(8),dimension(:,:),allocatable     :: lgr_NC_sl
-  complex(8),dimension(:,:),allocatable     :: lgr_NC_gz
-  real(8) :: lgrU
+  complex(8),dimension(:,:,:),allocatable :: lgr_NC
+  complex(8),dimension(:,:,:),allocatable :: lgr_AC
+  real(8)                                 :: lgr_dens
   !
   integer :: unit_imt_hloc
   integer :: unit_imt_local_dens
@@ -50,7 +50,7 @@ program GUTZ_mb
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
   complex(8),dimension(:,:),allocatable   :: Rhop_matrix,Qhop_matrix
-  complex(8),dimension(:,:),allocatable :: local_density_matrix
+  complex(8),dimension(:,:),allocatable :: local_density_matrix,imt_vdm
   real(8),dimension(:,:),allocatable    :: local_dens_dens
   complex(8),dimension(:,:,:),allocatable :: dens_constrSL
   complex(8),dimension(:,:,:),allocatable :: dens_constrGZ
@@ -108,19 +108,20 @@ program GUTZ_mb
   !
   !
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  nDynamics = Nphi + 3*Ns*Ns*Lk
+  nDynamics = Nphi + 4*Ns*Ns*Lk
   allocate(psi_t(nDynamics),psi_save(nDynamics),psi_t_(nDynamics),psi_tmp(nDynamics))
 
-  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi),Hqp_in(3,Ns,Ns,Lk))  
+  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi),Hqp_in(4,Ns,Ns,Lk))  
   !
-  allocate(lgr_NC_sl(Ns,Ns));lgr_NC_sl=zero
-  allocate(lgr_NC_gz(Ns,Ns));lgr_NC_gz=zero
-  !
-  
+  allocate(lgr_NC(2,Ns,Ns));lgr_NC=zero
+  allocate(lgr_AC(2,Ns,Ns));lgr_AC=zero
+  lgr_dens=0.d0
+  !  
   if(beta_init.eq.0.d0) then
      call read_optimized_variational_wf_superc_imt(read_optWF_dir,gz_proj_init)
      Hqp_in = zero
-     call beta0_init_imt_qpH_superc(gz_proj_init,Hqp_in)
+     !call beta0_init_imt_qpH_superc(gz_proj_init,Hqp_in)
+     Hqp_in=0.d0
   else
      stop
      call read_optimized_variational_wf_normal_imt(read_optWF_dir,gz_proj_init,Hqp_in)
@@ -174,12 +175,14 @@ program GUTZ_mb
   allocate(Qhop_matrix(Ns,Ns))
   allocate(local_density_matrix(Ns,Ns))
   allocate(local_dens_dens(Ns,Ns))
+  allocate(imt_vdm(Ns,Ns))
   allocate(dens_constrSL(2,Ns,Ns))
   allocate(dens_constrGZ(2,Ns,Ns))  
   allocate(sc_order(Ns,Ns))  
   allocate(dump_vect(Ns*Ns))
 
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
+  psi_save=psi_t
   do im_it=1,Nit
      !
      t=t_grid(im_it)
@@ -195,7 +198,8 @@ program GUTZ_mb
               call get_imt_local_dens(is,js,local_density_matrix(is,js))              
               call get_imt_local_dens_dens(is,js,local_dens_dens(is,js))              
               call get_imt_dens_constr_slater(is,js,dens_constrSL(1,is,js))
-              call get_imt_dens_constr_gzproj(is,js,dens_constrGZ(1,is,js))              
+              call get_imt_dens_constr_gzproj(is,js,dens_constrGZ(1,is,js))
+              if(im_it.eq.1) imt_vdm(is,js) = dens_constrGZ(1,is,js)
               call get_imt_dens_constrA_slater(is,js,dens_constrSL(2,is,js))
               call get_imt_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))              
               call get_imt_local_sc(is,js,sc_order(is,js))
@@ -223,9 +227,27 @@ program GUTZ_mb
         !        
      end if
      !
-     psi_save=psi_t
+
+     !if(im_it.eq.3)stop
      if(im_it.lt.Nit) then
         write(*,*) im_it,Nit
+
+
+        ! call step_imt_dynamics_superc_lgrA(nDynamics,itstep,t,psi_t,lgr_NC,lgr_AC,lgr_dens, &
+        !      imt_vdm,gz_imt_equations_of_motion_superc,ndens=1.d0) 
+
+        ! lgr_NC(2,:,:) = lgr_NC(1,:,:)
+        ! lgr_dens = 1.d-7
+        ! call step_imt_dynamics_superc(nDynamics,itstep,t,psi_t,lgr_NC,lgr_AC,lgr_dens, &
+        !      imt_vdm,gz_imt_equations_of_motion_superc,ndens=1.d0) 
+        
+        psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_superc)     !
+
+        ! stop
+
+
+        !        stop
+        !stop
         !call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom)        
 !        call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_equations_of_motion,ndens)        
         !psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion)     !
@@ -237,7 +259,7 @@ program GUTZ_mb
         ! psi_t_ = psi_tmp
      end if
      !
-     stop
+
   end do
 
 

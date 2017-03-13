@@ -62,6 +62,8 @@ program GUTZ_mb
   real(8),dimension(:),allocatable      :: dump_vect
   !
   real(8) :: itstart,itstop
+  real(8) :: imt_dene,ene_save,imt_s,imt_f
+  real(8),dimension(:),allocatable :: imt_entropy,imt_ene  
   !
 
   !
@@ -108,7 +110,7 @@ program GUTZ_mb
   !
   !
   !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  nDynamics = Nphi + 4*Ns*Ns*Lk
+  nDynamics = Nphi + 3*Ns*Ns*Lk
   allocate(psi_t(nDynamics),psi_save(nDynamics),psi_t_(nDynamics),psi_tmp(nDynamics))
 
   allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi),Hqp_in(4,Ns,Ns,Lk))  
@@ -120,8 +122,8 @@ program GUTZ_mb
   if(beta_init.eq.0.d0) then
      call read_optimized_variational_wf_superc_imt(read_optWF_dir,gz_proj_init)
      Hqp_in = zero
-     !call beta0_init_imt_qpH_superc(gz_proj_init,Hqp_in)
-     Hqp_in=0.d0
+     call beta0_init_imt_qpH_superc(gz_proj_init,Hqp_in)
+     !Hqp_in=0.d0
   else
      stop
      call read_optimized_variational_wf_normal_imt(read_optWF_dir,gz_proj_init,Hqp_in)
@@ -182,7 +184,11 @@ program GUTZ_mb
   allocate(dump_vect(Ns*Ns))
 
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
+  allocate(imt_ene(Nit),imt_entropy(Nit))
   psi_save=psi_t
+
+  
+  lgr_dens = 0.d0
   do im_it=1,Nit
      !
      t=t_grid(im_it)
@@ -207,6 +213,8 @@ program GUTZ_mb
         end do
         !
         call get_imt_energies(energies)
+        imt_ene(im_it) = energies(1)
+        !
         call get_imt_local_angular_momenta(local_angular_momenta)
         call get_imt_unitary_constr(unitary_constr)
         !
@@ -227,40 +235,30 @@ program GUTZ_mb
         !        
      end if
      !
-
-     !if(im_it.eq.3)stop
      if(im_it.lt.Nit) then
         write(*,*) im_it,Nit
-
-
-        ! call step_imt_dynamics_superc_lgrA(nDynamics,itstep,t,psi_t,lgr_NC,lgr_AC,lgr_dens, &
-        !      imt_vdm,gz_imt_equations_of_motion_superc,ndens=1.d0) 
-
-        ! lgr_NC(2,:,:) = lgr_NC(1,:,:)
-        ! lgr_dens = 1.d-7
-        ! call step_imt_dynamics_superc(nDynamics,itstep,t,psi_t,lgr_NC,lgr_AC,lgr_dens, &
-        !      imt_vdm,gz_imt_equations_of_motion_superc,ndens=1.d0) 
-        
-        psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_superc)     !
-
-        ! stop
-
-
-        !        stop
-        !stop
-        !call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_eom)        
-!        call  step_imt_dynamics(nDynamics,itstep,t,psi_t,lgr_NC,lgrU,gz_imt_equations_of_motion,ndens)        
-        !psi_t = RK_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion)     !
         !
-        !psi_t = trpz_implicit(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
-        !psi_t = mp_step(nDynamics,4,itstep,t,psi_t,gz_imt_equations_of_motion_)     !
-        ! psi_tmp = psi_t
-        ! psi_t = mp_symm_step(nDynamics,4,itstep,t,psi_t,psi_t_,gz_imt_equations_of_motion_)     !
-        ! psi_t_ = psi_tmp
+        call step_imt_dynamics_superc_d(nDynamics,itstep,t,psi_t,lgr_NC, &
+             imt_vdm,gz_imt_equations_of_motion_superc,ndens=ndens,fix_constr_=.true.) 
      end if
      !
 
   end do
+
+
+  close(unit_imt_ene)
+  open(unit_imt_ene,file='imt_free_energy.data')
+  ene_save=imt_ene(Nit)
+  imt_s=0.d0
+  do im_it=1,Nit-1     
+     !
+     imt_dene = (imt_ene(Nit+1-im_it) - imt_ene(Nit-im_it))/itstep
+     imt_s = imt_s - t_grid(Nit+1-im_it)*imt_dene*itstep
+     !
+     imt_f = imt_ene(im_it) - 1./t_grid(im_it)*imt_s
+     write(unit_imt_ene,'(10F18.10)') t_grid(Nit+1-im_it),imt_f,imt_s
+  end do
+
 
 
   ! allocate(Hqp_out(Ns,Ns,Lk))

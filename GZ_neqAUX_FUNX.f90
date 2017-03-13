@@ -13,9 +13,13 @@ MODULE GZ_neqAUX_FUNX
   public :: read_optimized_variational_wf!,read_optimized_variational_wf_superc
   public :: read_optimized_variational_wf_slater_superc
   public :: read_optimized_variational_wf_normal_imt,read_optimized_variational_wf_superc_imt
+
   public :: wfMatrix_2_dynamicalVector,dynamicalVector_2_wfMatrix
   public :: wfMatrix_superc_2_dynamicalVector,dynamicalVector_2_wfMatrix_superc
   public :: imt_wfMatrix_superc_2_dynamicalVector,imt_dynamicalVector_2_wfMatrix_superc
+
+  public :: imt_wfMatrix_superc_2_dynamicalVector_,imt_dynamicalVector_2_wfMatrix_superc_
+
   public :: wfMatrix_superc_2_dynamicalSlater,dynamicalSlater_2_wfMatrix_superc
   !
   public :: wfMatrix_superc_2_dynamicalVector_,dynamicalVector_2_wfMatrix_superc_
@@ -1005,6 +1009,83 @@ CONTAINS
 
 
   subroutine imt_wfMatrix_superc_2_dynamicalVector(slater,gzproj,dynVect)
+    complex(8),dimension(3,Ns,Ns,Lk) :: slater
+    complex(8),dimension(Nphi)      :: gzproj
+    complex(8),dimension(nDynamics):: dynVect
+    integer :: i,j,is,js,iphi,idyn,ik    
+    idyn=0
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             dynVect(idyn) = slater(1,is,js,ik)
+          end do
+       end do
+    end do
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             dynVect(idyn) = slater(2,is,js,ik)
+          end do
+       end do
+    end do
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             dynVect(idyn) = slater(3,is,js,ik)
+          end do
+       end do
+    end do
+    do iphi=1,Nphi
+       idyn=idyn+1
+       dynVect(idyn) = gzproj(iphi)
+    end do
+    if(idyn.ne.nDynamics) stop 'dimension problems wfMatrix_superc_2_dynamicalVector'
+  end subroutine imt_wfMatrix_superc_2_dynamicalVector
+  subroutine imt_dynamicalVector_2_wfMatrix_superc(dynVect,slater,gzproj)
+    complex(8),dimension(3,Ns,Ns,Lk) :: slater
+    complex(8),dimension(Nphi)      :: gzproj
+    complex(8),dimension(nDynamics):: dynVect
+    integer :: i,j,is,js,iphi,idyn,ik  
+    idyn=0
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             slater(1,is,js,ik) = dynVect(idyn)
+          end do
+       end do
+    end do
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             slater(2,is,js,ik) = dynVect(idyn)
+          end do
+       end do
+    end do
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             idyn=idyn+1
+             slater(3,is,js,ik) = dynVect(idyn)
+          end do
+       end do
+    end do
+    do iphi=1,Nphi
+       idyn=idyn+1
+       gzproj(iphi) = dynVect(idyn) 
+    end do
+    if(idyn.ne.nDynamics) stop 'dimension problems dynamicalVector_2_wfMatrix_superc'
+  end subroutine imt_dynamicalVector_2_wfMatrix_superc
+
+
+
+
+
+  subroutine imt_wfMatrix_superc_2_dynamicalVector_(slater,gzproj,dynVect)
     complex(8),dimension(4,Ns,Ns,Lk) :: slater
     complex(8),dimension(Nphi)      :: gzproj
     complex(8),dimension(nDynamics):: dynVect
@@ -1047,9 +1128,9 @@ CONTAINS
        dynVect(idyn) = gzproj(iphi)
     end do
     if(idyn.ne.nDynamics) stop 'dimension problems wfMatrix_superc_2_dynamicalVector'
-  end subroutine imt_wfMatrix_superc_2_dynamicalVector
+  end subroutine imt_wfMatrix_superc_2_dynamicalVector_
   !
-  subroutine imt_dynamicalVector_2_wfMatrix_superc(dynVect,slater,gzproj)
+  subroutine imt_dynamicalVector_2_wfMatrix_superc_(dynVect,slater,gzproj)
     complex(8),dimension(4,Ns,Ns,Lk) :: slater
     complex(8),dimension(Nphi)      :: gzproj
     complex(8),dimension(nDynamics):: dynVect
@@ -1092,7 +1173,7 @@ CONTAINS
        gzproj(iphi) = dynVect(idyn) 
     end do
     if(idyn.ne.nDynamics) stop 'dimension problems dynamicalVector_2_wfMatrix_superc'
-  end subroutine imt_dynamicalVector_2_wfMatrix_superc
+  end subroutine imt_dynamicalVector_2_wfMatrix_superc_
 
 
 

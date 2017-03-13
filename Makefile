@@ -29,8 +29,8 @@ FPP=
 #EXE=gz_1b_bethe_sc
 #EXE=gz_1b_eom
 #EXE=gz_imt_1b_bethe
-EXE=gz_imt_Hqp
-#EXE=gz_imt_sc
+#EXE=gz_imt_Hqp
+EXE=gz_imt_sc
 
 #EXE=gz_neq_1b_bethe
 #EXE=gz_neq_1b_bethe_sc

@@ -51,7 +51,7 @@ function gz_imt_equations_of_motion(time,y,Nsys) result(f)
      Hk = matmul(Hk_tb(:,:,ik),Rhop)
      Hk = matmul(Rhop_hc,Hk)
      !
-     Hk = Hk !<TMP + imt_lgrNC
+     Hk = Hk + imt_lgrNC
      !
      tmpHk = Hqp(:,:,ik) !+-> temporary H used to compute occupation of the slater states
      call matrix_diagonalize(tmpHk,tmp_eHk)       
@@ -67,6 +67,7 @@ function gz_imt_equations_of_motion(time,y,Nsys) result(f)
            !
         end do
      end do
+     Hk=Hk_tb(:,:,ik) !+- coglione!
      do is=1,Ns
         do js=1,Ns
            do ks=1,Ns
@@ -76,17 +77,8 @@ function gz_imt_equations_of_motion(time,y,Nsys) result(f)
            end do
         end do
      end do
-     if(time==19.d0) then
-        write(555,'(20F18.10)') dble(ik),slater(1,1,ik)
-     end if
   end do
   !
-  if(time==19.d0) then
-     write(555,'(20F18.10)') 
-     write(555,'(20F18.10)') 
-  end if
-  !
-  !write(633,'(10F18.10)') time,slater_derivatives(1,1)
   eLevels = 0.d0
   !
   gzproj_dot = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
@@ -114,23 +106,23 @@ function gz_imt_equations_of_motion(time,y,Nsys) result(f)
            call sp_delete_matrix(htmp)
         end if
         !+- add lagrange parameters
-        ! xtmp=-1.d0*imt_lgrNC(is,js)
-        ! if(xtmp/=zero) then
-        !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(is,js),xtmp)
-        !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-        !    call sp_delete_matrix(htmp)
-        !    xtmp=conjg(xtmp)
-        !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(is,js),xtmp)
-        !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-        !    call sp_delete_matrix(htmp)
-        ! end if
+        xtmp=-1.d0*imt_lgrNC(is,js)
+        if(xtmp/=zero) then
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+           xtmp=conjg(xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+        end if
         ! !
-        ! xtmp=-imt_lgr_local_dens
-        ! if(xtmp/=zero.and.is.eq.js) then
-        !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_local_dens(is,js),xtmp)
-        !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-        !    call sp_delete_matrix(htmp)
-        ! end if
+        xtmp=-imt_lgr_local_dens
+        if(xtmp/=zero.and.is.eq.js) then
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_local_dens(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+        end if
         !
      end do
   end do
@@ -154,7 +146,6 @@ end function gz_imt_equations_of_motion
 
 
 !+--- SUPERC ROUTINES ---+!
-
 function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
   implicit none
   !inputs                                                                                                                                   
@@ -164,7 +155,7 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
   complex(8),dimension(Nsys)       :: f    ! result 
   !
   complex(8),dimension(3,Ns,Ns,Lk) :: slater
-  complex(8),dimension(4,Ns,Ns,Lk) :: Hqp,Hqp_dot
+  complex(8),dimension(3,Ns,Ns,Lk) :: Hqp,Hqp_dot
   complex(8),dimension(2,Ns,Ns) :: slater_derivatives
   complex(8),dimension(2*Ns,2*Ns)  :: Hk,tmpHqp,tmp
   complex(8),dimension(Nphi)       :: gzproj,gzproj_dot,tmp_gzproj_dot
@@ -176,11 +167,11 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
   real(8),dimension(Ns)            :: vdm_diag,n0
   !
   type(sparse_matrix_csr_z)        :: htmp
-  complex(8)                       :: xtmp
+  complex(8)                       :: xtmp,tmp_test
   !
-  real(8)                          :: tmpU,tmpU_,nqp,tmp_test
+  real(8)                          :: tmpU,tmpU_,nqp
 
-
+  
   complex(8),dimension(2,Ns,Ns) :: tmp_lgr
   real(8) :: tmp_Estar
   complex(8),dimension(2,Ns,Ns,Lk) :: tmp_slater
@@ -194,73 +185,34 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
   gzproj_dot=zero
   Hqp_dot=zero
   !
-  !
-  ! write(*,*) imt_lgr_NC
-  ! write(*,*) imt_lgr_AC
-  ! write(*,*) imt_lgr_local_dens
-  ! write(*,*)
-  !
-  !
   do is=1,Ns
      do js=1,Ns
         vdm_natural(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens(is,js,:,:))
      end do
      vdm_diag(is) = dreal(vdm_natural(is,is))
   end do
+  !
   n0=vdm_diag
   Rhop=hopping_renormalization_normal_sp(gzproj,vdm_diag)
   Rhop_hc=conjg(transpose(Rhop))
   Qhop=hopping_renormalization_anomalous_sp(gzproj,vdm_diag)
   Qhop_hc=conjg(transpose(Qhop))
-
-
-  !<DBG
-  ! write(*,*) 
-  ! do is=1,Ns
-  !    write(*,*) dreal(Qhop(is,:))
-  ! end do
-  ! write(*,*) 
-  ! do is=1,Ns
-  !    write(*,*) dimag(Qhop(is,:))
-  ! end do
-  ! beta=100.d0
-  ! tmp_lgr=zero
-  ! call slater_minimization_fixed_lgr_superc(Rhop,Qhop,tmp_lgr,tmp_Estar,slater_matrix_el=tmp_slater)  
-  ! do ik=1,Lk     
-  !    write(555,'(20F18.10)') dreal(tmp_slater(1,1,1,ik))
-  !    write(556,'(20F18.10)') dreal(tmp_slater(2,1,2,ik))
-  ! end do
-  !stop
-  !< DBG
-
-  ! do is=1,Ns
-  !    write(*,'(10F18.10)') Rhop(is,:)
-  ! end do
-  ! write(*,'(10F18.10)') 
-  ! do is=1,Ns
-  !    write(*,'(10F18.10)') Rhop_hc(is,:)
-  ! end do
-  ! write(*,'(10F18.10)') 
-  ! write(*,'(10F18.10)') 
-
   !
-  !
-  !tmpHk=zero
   slater_derivatives=zero
   slater=zero
   do ik=1,Lk
      !
      tmpHk = matmul(Hk_tb(:,:,ik),Rhop)
      tmpHk = matmul(Rhop_hc,tmpHk)
-     Hk(1:Ns,1:Ns) = tmpHk !+ imt_lgr_NC(1,:,:) !+ imt_lgr_NC(2,:,:)
+     Hk(1:Ns,1:Ns) = tmpHk + imt_lgr_NC(1,:,:) !+ imt_lgr_NC(2,:,:)
      !     
      tmpHk = matmul(Hk_tb(:,:,ik),Qhop)
      tmpHk = matmul(Rhop_hc,tmpHk)
-     Hk(1+Ns:2*Ns,1:Ns) = tmpHk !+ conjg(transpose(imt_lgr_AC(1,:,:)))
+     Hk(1+Ns:2*Ns,1:Ns) = tmpHk + imt_lgr_AC(1,:,:) !+ 
      !
      tmpHk = matmul(Hk_tb(:,:,ik),Rhop)
      tmpHk = matmul(Qhop_hc,tmpHk)
-     Hk(1:Ns,1+Ns:2*Ns) = tmpHk !+ imt_lgr_AC(1,:,:)
+     Hk(1:Ns,1+Ns:2*Ns) = tmpHk + conjg(transpose(imt_lgr_AC(1,:,:)))
      !
      tmpHk = matmul(Hk_tb(:,:,ik),Qhop)
      tmpHk = matmul(Qhop_hc,tmpHk)
@@ -269,7 +221,7 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
      !
      Hqp_dot(1,:,:,ik) = 2.0*Hk(1:Ns,1:Ns)           
      Hqp_dot(2,:,:,ik) = 2.0*Hk(1:Ns,1+Ns:2*Ns)     !+- da dove viene questo meno qui??? -+!
-     Hqp_dot(4,:,:,ik) = conjg(transpose(Hqp_dot(2,:,:,ik)))!2.0*Hk(1+Ns:2*Ns,1:Ns)     
+!     Hqp_dot(4,:,:,ik) = conjg(transpose(Hqp_dot(2,:,:,ik)))!2.0*Hk(1+Ns:2*Ns,1:Ns)     
      Hqp_dot(3,:,:,ik) = 2.0*Hk(1+Ns:2*Ns,1+Ns:2*Ns) 
      !
      !
@@ -282,8 +234,8 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
      !
      !
      !write(*,*) ik,'before'
-
-     
+     !
+     !
      !tmpHqp=Hk
 
      call matrix_diagonalize(tmpHqp,tmp_eHk)       
@@ -340,13 +292,10 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
         end do
      end do
      !
-     
      !do ik=1,Lk
      ! write(557,'(20F18.10)') dreal(slater(1,1,1,ik))
      ! write(558,'(20F18.10)') dreal(slater(2,1,2,ik))
      !end do
-
-
      do is=1,Ns
         do js=1,Ns
            if(is.eq.js)  slater(3,is,js,ik) = 1.d0
@@ -363,12 +312,7 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
            !
         end do
      end do
-
-     
-     
-
-     Hk0=Hk_tb(:,:,ik) 
-
+     Hk0=Hk_tb(:,:,ik)      
      !+- slater derivatives
      do is=1,Ns
         do js=1,Ns
@@ -403,6 +347,7 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
   !
   eLevels = 0.d0
   !
+  tmp_gzproj_dot=zero
   gzproj_dot = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
   do is=1,Ns
      do js=1,Ns
@@ -448,16 +393,16 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
            call sp_delete_matrix(htmp)
         end if
         !+- add lagrange parameters -+!
-        ! xtmp=-1.d0*imt_lgr_NC(2,is,js)
-        ! if(xtmp/=zero) then
-        !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(is,js),xtmp)
-        !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-        !    call sp_delete_matrix(htmp)
-        !    xtmp=conjg(xtmp)
-        !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(is,js),xtmp)
-        !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-        !    call sp_delete_matrix(htmp)
-        ! end if
+        xtmp=-1.d0*imt_lgr_NC(2,is,js)
+        if(xtmp/=zero) then
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+           xtmp=conjg(xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+        end if
         !
         ! xtmp=1.d0
         ! htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous(is,js),xtmp)
@@ -465,20 +410,19 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
         ! call sp_delete_matrix(htmp)
         ! stop
         !
-        ! xtmp=1.d0*imt_lgr_AC(2,is,js)
-        ! if(xtmp/=zero) then
-        !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous(is,js),xtmp)
-        !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-        !    call sp_delete_matrix(htmp)
-        !    xtmp=conjg(xtmp)
-        !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous_hc(is,js),xtmp)
-        !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-        !    call sp_delete_matrix(htmp)
-        ! end if
+        xtmp=1.d0*imt_lgr_AC(2,is,js)
+        if(xtmp/=zero) then
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+           xtmp=conjg(xtmp)
+           htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous_hc(is,js),xtmp)
+           gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
+           call sp_delete_matrix(htmp)
+        end if
         !
         xtmp=-imt_lgr_local_dens
-        !        xtmp=zero
-        if(xtmp/=zero.and.is.eq.js) then
+        if(xtmp/=zero.and.is.eq.js) then           
            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_local_dens(is,js),xtmp)
            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
            call sp_delete_matrix(htmp)
@@ -488,11 +432,6 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
   end do
   gzproj_dot=-gzproj_dot
   !
-  !
-  
-  ! write(667,'(20F10.6)') time,gzproj,vdm_diag
-  ! write(668,'(20F10.6)') time,gzproj_dot
-
   tmpU = 0.d0
   tmpU_= 0.d0
   do iphi=1,Nphi
@@ -504,283 +443,7 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
   !
   call imt_wfMatrix_superc_2_dynamicalVector(Hqp_dot,gzproj_dot,f)
   !
-  !write(666,'(20F18.10)') imt_lgr_NC(1,1,1),imt_lgr_NC(2,1,1),imt_lgr_AC(1,1,2),imt_lgr_AC(2,1,2),imt_lgr_local_dens
-  ! write(666,'(20F10.6)') time,imt_lgrU,tmpU,tmpU_
-
 end function gz_imt_equations_of_motion_superc
 
 
-! function gz_imt_equations_of_motion_superc_lgr(time,y,Nsys) result(f)
-!   implicit none
-!   !inputs                                                                                                                                   
-!   integer                          :: Nsys ! nr of equations
-!   real(8)                          :: time ! time variable
-!   complex(8),dimension(Nsys)       :: y    ! argument array
-!   complex(8),dimension(Nsys)       :: f    ! result 
-!   complex(8),dimension(Nsys)       :: f0   !+- derivative without lagrange parameters
-!   !
-!   complex(8),dimension(3,Ns,Ns,Lk) :: slater
-!   complex(8),dimension(3,Ns,Ns,Lk) :: Hqp,Hqp_dot,Hqp_dot0
-!   complex(8),dimension(2,Ns,Ns) :: slater_derivatives
-!   complex(8),dimension(2*Ns,2*Ns)  :: Hk,tmpHqp,tmp
-!   complex(8),dimension(Nphi)       :: gzproj,gzproj_dot,gzproj_dot0,tmp_gzproj_dot
-!   !
-!   integer                          :: is,js,ik,it,ks,kks,iis,jjs,iphi,jphi
-!   complex(8),dimension(Ns,Ns)      :: tmpHk,Rhop,Rhop_hc,Qhop,Qhop_hc
-!   real(8),dimension(2*Ns)          :: tmp_eHk
-!   complex(8),dimension(Ns,Ns)      :: vdm_natural
-!   real(8),dimension(Ns)            :: vdm_diag,n0
-!   !
-!   type(sparse_matrix_csr_z)        :: htmp
-!   complex(8)                       :: xtmp
-!   !
-!   real(8)                          :: tmpU,tmpU_,nqp
-!   !
-!   it = imt_t2it(time,itstep*0.5d0)
-!   if(Nsys.ne.nDynamics) stop "wrong dimensions in the imt_GZ_equations_of_motion"
-!   !
-!   f0=gz_imt_equations_of_motion_superc(time,y,Nsys)
-!   !
-!   call imt_dynamicalVector_2_wfMatrix_superc(y,Hqp,gzproj)
-!   !
-!   gzproj_dot=zero
-!   Hqp_dot=zero
-!   !
-!   do is=1,Ns
-!      do js=1,Ns
-!         vdm_natural(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens(is,js,:,:))
-!      end do
-!      vdm_diag(is) = dreal(vdm_natural(is,is))
-!   end do
-!   n0=vdm_diag
-!   Rhop=hopping_renormalization_normal(gzproj,vdm_diag)
-!   Rhop_hc=conjg(transpose(Rhop))
-!   Qhop=hopping_renormalization_anomalous(gzproj,vdm_diag)
-!   Qhop_hc=conjg(transpose(Qhop))
-!   !
-!   !
-!   slater_derivatives=zero
-!   slater=zero
-!   do ik=1,Lk
-!      !
-!      tmpHk = matmul(Hk_tb(:,:,ik),Rhop)
-!      tmpHk = matmul(Rhop_hc,tmpHk)
-!      Hk(1:Ns,1:Ns) = tmpHk + imt_lgr_NC(1,:,:) !+ imt_lgr_NC(2,:,:)
-!      !     
-!      tmpHk = matmul(Hk_tb(:,:,ik),Qhop)
-!      tmpHk = matmul(Rhop_hc,tmpHk)
-!      Hk(1:Ns,1+Ns:2*Ns) = tmpHk + imt_lgr_AC(1,:,:)
-!      !
-!      tmpHk = matmul(Hk_tb(:,:,ik),Rhop)
-!      tmpHk = matmul(Qhop_hc,tmpHk)
-!      Hk(1+Ns:2*Ns,1:Ns) = tmpHk + conjg(transpose(imt_lgr_AC(1,:,:)))
-!      !
-!      tmpHk = matmul(Hk_tb(:,:,ik),Qhop)
-!      tmpHk = matmul(Qhop_hc,tmpHk)
-!      Hk(1+Ns:2*Ns,1+Ns:2*Ns) = tmpHk     
-!      !
-!      !
-!      Hqp_dot(1,:,:,ik) = 2.0*Hk(1:Ns,1:Ns) 
-!      Hqp_dot(2,:,:,ik) = 2.0*Hk(1:Ns,1+Ns:2*Ns) 
-!      Hqp_dot(3,:,:,ik) = 2.0*Hk(1+Ns:2*Ns,1+Ns:2*Ns) 
-!      !
-!      !
-!      tmpHqp(1:Ns,1:Ns) = Hqp(1,:,:,ik) 
-!      tmpHqp(1:Ns,1+Ns:2*Ns) = Hqp(2,:,:,ik) 
-!      tmpHqp(1+Ns:2*Ns,1:Ns) = conjg(transpose(Hqp(2,:,:,ik)))
-!      tmpHqp(1+Ns:2*Ns,1+Ns:2*Ns) = Hqp(3,:,:,ik)      
-!      !
-!      call matrix_diagonalize(tmpHqp,tmp_eHk)       
-!      !
-!      !
-!      do is=1,Ns
-!         do js=1,Ns
-!            !
-!            do ks=1,Ns
-!               nqp = fermi(tmp_eHk(ks)-tmp_eHk(ks+Ns),1.d0)                
-!               slater(1,is,js,ik) = slater(1,is,js,ik) + &
-!                    conjg(tmpHqp(is,ks))*tmpHqp(js,ks)*nqp + conjg(tmpHqp(is,ks+Ns))*tmpHqp(js,ks+Ns)*(1.d0-nqp)
-!               slater(2,is,js,ik) = slater(2,is,js,ik) + &
-!                    conjg(tmpHqp(is+Ns,ks))*tmpHqp(js,ks)*nqp + conjg(tmpHqp(is+Ns,ks+Ns))*tmpHqp(js,ks+Ns)*(1.d0-nqp)
-!            end do
-!            if(is.eq.js) slater(3,is,js,ik) = 1.d0
-!            slater(3,is,js,ik) = slater(3,is,js,ik) - slater(1,js,is,ik)           
-!            !           
-!            !tmp(1:Ns,1:Ns) = <c^+ c>
-!            tmp(is,js) = slater(1,is,js,ik)     
-!            !tmp(1:Ns,Ns+1:2*Ns) = <c^+ c^+>
-!            tmp(is,js+Ns) = slater(2,is,js,ik)     
-!            !tmp(Ns+1:2*Ns,1:Ns) = <c c>
-!            tmp(is+Ns,js) = conjg(slater(2,js,is,ik))     
-!            !tmp(Ns+1:2*Ns,Ns+1:2*Ns) = <c c^+>
-!            tmp(is+Ns,js+Ns) = slater(3,is,js,ik)     
-!            !
-!         end do
-!      end do
-!      !
-!      !+- slater derivatives
-!      do is=1,Ns
-!         do js=1,Ns
-!            do ks=1,Ns
-!               do kks=1,Ns
-!                  !
-!                  slater_derivatives(1,is,js) = slater_derivatives(1,is,js) + &
-!                       conjg(Rhop(kks,ks))*Hk(kks,is)*tmp(ks,js)*wtk(ik)    
-!                  !
-!                  slater_derivatives(1,is,js) = slater_derivatives(1,is,js) + &
-!                       conjg(Qhop(kks,ks))*Hk(kks,is)*tmp(ks+Ns,js)*wtk(ik)
-!                  !
-!                  slater_derivatives(2,is,js) = slater_derivatives(2,is,js) + &
-!                       conjg(Rhop(kks,ks))*Hk(kks,is)*tmp(ks,js+Ns)*wtk(ik) 
-!                  !
-!                  slater_derivatives(2,is,js) = slater_derivatives(2,is,js) + &
-!                       conjg(Qhop(kks,ks))*Hk(kks,is)*tmp(ks+Ns,js+Ns)*wtk(ik)
-!                  !
-!               end do
-!            end do
-!         end do
-!      end do
-!      !+-
-!   end do
-!   !
-!   eLevels = 0.d0
-!   !
-!   gzproj_dot = get_local_hamiltonian_HLOCphi(gzproj,eLevels)
-!   do is=1,Ns
-!      do js=1,Ns
-!         !
-!         xtmp=slater_derivatives(1,is,js)/sqrt(n0(js)*(1.d0-n0(js)))
-!         if(xtmp/=zero) then
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop(is,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!            xtmp=conjg(slater_derivatives(1,is,js))/sqrt(n0(js)*(1.d0-n0(js)))
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Rhop_hc(is,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!         end if
-!         xtmp=slater_derivatives(1,is,js)*Rhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
-!         if(xtmp/=zero) then           
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)        
-!            xtmp=conjg(slater_derivatives(1,is,js)*Rhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(js,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!         end if
-!         xtmp=slater_derivatives(2,is,js)/sqrt(n0(js)*(1.d0-n0(js)))
-!         if(xtmp/=zero) then           
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Qhop(is,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!            xtmp=conjg(slater_derivatives(2,is,js))/sqrt(n0(js)*(1.d0-n0(js)))
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_Qhop_hc(is,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!         end if
-!         xtmp=slater_derivatives(2,is,js)*Qhop(is,js)*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
-!         if(xtmp/=zero) then           
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(js,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!            xtmp=conjg(slater_derivatives(2,is,js)*Qhop(is,js))*(2.d0*n0(js)-1.d0)/2.d0/(n0(js)*(1.d0-n0(js)))
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(js,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!         end if
-!         !+- add lagrange parameters -+!
-!         xtmp=-1.d0*imt_lgr_NC(2,is,js)
-!         if(xtmp/=zero) then
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens(is,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!            xtmp=conjg(xtmp)
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_hc(is,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!         end if
-!         !
-!         ! xtmp=1.d0
-!         ! htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous(is,js),xtmp)
-!         ! write(660,'(20F18.10)') time,sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!         ! call sp_delete_matrix(htmp)
-!         ! stop
-!         !
-!         ! xtmp=1.d0*imt_lgr_AC(2,is,js)
-!         ! if(xtmp/=zero) then
-!         !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous(is,js),xtmp)
-!         !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!         !    call sp_delete_matrix(htmp)
-!         !    xtmp=conjg(xtmp)
-!         !    htmp=sp_scalar_matrix_csr(phi_spTraces_basis_dens_anomalous_hc(is,js),xtmp)
-!         !    gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!         !    call sp_delete_matrix(htmp)
-!         ! end if
-!         !
-!         xtmp=-imt_lgr_local_dens
-!         if(xtmp/=zero.and.is.eq.js) then
-!            htmp=sp_scalar_matrix_csr(phi_spTraces_basis_local_dens(is,js),xtmp)
-!            gzproj_dot = gzproj_dot + sp_matrix_vector_product_csr_z(Nphi,htmp,gzproj)
-!            call sp_delete_matrix(htmp)
-!         end if
-!         !
-!      end do
-!   end do
-!   gzproj_dot=-gzproj_dot
-!   !
-!   !
-
-!   write(667,'(20F10.6)') time,gzproj,vdm_diag
-!   write(668,'(20F10.6)') time,gzproj_dot
-
-!   tmpU = 0.d0
-!   tmpU_= 0.d0
-!   do iphi=1,Nphi
-!      tmpU  = tmpU + gzproj(iphi)*conjg(gzproj(iphi))
-!      tmpU_ = tmpU_ + conjg(gzproj(iphi))*gzproj_dot(iphi)
-!   end do
-!   imt_lgrU = tmpU_/tmpU
-!   gzproj_dot = gzproj_dot - imt_lgrU*gzproj 
-!   !
-!   call imt_wfMatrix_superc_2_dynamicalVector(Hqp_dot,gzproj_dot,f)
-!   !
-!   !write(666,'(20F18.10)') imt_lgr_NC(1,1,1),imt_lgr_NC(2,1,1),imt_lgr_AC(1,1,2),imt_lgr_AC(2,1,2),imt_lgr_local_dens
-!   ! write(666,'(20F10.6)') time,imt_lgrU,tmpU,tmpU_
-
-! contains
-  
-!   function fix_slater_lgr(lgr) result(delta)
-    
-
-!     call imt_dynamicalVector_2_wfMatrix_superc(f0,Hqp_dot0,gzproj_dot0)
-    
-!     Hqp_dot0(1:Ns,1:Ns)=Hqp_dot0(1:Ns,1:Ns) + imt_lgr_NC(1,:,:)
-!     Hqp_dot0(1:Ns,1+Ns:2*Ns)=Hqp_dot0(1:Ns,1+Ns:2*Ns) + imt_lgr_NC(2,:,:)
-!     Hqp_dot0(1+Ns:2*Ns,1:Ns)=Hqp_dot0(1+Ns:2*Ns,1:Ns) + conjg(transpose(imt_lgr_NC(2,:,:)))
-    
-
-!      ! Hk(1:Ns,1:Ns) = tmpHk + imt_lgr_NC(1,:,:) !+ imt_lgr_NC(2,:,:)
-!      ! !     
-!      ! tmpHk = matmul(Hk_tb(:,:,ik),Qhop)
-!      ! tmpHk = matmul(Rhop_hc,tmpHk)
-!      ! Hk(1:Ns,1+Ns:2*Ns) = tmpHk + imt_lgr_AC(1,:,:)
-!      ! !
-!      ! tmpHk = matmul(Hk_tb(:,:,ik),Rhop)
-!      ! tmpHk = matmul(Qhop_hc,tmpHk)
-!      ! Hk(1+Ns:2*Ns,1:Ns) = tmpHk + conjg(transpose(imt_lgr_AC(1,:,:)))
-!      ! !
-!      ! tmpHk = matmul(Hk_tb(:,:,ik),Qhop)
-!      ! tmpHk = matmul(Qhop_hc,tmpHk)
-!      ! Hk(1+Ns:2*Ns,1+Ns:2*Ns) = tmpHk     
-
-
-
-
-
-
-!   end function fix_slater_lgr
-
-
-! end function gz_imt_equations_of_motion_superc_lgr
 

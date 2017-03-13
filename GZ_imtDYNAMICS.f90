@@ -1099,7 +1099,7 @@ CONTAINS
     !+- defines the initial time of the step (used for computing the increment integral)
     imt_tstep = t
     !+- number of lagrange params to be optimized -+!
-    Nopt = 2*Nvdm_NC_opt + 1
+    Nopt = 2*Nvdm_NC_opt 
     allocate(lgr(Nopt));allocate(delta_out(Nopt))
     !
     allocate(lgr_cmplx(Nvdm_NC_opt))
@@ -1228,16 +1228,6 @@ CONTAINS
             write(*,'(20F10.6)') imt_lgr_NC(2,is,:)         
          end do
          write(*,'(20F10.6)')
-         ! do is=1,Ns
-         !    write(*,'(20F10.6)') imt_lgr_AC(1,is,:)         
-         ! end do
-         ! write(*,'(20F10.6)')
-         ! do is=1,Ns
-         !    write(*,'(20F10.6)') imt_lgr_AC(2,is,:)         
-         ! end do
-         write(*,'(20F10.6)')
-         write(*,'(20F10.6)') imt_lgr_local_dens
-         write(*,*)
          write(*,*) 'deviation from constraint conservation'
          write(*,'(20F18.10)') delta
          write(*,*) '!+----------------+!'

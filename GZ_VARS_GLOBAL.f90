@@ -137,6 +137,7 @@ MODULE GZ_VARS_GLOBAL
   !+------------+!
   !
   !# time grids
+  integer                                :: Nit_aux
   integer                                :: Nt_aux
   integer                                :: Ntgf,Nt0,Nttgf
   real(8),dimension(:),allocatable       :: t_grid

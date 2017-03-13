@@ -30,10 +30,14 @@ MODULE GZ_VARS_INPUT
   integer              :: Niter_self
 
   !# DYNAMICS #!
-  integer              :: Nt
+  integer              :: Nt  
   real(8)              :: tstart
   real(8)              :: tstep
   logical              :: GZneq_verbose
+  !# immaginary-time DYNAMICS #1
+  integer              :: Nit
+  real(8)              :: itstep
+  real(8)              :: beta_init
   !# Electric field #!
   character(len=16)    :: field_type    !choose the profile of the electric field
   real(8)              :: Dpulse
@@ -79,6 +83,10 @@ contains
     call parse_input_variable(tstart,"TSTART",INPUTunit,default=0.d0)
     call parse_input_variable(tstep,"TSTEP",INPUTunit,default=1.d-2)
     call parse_input_variable(GZneq_verbose,"GZNEQ_VERBOSE",INPUTunit,default=.false.)
+    !
+    call parse_input_variable(Nit,"NIT",INPUTunit,default=100)
+    call parse_input_variable(itstep,"ITSTEP",INPUTunit,default=-1.d-2)
+    call parse_input_variable(beta_init,"BETA0",INPUTunit,default=1000.d0)
     !
     !ELECTRIC FIELD VARIABLES
     call parse_input_variable(field_type,"FIELD_TYPE",INPUTunit,default ='pulse',comment="profile type of the electric field ")

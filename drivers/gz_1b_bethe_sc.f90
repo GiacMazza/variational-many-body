@@ -367,16 +367,16 @@ CONTAINS
     do iphi=1,Nphi
        !
        test_full_phi = test_full_phi + GZ_vector(iphi)*phi_basis(iphi,:,:)
-       write(out_unit,*) GZ_vector(iphi)
+       write(out_unit,'(5F18.10)') dreal(GZ_vector(iphi)),dimag(GZ_vector(iphi))
     end do
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    write(out_unit,*) '!+-----------------------------+!'
-    do ifock=1,nFock
-       do jfock=1,nFock
-          write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
-       end do
-    end do
+    ! write(out_unit,*) '!+-----------------------------+!'
+    ! write(out_unit,*) '!+-----------------------------+!'
+    ! write(out_unit,*) '!+-----------------------------+!'
+    ! do ifock=1,nFock
+    !    do jfock=1,nFock
+    !       write(out_unit,*) test_full_phi(ifock,jfock),ifock,jfock
+    !    end do
+    ! end do
     close(out_unit)    
 
     !

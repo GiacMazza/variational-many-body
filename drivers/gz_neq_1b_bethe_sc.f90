@@ -47,6 +47,7 @@ program GUTZ_mb
   integer :: unit_neq_sc_order
   integer :: unit_neq_nqp
   integer :: unit_neq_bcs
+  integer :: unit_proj
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -59,6 +60,7 @@ program GUTZ_mb
   real(8),dimension(4)                  :: local_angular_momenta
   real(8),dimension(3)                  :: energies
   complex(8),dimension(:,:),allocatable             :: sc_order
+  complex(8),dimension(:),allocatable :: neq_gzproj
   real(8),dimension(:,:),allocatable :: nqp 
   !
   real(8),dimension(:),allocatable      :: dump_vect
@@ -68,7 +70,7 @@ program GUTZ_mb
   complex(8) :: bcs_sc_order,bcs_delta
   real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS
   logical :: bcs_neq
-
+  logical :: linear_ramp
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
@@ -79,6 +81,7 @@ program GUTZ_mb
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
   call parse_input_variable(bcs_neq,"BCS_NEQ","inputGZ.conf",default=.false.)  
+  call parse_input_variable(linear_ramp,"LIN_RAMP","inputGZ.conf",default=.true.)  
   !
   call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
@@ -116,7 +119,11 @@ program GUTZ_mb
         r=0.d0
      else
         if(t.lt.tStart_neqU+tRamp_neqU) then
-           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
+           if(linear_ramp) then
+              r = (t-tStart_neqU)/tRamp_neqU
+           else
+              r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
+           end if
         else
            r = 1.d0 
         end if
@@ -255,6 +262,9 @@ program GUTZ_mb
   unit_neq_sc_order = free_unit()
   open(unit_neq_sc_order,file='neq_sc_order.data')
   !
+  unit_proj = free_unit()
+  open(unit_proj,file='neq_proj.data')
+  !
   unit_neq_bcs = free_unit()
   open(unit_neq_bcs,file='neq_bcs.data')
   !
@@ -265,6 +275,7 @@ program GUTZ_mb
   allocate(dens_constrSL(2,Ns,Ns))
   allocate(dens_constrGZ(2,Ns,Ns))  
   allocate(sc_order(Ns,Ns))
+  allocate(neq_gzproj(Nphi))
   allocate(nqp(Ns,Lk))
   allocate(dump_vect(Ns*Ns))
 
@@ -276,7 +287,7 @@ program GUTZ_mb
      !
      if(mod(it-1,nprint).eq.0) then        
         !
-        call gz_neq_measure_superc(psi_t,t)
+        call gz_neq_measure_superc(psi_t,t,neq_gzproj)
         !
         do is=1,Ns
            call get_neq_Rhop(is,is,Rhop(is))
@@ -314,6 +325,7 @@ program GUTZ_mb
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies
         write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
+        write(unit_proj,'(20F18.10)') t,neq_gzproj        
         !        
         !+- measure BCS -+!
         if(bcs_neq) then

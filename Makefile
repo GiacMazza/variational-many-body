@@ -30,7 +30,7 @@ FPP=
 
 
 #EXE=gz_neq_1b_bethe
-#EXE=gz_neq_1b_bethe_sc
+EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_1b_cubic_sc
 #EXE=gz_neq_1b_cb_sc
 #EXE=gz_neq_1b_bethe_sc_tdlgr
@@ -56,7 +56,8 @@ FPP=
 
 #EXE=gz_neq_sc
 #EXE=gz_neq_3b_bethe_sc
-EXE=gz_neq_3b_bethe_sc_su2
+#EXE=gz_neq_3b_bethe_sc_su2
+#EXE=gz_neq_3b_bethe_sc_rotate
 #EXE=gz_neq_3b_bethe_sc_su2_read
 #EXE=gz_neq_3b_bethe_u1su2
 #EXE=gz_neq_3b_bethe_sc_su2O1

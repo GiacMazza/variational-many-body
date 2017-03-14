@@ -4,8 +4,10 @@ MODULE GZ_imtDYNAMICS
   USE SF_OPTIMIZE
   USE SF_SPECIAL
   USE RK_IDE
-  ! GZ rooutines
+  ! GZ rooutines  
   USE GZ_VARS_GLOBAL
+  USE GZ_AUX_FUNX
+  USE GZ_LOCAL_FOCK
   USE GZ_MATRIX_BASIS
   USE GZ_EFFECTIVE_HOPPINGS
   USE GZ_neqAUX_FUNX
@@ -27,6 +29,7 @@ MODULE GZ_imtDYNAMICS
   !
   public :: setup_imt_hamiltonian
   public :: beta0_init_imt_qpH,beta0_init_imt_qpH_superc
+  public :: beta0_entropy
   !
   public :: setup_imt_dynamics
   public :: setup_imt_dynamics_superc
@@ -174,9 +177,9 @@ CONTAINS
       delta = n_infT - ntarget
       !
     end function beta0_fix_mu
-
+    !
   end subroutine beta0_init_imt_qpH
-  
+
   !
   !
   subroutine setup_imt_dynamics_superc    
@@ -394,6 +397,147 @@ CONTAINS
     end function beta0_fix_mu
     !
   end subroutine beta0_init_imt_qpH_superc
+
+
+
+
+
+
+  subroutine beta0_entropy(beta_,gzproj,Hqp,entropy)
+    real(8) :: entropy,slater_entropy,gzproj_entropy,beta_
+    complex(8),dimension(Nphi)  :: gzproj
+    complex(8),dimension(3,Ns,Ns,Lk) :: Hqp
+    complex(8),dimension(2,Ns,Ns,Lk) :: slater
+    complex(8),dimension(Ns,Ns) :: lgrNC,Hk_tmp
+    complex(8),dimension(Ns,Ns) :: Rhop,Rhop_hc,Qhop,Qhop_hc
+    complex(8),dimension(2*Ns,2*Ns) :: Hk
+    real(8),dimension(Ns) :: vdm_diag,gz_dens
+    real(8) :: ntarget,infT_mu,nqp
+    integer :: is,js,ik,iter,i,i0,Nopt,ks
+    !
+    real(8),dimension(2*Ns)            ::    ek
+    complex(8),dimension(2,Ns,Ns) :: lgr_multip
+    complex(8),dimension(Nfock,Nfock) :: full_phi
+    real(8),dimension(Nfock,Nfock) :: rho_phi
+    !
+    integer :: ifock,jfock,nstate,iphi
+    integer,dimension(Ns) :: ivec
+    real(8),dimension(NFock) :: P0
+
+    type(sparse_matrix_csr_z)  :: phik_tmp
+    real(8),dimension(Nphi) :: traces
+
+
+
+
+    !+- occupation of single particle states -+!
+    do is=1,Ns
+       vdm_diag(is) = dreal(trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:))) 
+    end do
+    !+- variational occupation of local many-body states -+!
+    do ifock=1,NFock
+       P0(ifock)=1.d0
+       !Fock(ifock)=ifock
+       call bdecomp(ifock,ivec)
+       call get_state_number(ivec,jfock)
+       write(*,'(10I3)') ivec(:)
+       do is=1,Ns
+          nstate = ivec(is)
+          P0(ifock) = P0(ifock)*vdm_diag(is)**dble(nstate)*(1.d0-vdm_diag(is))**dble(1-nstate)
+       end do
+       write(*,*) P0(ifock)
+    end do
+    !
+    do iphi=1,Nphi
+       traces(iphi)=zero
+       call sp_load_matrix(phi_basis(iphi,:,:),phik_tmp)
+       do i=1,phik_tmp%Nnz
+          traces(iphi) = traces(iphi) + conjg(phik_tmp%values(i))*phik_tmp%values(i)
+       end do
+       call sp_delete_matrix(phik_tmp)
+    end do
+    full_phi=0.d0
+    do iphi=1,Nphi
+       !                                                                                                                                                                            
+       full_phi = full_phi + gzproj(iphi)*phi_basis(iphi,:,:)/sqrt(traces(iphi))
+    end do
+    !
+    rho_phi=dreal(matmul(conjg(transpose(full_phi)),full_phi))    
+    gzproj_entropy=0.d0
+    do ifock=1,Nfock
+       do jfock=1,Nfock
+          if(rho_phi(ifock,jfock)/=0.d0) then
+             gzproj_entropy = gzproj_entropy - rho_phi(ifock,jfock)*log(rho_phi(jfock,ifock)/P0(jfock))
+          end if
+       end do
+    end do
+    !    
+    ! !
+    slater_entropy=0.d0
+    slater=zero
+    do ik=1,Lk
+       !
+       HK(1:Ns,1:Ns) = Hqp(1,:,:,ik)
+       Hk(1:Ns,1+Ns:2*Ns) = conjg(transpose(Hqp(2,:,:,ik))) 
+       Hk(1+Ns:2*Ns,1:Ns) = Hqp(2,:,:,ik)
+       Hk(1+Ns:2*Ns,1+Ns:2*Ns) = Hqp(3,:,:,ik)
+       !
+       call matrix_diagonalize(Hk,ek)
+       !
+       do is=1,Ns
+          slater_entropy = slater_entropy + log(exp(-ek(is))+exp(-ek(is+Ns)))*wtk(ik)
+       end do
+       !       
+       do is=1,Ns
+          do js=1,Ns
+             !
+             do ks=1,Ns
+                nqp = fermi(ek(ks)-ek(ks+Ns),1.d0)                
+                !
+                slater(1,is,js,ik) = slater(1,is,js,ik) + &
+                     conjg(Hk(is,ks))*Hk(js,ks)*nqp + conjg(Hk(is,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)
+                !
+                slater(2,is,js,ik) = slater(2,is,js,ik) + &
+                     conjg(Hk(is+Ns,ks))*Hk(js,ks)*nqp + conjg(Hk(is+Ns,ks+Ns))*Hk(js,ks+Ns)*(1.d0-nqp)
+             end do
+             !
+          end do
+       end do
+    end do
+    ! !    
+    do ik=1,Lk
+       do is=1,Ns
+          do js=1,Ns
+             !
+             slater_entropy = slater_entropy + beta_*Hqp(1,is,js,ik)*slater(1,is,js,ik)*wtk(ik)
+             slater_entropy = slater_entropy + beta_*conjg(Hqp(2,is,js,ik))*conjg(slater(2,js,is,ik))*wtk(ik)
+             slater_entropy = slater_entropy + beta_*Hqp(2,is,js,ik)*slater(2,is,js,ik)*wtk(ik)
+             slater_entropy = slater_entropy - beta_*Hqp(3,is,js,ik)*slater(1,js,is,ik)*wtk(ik)
+             if(is.eq.js) then
+                slater_entropy = slater_entropy + beta_*Hqp(3,is,js,ik)*wtk(ik)
+             end if
+             !
+          end do
+       end do
+    end do   
+    entropy = slater_entropy + gzproj_entropy    
+    write(*,*) entropy,slater_entropy,gzproj_entropy,log(4.d0),beta_
+    
+    !beta=10000.d0
+    slater_entropy=0.d0
+    do ik=1,Lk       
+       nqp = fermi(Hk_tb(1,1,ik),beta)
+
+       if(nqp.gt.1.d-10) then
+          slater_entropy = slater_entropy - ( nqp*log(nqp))*wtk(ik)*2.d0
+       end if
+       if(abs(1.d0-nqp).gt.1.d-10) then
+          slater_entropy = slater_entropy - (1.d0-nqp)*log(1.d0-nqp )*wtk(ik)*2.d0
+       end if
+    end do
+    write(*,*) slater_entropy
+    !
+  end subroutine beta0_entropy
 
 
 

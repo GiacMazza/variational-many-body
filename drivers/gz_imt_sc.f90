@@ -62,7 +62,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable      :: dump_vect
   !
   real(8) :: itstart,itstop
-  real(8) :: imt_dene,ene_save,imt_s,imt_f
+  real(8) :: imt_dene,ene_save,imt_s,imt_f,S_beta0
   real(8),dimension(:),allocatable :: imt_entropy,imt_ene  
   !
 
@@ -123,6 +123,7 @@ program GUTZ_mb
      call read_optimized_variational_wf_superc_imt(read_optWF_dir,gz_proj_init)
      Hqp_in = zero
      call beta0_init_imt_qpH_superc(gz_proj_init,Hqp_in)
+     call beta0_entropy(t_grid(1),gz_proj_init,Hqp_in,S_beta0)
      !Hqp_in=0.d0
   else
      stop
@@ -239,7 +240,7 @@ program GUTZ_mb
         write(*,*) im_it,Nit
         !
         call step_imt_dynamics_superc_d(nDynamics,itstep,t,psi_t,lgr_NC, &
-             imt_vdm,gz_imt_equations_of_motion_superc,ndens=ndens,fix_constr_=.true.) 
+             imt_vdm,gz_imt_equations_of_motion_superc,ndens=ndens,fix_constr_=.false.) 
      end if
      !
 
@@ -247,7 +248,7 @@ program GUTZ_mb
 
   
   close(unit_imt_ene)
-  open(unit_imt_ene,file='imt_free_energy.data')
+  open(unit_imt_ene,file='tmp_imt_free_energy.data')
   ene_save=imt_ene(Nit)
   imt_s=0.d0
   do im_it=1,Nit-1     
@@ -258,14 +259,39 @@ program GUTZ_mb
      imt_f = imt_ene(Nit+1-im_it) - 1./t_grid(Nit+1-im_it)*imt_s
      write(unit_imt_ene,'(10F18.10)') t_grid(Nit+1-im_it),imt_f,imt_s
   end do
+  close(unit_imt_ene)
+  
+  open(unit_imt_ene,file='imt_free_energy.data')
+  
+  imt_s=S_beta0
+  write(*,*) 'S_beta0',S_beta0
+  do im_it=1,Nit-2     
+     !
+     imt_dene = (imt_ene(im_it+1) - imt_ene(im_it))/itstep
+     imt_s = imt_s + t_grid(im_it)*imt_dene*itstep!*0.5d0
+     ! imt_dene = (imt_ene(im_it+2) - imt_ene(im_it+1))/itstep
+     ! imt_s = imt_s + t_grid(im_it+1)*imt_dene*itstep!*0.5d0
+     write(*,*) t_grid(im_it),imt_dene,itstep,imt_s
+     !imt_s = imt_s + t_grid(im_it+1)*imt_dene*itstep*0.5d0
+     !if(im_it.gt.1) imt_s = imt_s - t_grid(Nit+1-im_it)*imt_dene*itstep !+- if im_it==1 --> compute entropy of beta==0
+     !
+     if(im_it.gt.1) then
+        imt_f = imt_ene(im_it) - 1./t_grid(im_it)*imt_s
+        write(unit_imt_ene,'(10F18.10)') t_grid(im_it),imt_f,imt_s
+     end if
+  end do
+  stop
 
 
-
+  call imt_dynamicalVector_2_wfMatrix_superc(psi_t,Hqp_in,gz_proj_init)  
+  call beta0_entropy(t_grid(im_it),gz_proj_init,Hqp_in,S_beta0)  
+  write(*,*) S_beta0
+  
+  !
   ! allocate(Hqp_out(Ns,Ns,Lk))
   ! call gz_imt_measure(psi_t,t,slater_init,gz_proj_init,Hqp_out)
-
-
-
+  !
+  
   ! call print_output(slater_init,gz_proj_init,Hqp_out)
 
 
@@ -378,12 +404,12 @@ CONTAINS
        else
           wtk(ix) = 0.d0
        end if
-       test_k=test_k+wtk(ix)
+       test_k=test_k+wtk(ix)*epsik(ix)*fermi(epsik(ix),1000.d0)
        write(77,*) epsik(ix),wtk(ix)
     end do
     hybik=0.d0
-    write(*,*) test_k,de
-    !stop
+    ! write(*,*) test_k*2.d0,de
+    ! stop
     !
     ! allocate(kx(Nx))
     ! kx = linspace(0.d0,pi,Nx,.true.,.true.)

@@ -245,7 +245,7 @@ program GUTZ_mb
 
   end do
 
-
+  
   close(unit_imt_ene)
   open(unit_imt_ene,file='imt_free_energy.data')
   ene_save=imt_ene(Nit)
@@ -253,9 +253,9 @@ program GUTZ_mb
   do im_it=1,Nit-1     
      !
      imt_dene = (imt_ene(Nit+1-im_it) - imt_ene(Nit-im_it))/itstep
-     imt_s = imt_s - t_grid(Nit+1-im_it)*imt_dene*itstep
+     if(im_it.gt.1) imt_s = imt_s - t_grid(Nit+1-im_it)*imt_dene*itstep !+- if im_it==1 --> compute entropy of beta==0
      !
-     imt_f = imt_ene(im_it) - 1./t_grid(im_it)*imt_s
+     imt_f = imt_ene(Nit+1-im_it) - 1./t_grid(Nit+1-im_it)*imt_s
      write(unit_imt_ene,'(10F18.10)') t_grid(Nit+1-im_it),imt_f,imt_s
   end do
 

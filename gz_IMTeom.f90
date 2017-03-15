@@ -221,7 +221,6 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
      !
      Hqp_dot(1,:,:,ik) = 2.0*Hk(1:Ns,1:Ns)           
      Hqp_dot(2,:,:,ik) = 2.0*Hk(1:Ns,1+Ns:2*Ns)     !+- da dove viene questo meno qui??? -+!
-!     Hqp_dot(4,:,:,ik) = conjg(transpose(Hqp_dot(2,:,:,ik)))!2.0*Hk(1+Ns:2*Ns,1:Ns)     
      Hqp_dot(3,:,:,ik) = 2.0*Hk(1+Ns:2*Ns,1+Ns:2*Ns) 
      !
      !
@@ -229,45 +228,7 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
      tmpHqp(1:Ns,1+Ns:2*Ns) = Hqp(2,:,:,ik) 
      tmpHqp(1+Ns:2*Ns,1:Ns) = conjg(transpose(Hqp(2,:,:,ik)))  ! Hqp(4,:,:,ik) !
      tmpHqp(1+Ns:2*Ns,1+Ns:2*Ns) = Hqp(3,:,:,ik)
-     !
-     !
-     !
-     !
-     !write(*,*) ik,'before'
-     !
-     !
-     !tmpHqp=Hk
-
      call matrix_diagonalize(tmpHqp,tmp_eHk)       
-
-     ! if(ik.eq.10) then
-     !    do is=1,2*Ns
-     !       write(*,'(20F18.10)') dreal(tmpHqp(:,is))
-     !    end do
-     !    write(*,'(20F18.10)') 
-     !    write(*,'(20F18.10)') 
-     !    write(*,'(20F18.10)') 
-     ! end if
-     ! if(ik.eq.10) then
-     !    do is=1,2*Ns
-     !       write(*,'(20F18.10)') dreal(tmpHqp(:,is))
-     !    end do
-     !    write(*,'(20F18.10)') 
-     !    write(*,'(20F18.10)') 
-     !    write(*,'(20F18.10)') 
-     !    ! do is=1,2*Ns
-     !    !    do js=1,2*Ns
-     !    !       tmp_test=0.d0
-     !    !       do ks=1,2*Ns
-     !    !          tmp_test = tmp_test + tmpHqp(is,ks)*conjg(tmpHqp(js,ks))
-     !    !       end do
-     !    !       write(*,*) tmp_test,is,js
-     !    !    end do
-     !    ! end do
-     !    stop
-     ! end if
-     !write(*,*) ik,'after'
-     !
      !
      do is=1,Ns
         do js=1,Ns
@@ -275,7 +236,6 @@ function gz_imt_equations_of_motion_superc(time,y,Nsys) result(f)
            do ks=1,Ns
               !
               nqp = fermi(tmp_eHk(ks)-tmp_eHk(ks+Ns),1.d0)                
-              !nqp = fermi(tmp_eHk(ks)-tmp_eHk(ks+Ns),beta)                
               !
               slater(1,is,js,ik) = slater(1,is,js,ik) + &    ! (*)
                    conjg(tmpHqp(is,ks))*tmpHqp(js,ks)*nqp + conjg(tmpHqp(is,ks+Ns))*tmpHqp(js,ks+Ns)*(1.d0-nqp)

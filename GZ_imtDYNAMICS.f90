@@ -465,11 +465,9 @@ CONTAINS
     rho_phi=dreal(matmul(conjg(transpose(full_phi)),full_phi))    
     gzproj_entropy=0.d0
     do ifock=1,Nfock
-       do jfock=1,Nfock
-          if(rho_phi(ifock,jfock)/=0.d0) then
-             gzproj_entropy = gzproj_entropy - rho_phi(ifock,jfock)*log(rho_phi(jfock,ifock)/P0(jfock))
-          end if
-       end do
+       if(abs(rho_phi(ifock,ifock)).gt.1.d-10) then
+          gzproj_entropy = gzproj_entropy - rho_phi(ifock,ifock)*log(rho_phi(ifock,ifock)/P0(ifock))
+       end if
     end do
     !    
     ! !
@@ -509,10 +507,10 @@ CONTAINS
        do is=1,Ns
           do js=1,Ns
              !
-             slater_entropy = slater_entropy + beta_*Hqp(1,is,js,ik)*slater(1,is,js,ik)*wtk(ik)
-             slater_entropy = slater_entropy + beta_*conjg(Hqp(2,is,js,ik))*conjg(slater(2,js,is,ik))*wtk(ik)
-             slater_entropy = slater_entropy + beta_*Hqp(2,is,js,ik)*slater(2,is,js,ik)*wtk(ik)
-             slater_entropy = slater_entropy - beta_*Hqp(3,is,js,ik)*slater(1,js,is,ik)*wtk(ik)
+             slater_entropy = slater_entropy + Hqp(1,is,js,ik)*slater(1,is,js,ik)*wtk(ik)
+             slater_entropy = slater_entropy + conjg(Hqp(2,js,is,ik))*conjg(slater(2,js,is,ik))*wtk(ik)
+             slater_entropy = slater_entropy + Hqp(2,is,js,ik)*slater(2,is,js,ik)*wtk(ik)
+             slater_entropy = slater_entropy - Hqp(3,is,js,ik)*slater(1,js,is,ik)*wtk(ik)
              if(is.eq.js) then
                 slater_entropy = slater_entropy + beta_*Hqp(3,is,js,ik)*wtk(ik)
              end if
@@ -523,19 +521,19 @@ CONTAINS
     entropy = slater_entropy + gzproj_entropy    
     write(*,*) entropy,slater_entropy,gzproj_entropy,log(4.d0),beta_
     
-    !beta=10000.d0
-    slater_entropy=0.d0
-    do ik=1,Lk       
-       nqp = fermi(Hk_tb(1,1,ik),beta)
+    !beta_=10000.d0
+    ! slater_entropy=0.d0
+    ! do ik=1,Lk       
+    !    nqp = fermi(Hk_tb(1,1,ik),beta_)
 
-       if(nqp.gt.1.d-10) then
-          slater_entropy = slater_entropy - ( nqp*log(nqp))*wtk(ik)*2.d0
-       end if
-       if(abs(1.d0-nqp).gt.1.d-10) then
-          slater_entropy = slater_entropy - (1.d0-nqp)*log(1.d0-nqp )*wtk(ik)*2.d0
-       end if
-    end do
-    write(*,*) slater_entropy
+    !    if(nqp.gt.1.d-10) then
+    !       slater_entropy = slater_entropy - ( nqp*log(nqp))*wtk(ik)*2.d0
+    !    end if
+    !    if(abs(1.d0-nqp).gt.1.d-10) then
+    !       slater_entropy = slater_entropy - (1.d0-nqp)*log(1.d0-nqp )*wtk(ik)*2.d0
+    !    end if
+    ! end do
+    !write(*,*) slater_entropy
     !
   end subroutine beta0_entropy
 
@@ -943,6 +941,11 @@ CONTAINS
                 do jjs=1,Ns
                    !
                    !
+                   ! Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*slater(1,is,js,ik)*wtk(ik)
+                   ! Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*slater(2,is,js,ik)*wtk(ik)
+                   ! Estar = Estar + conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*conjg(slater(2,js,is,ik))*wtk(ik)
+                   ! Estar = Estar - conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*slater(1,js,is,ik)*wtk(ik)
+
                    Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*slater(1,is,js,ik)*wtk(ik)
                    Estar = Estar + conjg(gz_imt_Rhop(iis,is))*Hk(iis,jjs)*gz_imt_Qhop(jjs,js)*conjg(slater(2,js,is,ik))*wtk(ik)
                    Estar = Estar + conjg(gz_imt_Qhop(iis,is))*Hk(iis,jjs)*gz_imt_Rhop(jjs,js)*slater(2,is,js,ik)*wtk(ik)

@@ -18,7 +18,7 @@ program GUTZ_mb
   !
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik,auxt
-  real(8) :: t,r,s,tmpU,ndens,nvdm
+  real(8) :: t,r,s,tmpU,ndens,nvdm,tau,test_ene_free
   integer :: Nx,out_unit,is,js,ik,im_it,itt,i,iorb,ispin,it
   integer :: nprint
   !
@@ -62,7 +62,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable      :: dump_vect
   !
   real(8) :: itstart,itstop
-  real(8) :: imt_dene,ene_save,imt_s,imt_f,S_beta0
+  real(8) :: imt_dene,ene_save,imt_s,imt_f,S_beta0,S_beta
   real(8),dimension(:),allocatable :: imt_entropy,imt_ene  
   !
 
@@ -193,6 +193,7 @@ program GUTZ_mb
   do im_it=1,Nit
      !
      t=t_grid(im_it)
+     tau=2*t
      !
      if(mod(im_it-1,nprint).eq.0) then        
         !
@@ -215,25 +216,42 @@ program GUTZ_mb
         !
         call get_imt_energies(energies)
         imt_ene(im_it) = energies(1)
+
+        !<TMP
+        ! test_ene_free=0.d0
+        ! do ik=1,Lk
+        !    test_ene_free=test_ene_free+wtk(ik)*Hk_tb(1,1,ik)*2.d0*fermi(Hk_tb(1,1,ik),t)
+        ! end do
+        ! write(501,'(10F18.10)') t,test_ene_free
+        !imt_ene(im_it) = test_ene_free
+        !TMP>
+
+        
         !
         call get_imt_local_angular_momenta(local_angular_momenta)
         call get_imt_unitary_constr(unitary_constr)
         !
-        call write_complex_matrix_grid(Rhop_matrix,unit_imt_Rhop,print_grid_Rhop,t)
-        call write_complex_matrix_grid(Qhop_matrix,unit_imt_Qhop,print_grid_Qhop,t)
-        call write_complex_matrix_grid(sc_order,unit_imt_sc_order,print_grid_SC,t)
+        call write_complex_matrix_grid(Rhop_matrix,unit_imt_Rhop,print_grid_Rhop,tau)
+        call write_complex_matrix_grid(Qhop_matrix,unit_imt_Qhop,print_grid_Qhop,tau)
+        call write_complex_matrix_grid(sc_order,unit_imt_sc_order,print_grid_SC,tau)
         !
-        call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,t)
-        call write_hermitean_matrix(dens_constrSL(1,:,:),unit_imt_dens_constrSL,t)
-        call write_hermitean_matrix(dens_constrGZ(1,:,:),unit_imt_dens_constrGZ,t)
-        call write_hermitean_matrix(dens_constrSL(2,:,:),unit_imt_dens_constrSLa,t)
-        call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_imt_dens_constrGZa,t)
-        call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,t)
-        call write_symmetric_matrix(local_dens_dens,unit_imt_local_dens_dens,t)
-        write(unit_imt_AngMom,'(10F18.10)') t,local_angular_momenta
-        write(unit_imt_ene,'(10F18.10)') t,energies
-        write(unit_imt_constrU,'(10F18.10)') t,unitary_constr
-        !        
+        call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,tau)
+        call write_hermitean_matrix(dens_constrSL(1,:,:),unit_imt_dens_constrSL,tau)
+        call write_hermitean_matrix(dens_constrGZ(1,:,:),unit_imt_dens_constrGZ,tau)
+        call write_hermitean_matrix(dens_constrSL(2,:,:),unit_imt_dens_constrSLa,tau)
+        call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_imt_dens_constrGZa,tau)
+        call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,tau)
+        call write_symmetric_matrix(local_dens_dens,unit_imt_local_dens_dens,tau)
+        write(unit_imt_AngMom,'(10F18.10)') tau,local_angular_momenta
+        write(unit_imt_constrU,'(10F18.10)') tau,unitary_constr
+        
+        call imt_dynamicalVector_2_wfMatrix_superc(psi_t,Hqp_in,gz_proj_init)  
+        call beta0_entropy(tau,gz_proj_init,Hqp_in,S_beta)
+        write(unit_imt_ene,'(10F18.10)') tau,energies,S_beta
+        
+        !
+
+        
      end if
      !
      if(im_it.lt.Nit) then
@@ -245,8 +263,7 @@ program GUTZ_mb
      !
 
   end do
-
-  
+  !
   close(unit_imt_ene)
   open(unit_imt_ene,file='tmp_imt_free_energy.data')
   ene_save=imt_ene(Nit)
@@ -254,38 +271,35 @@ program GUTZ_mb
   do im_it=1,Nit-1     
      !
      imt_dene = (imt_ene(Nit+1-im_it) - imt_ene(Nit-im_it))/itstep
-     if(im_it.gt.1) imt_s = imt_s - t_grid(Nit+1-im_it)*imt_dene*itstep !+- if im_it==1 --> compute entropy of beta==0
+     if(im_it.gt.1) imt_s = imt_s - 2*t_grid(Nit+1-im_it)*imt_dene*itstep !+- if im_it==1 --> compute entropy of beta==0
      !
-     imt_f = imt_ene(Nit+1-im_it) - 1./t_grid(Nit+1-im_it)*imt_s
-     write(unit_imt_ene,'(10F18.10)') t_grid(Nit+1-im_it),imt_f,imt_s
+     imt_f = imt_ene(Nit+1-im_it) - 0.5d0/t_grid(Nit+1-im_it)*imt_s
+     write(unit_imt_ene,'(10F18.10)') 2*t_grid(Nit+1-im_it),imt_f,imt_s
   end do
-  close(unit_imt_ene)
   
-  open(unit_imt_ene,file='imt_free_energy.data')
-  
+  close(unit_imt_ene)  
+  open(unit_imt_ene,file='imt_free_energy.data')  
   imt_s=S_beta0
   write(*,*) 'S_beta0',S_beta0
   do im_it=1,Nit-2     
      !
-     imt_dene = (imt_ene(im_it+1) - imt_ene(im_it))/itstep
-     imt_s = imt_s + t_grid(im_it)*imt_dene*itstep!*0.5d0
      ! imt_dene = (imt_ene(im_it+2) - imt_ene(im_it+1))/itstep
-     ! imt_s = imt_s + t_grid(im_it+1)*imt_dene*itstep!*0.5d0
-     write(*,*) t_grid(im_it),imt_dene,itstep,imt_s
-     !imt_s = imt_s + t_grid(im_it+1)*imt_dene*itstep*0.5d0
-     !if(im_it.gt.1) imt_s = imt_s - t_grid(Nit+1-im_it)*imt_dene*itstep !+- if im_it==1 --> compute entropy of beta==0
+     ! imt_s = imt_s + t_grid(im_it+1)*imt_dene*itstep*2.d0*0.5d0
      !
      if(im_it.gt.1) then
-        imt_f = imt_ene(im_it) - 1./t_grid(im_it)*imt_s
-        write(unit_imt_ene,'(10F18.10)') t_grid(im_it),imt_f,imt_s
+        imt_dene = (imt_ene(im_it+1) - imt_ene(im_it))/itstep
+        imt_s = imt_s + t_grid(im_it)*imt_dene*itstep*2.d0!*0.5d0
+
+        imt_f = imt_ene(im_it) - 0.5d0/t_grid(im_it)*imt_s
+
      end if
+     write(unit_imt_ene,'(10F18.10)') 2*t_grid(im_it),imt_f,imt_s
+     !
   end do
+  ! call imt_dynamicalVector_2_wfMatrix_superc(psi_t,Hqp_in,gz_proj_init)  
+  ! call beta0_entropy(2*t_grid(im_it-1),gz_proj_init,Hqp_in,S_beta0)  
+  ! write(*,*) S_beta0
   stop
-
-
-  call imt_dynamicalVector_2_wfMatrix_superc(psi_t,Hqp_in,gz_proj_init)  
-  call beta0_entropy(t_grid(im_it),gz_proj_init,Hqp_in,S_beta0)  
-  write(*,*) S_beta0
   
   !
   ! allocate(Hqp_out(Ns,Ns,Lk))

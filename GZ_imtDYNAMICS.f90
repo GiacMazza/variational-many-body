@@ -465,12 +465,9 @@ CONTAINS
     rho_phi=dreal(matmul(conjg(transpose(full_phi)),full_phi))    
     gzproj_entropy=0.d0
     do ifock=1,Nfock
-       do jfock=1,Nfock
-          if(abs(rho_phi(ifock,jfock)).gt.1.d-10) then
-             gzproj_entropy = gzproj_entropy - rho_phi(ifock,jfock)*log(rho_phi(jfock,ifock)/P0(jfock))
-             write(*,*) rho_phi(ifock,jfock)
-          end if
-       end do
+       if(abs(rho_phi(ifock,ifock)).gt.1.d-10) then
+          gzproj_entropy = gzproj_entropy - rho_phi(ifock,ifock)*log(rho_phi(ifock,ifock)/P0(ifock))
+       end if
     end do
     !    
     ! !
@@ -522,7 +519,6 @@ CONTAINS
        end do
     end do   
     entropy = slater_entropy + gzproj_entropy    
-    !write(*,*) entropy,slater_entropy,gzproj_entropy,log(4.d0),beta_    
     !beta_=10000.d0
     ! slater_entropy=0.d0
     ! do ik=1,Lk       

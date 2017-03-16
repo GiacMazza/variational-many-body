@@ -62,7 +62,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable      :: dump_vect
   !
   real(8) :: itstart,itstop
-  real(8) :: imt_dene,ene_save,imt_s,imt_f,S_beta0
+  real(8) :: imt_dene,ene_save,imt_s,imt_f,S_beta0,S_beta
   real(8),dimension(:),allocatable :: imt_entropy,imt_ene  
   !
 
@@ -243,52 +243,54 @@ program GUTZ_mb
         call write_hermitean_matrix(local_density_matrix,unit_imt_local_dens,tau)
         call write_symmetric_matrix(local_dens_dens,unit_imt_local_dens_dens,tau)
         write(unit_imt_AngMom,'(10F18.10)') tau,local_angular_momenta
-        write(unit_imt_ene,'(10F18.10)') tau,energies
         write(unit_imt_constrU,'(10F18.10)') tau,unitary_constr
         !
-
-
-        
+        call imt_dynamicalVector_2_wfMatrix_superc(psi_t,Hqp_in,gz_proj_init)  
+        call beta0_entropy(tau,gz_proj_init,Hqp_in,S_beta)
+        write(unit_imt_ene,'(10F18.10)') tau,energies,S_beta        
+        !
      end if
      !
      if(im_it.lt.Nit) then
         write(*,*) im_it,Nit
         !
         call step_imt_dynamics_superc_d(nDynamics,itstep,t,psi_t,lgr_NC, &
-             imt_vdm,gz_imt_equations_of_motion_superc,ndens=ndens,fix_constr_=.false.) 
+             imt_vdm,gz_imt_equations_of_motion_superc,ndens=ndens,fix_constr_=.true.) 
      end if
      !
 
   end do
   !
-  ! close(unit_imt_ene)
-  ! open(unit_imt_ene,file='tmp_imt_free_energy.data')
-  ! ene_save=imt_ene(Nit)
-  ! imt_s=0.d0
-  ! do im_it=1,Nit-1     
-  !    !
-  !    imt_dene = (imt_ene(Nit+1-im_it) - imt_ene(Nit-im_it))/itstep
-  !    if(im_it.gt.1) imt_s = imt_s - t_grid(Nit+1-im_it)*imt_dene*itstep !+- if im_it==1 --> compute entropy of beta==0
-  !    !
-  !    imt_f = imt_ene(Nit+1-im_it) - 1./t_grid(Nit+1-im_it)*imt_s
-  !    write(unit_imt_ene,'(10F18.10)') t_grid(Nit+1-im_it),imt_f,imt_s
-  ! end do
-  !
+  close(unit_imt_ene)
+  open(unit_imt_ene,file='tmp_imt_free_energy.data')
+  ene_save=imt_ene(Nit)
+  imt_s=0.d0
+  do im_it=1,Nit-1     
+     !
+     imt_dene = (imt_ene(Nit+1-im_it) - imt_ene(Nit-im_it))/itstep
+     if(im_it.gt.1) imt_s = imt_s - 2*t_grid(Nit+1-im_it)*imt_dene*itstep !+- if im_it==1 --> compute entropy of beta==0
+     !
+     imt_f = imt_ene(Nit+1-im_it) - 0.5d0/t_grid(Nit+1-im_it)*imt_s
+     write(unit_imt_ene,'(10F18.10)') 2*t_grid(Nit+1-im_it),imt_f,imt_s
+  end do 
   close(unit_imt_ene)  
+  !
   open(unit_imt_ene,file='imt_free_energy.data')  
   imt_s=S_beta0
   write(*,*) 'S_beta0',S_beta0
   do im_it=1,Nit-2     
      !
-     imt_dene = (imt_ene(im_it+1) - imt_ene(im_it))/itstep
-     imt_s = imt_s + t_grid(im_it)*imt_dene*itstep*2.d0*0.5d0
-     imt_dene = (imt_ene(im_it+2) - imt_ene(im_it+1))/itstep
-     imt_s = imt_s + t_grid(im_it+1)*imt_dene*itstep*2.d0*0.5d0
+     ! imt_dene = (imt_ene(im_it+2) - imt_ene(im_it+1))/itstep
+     ! imt_s = imt_s + t_grid(im_it+1)*imt_dene*itstep*2.d0*0.5d0
      !
      if(im_it.gt.1) then
+        imt_dene = (imt_ene(im_it+1) - imt_ene(im_it))/itstep
+        imt_s = imt_s + t_grid(im_it)*imt_dene*itstep*2.d0!*0.5d0
+
         imt_f = imt_ene(im_it) - 0.5d0/t_grid(im_it)*imt_s
-        write(unit_imt_ene,'(10F18.10)') 2*t_grid(im_it),imt_f,imt_s
+
      end if
+     write(unit_imt_ene,'(10F18.10)') 2*t_grid(im_it),imt_f,imt_s
      !
   end do
   ! call imt_dynamicalVector_2_wfMatrix_superc(psi_t,Hqp_in,gz_proj_init)  

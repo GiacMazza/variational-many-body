@@ -70,7 +70,7 @@ program GUTZ_mb
   complex(8) :: bcs_sc_order,bcs_delta
   real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS
   logical :: bcs_neq
-  logical :: linear_ramp
+  logical :: linear_ramp,trpz
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
@@ -82,6 +82,7 @@ program GUTZ_mb
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
   call parse_input_variable(bcs_neq,"BCS_NEQ","inputGZ.conf",default=.false.)  
   call parse_input_variable(linear_ramp,"LIN_RAMP","inputGZ.conf",default=.true.)  
+  call parse_input_variable(trpz,"TRPZ","inputGZ.conf",default=.false.)  
   !
   call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
@@ -345,7 +346,11 @@ program GUTZ_mb
         !
         psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
      end if
-     psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
+     if(trpz) then
+        psi_t = trpz_implicit(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
+     else
+        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
+     end if
      !
   end do
 

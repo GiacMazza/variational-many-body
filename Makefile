@@ -25,12 +25,12 @@ FPP=
 #EXE=gz_1b_bethe_sc_nRQ
 #EXE=gz_1b_cubic_sc_nRQ
 #EXE=gz_1b_cb_sc_nRQ
-#EXE=gz_1b_bethe_sc
+EXE=gz_1b_bethe_sc_temp
 #EXE=gz_1b_eom
 
 
 #EXE=gz_neq_1b_bethe
-EXE=gz_neq_1b_bethe_sc
+#EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_1b_cubic_sc
 #EXE=gz_neq_1b_cb_sc
 #EXE=gz_neq_1b_bethe_sc_tdlgr
@@ -100,7 +100,7 @@ INCARGS+=-I$(LIBDIR)/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib
 INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
-#FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
+FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
 
 
 

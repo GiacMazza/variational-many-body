@@ -9,7 +9,7 @@ MODULE GZ_AUX_FUNX
   public :: get_state_number
   public :: vec2mat_stride,mat2vec_stride
   public :: initialize_variational_density_simplex
-  public :: initialize_variational_density  
+  public :: initialize_variational_density,initialize_GZ_vect  
   public :: init_Rhop_seed,init_Qhop_seed
   public :: get_free_single_paritcle_gf
   !
@@ -161,6 +161,41 @@ CONTAINS
        variational_density = 0.5d0
     end if
   end subroutine initialize_variational_density
+
+
+
+
+
+
+  subroutine initialize_GZ_vect(GZ_vect)
+    complex(8),dimension(:),intent(inout) :: GZ_vect
+    real(8) :: tmp
+    logical                 :: IOfile
+    integer                 :: unit,flen,i,j,expected_flen
+    if(size(GZ_vect).ne.Nphi) stop "initialize GZ_vect /= Nphi"
+    expected_flen=size(GZ_vect)
+    inquire(file="phi_seed.conf",exist=IOfile)
+    if(IOfile) then
+       flen=file_length("phi_seed.conf")
+       unit=free_unit()
+       open(unit,file="phi_seed.conf")
+       write(*,*) 'reading phi_seed from file phi_seed.conf'
+       if(flen.eq.expected_flen) then
+          !+- read from file -+!
+          do i=1,flen
+             read(unit,*) tmp
+             GZ_vect(i)=tmp
+          end do
+       else
+          write(*,*) "phi_seed.conf in the wrong dimension",flen,expected_flen
+          stop 
+       end if
+       close(unit)
+    else
+       write(*,*) "phi_seed.conf does not exist"
+       stop
+    end if
+  end subroutine initialize_GZ_vect
 
 
 

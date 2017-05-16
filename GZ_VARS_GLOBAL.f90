@@ -85,12 +85,12 @@ MODULE GZ_VARS_GLOBAL
   type(sparse_matrix_csr_z) :: phi_spTraces_basis_isospinZ
   
   !+- OPTIMIZED QUANTITIES -+!
-  complex(8),allocatable                    :: GZ_vector(:)  
+  complex(8),allocatable                    :: GZ_vector(:),GZ_init_equ(:)  
   !# Slater Determinant #!
   complex(8),dimension(:,:,:),allocatable   :: GZ_opt_slater   ! (Ns,Ns,Lk) <c^+_{k\alpha} c_{k\beta}> \alpha,\beta=1,Ns
   complex(8),dimension(:,:,:,:),allocatable :: GZ_opt_slater_superc   ! (2,Ns,Ns,Lk) [<c^+_{k\alpha} c_{k\beta}>,<c^+_{k\alpha} c^+_{k\beta}>] \alpha,\beta=1,Ns
   !
-  real(8)                                   :: GZ_opt_energy,GZ_opt_kinetic,GZ_opt_Eloc
+  real(8)                                   :: GZ_opt_energy,GZ_opt_kinetic,GZ_opt_Eloc,GZ_opt_free_energy,GZ_opt_entropy
   !
   complex(8),allocatable                    :: GZ_opt_Rhop(:,:)         
   complex(8),allocatable                    :: GZ_opt_Qhop(:,:)         

@@ -17,6 +17,7 @@ MODULE GZ_OPTIMIZED_ENERGY
 
   !+- OPTIMIZATION ROUTINES w/ respect the VariationalDensityMatrix (VDM) -+!
   public :: gz_optimization_vdm_simplex   ! Simplex method (AMOEBA.f90)  !
+  public :: gz_free_energy_optimization_vdm_simplex !
   public :: gz_optimization_vdm_nlsq      !+- constrained NonLinearLeastSquare method (GALHAD)
 
   !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
@@ -206,7 +207,7 @@ CONTAINS
        open(unit=xmin_unit,file='Rn0_root_finding_xmin.out')
     end if
     !
-    
+
     !
     allocate(xmin_(Nopt_reduced))
     call stride_zeros_orig2red(xmin,xmin_)
@@ -577,7 +578,7 @@ CONTAINS
   end subroutine get_gz_optimized_vdm_Rhop
 
 
-    subroutine get_gz_optimized_vdm_Rhop_superc(init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj,init_vdm) 
+  subroutine get_gz_optimized_vdm_Rhop_superc(init_Rhop,init_Qhop,init_lgr_slater,init_lgr_proj,init_vdm) 
     complex(8),dimension(Ns,Ns),intent(inout) :: init_Rhop
     complex(8),dimension(Ns,Ns),intent(inout) :: init_Qhop
     complex(8),dimension(2,Ns,Ns),intent(inout) :: init_lgr_slater,init_lgr_proj
@@ -681,7 +682,7 @@ CONTAINS
 
 
 
-  
+
 
 
 
@@ -838,6 +839,86 @@ CONTAINS
     GZ_energy = gz_energy_vdm(optimized_vdm)
     !
   end subroutine gz_optimization_vdm_simplex
+
+
+
+
+
+
+  subroutine gz_free_energy_optimization_vdm_simplex(simplex_init,optimized_vdm) 
+    real(8),dimension(Ns+1,Ns),intent(inout) :: simplex_init
+    real(8),dimension(Ns),intent(out)               :: optimized_vdm
+    !real(8),intent(out)                                    :: optimized_energy    
+    !+- amoeba_variables-+!
+    real(8),allocatable,dimension(:,:)                     :: p
+    real(8),allocatable,dimension(:)                       :: y
+    real(8)                                                :: ftol
+    integer                                                :: np,mp,i_vertex,j_vertex,i_dim,iter
+    !integer,allocatable,dimension(:)                       :: idum
+    !integer                                                :: tmp_dum
+    !real(8)                                                :: rnd,tot_dens
+    real(8)                                                :: GZ_energy
+    !
+    !
+    integer                                                :: amoeba_unit    
+    !+-------------------+!
+    optimization_flag=.false.
+    amoeba_unit=free_unit()
+    open(amoeba_unit,file='Amoeba_minimization.out')
+    opt_energy_unit=free_unit()
+    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+    opt_rhop_unit=free_unit()
+    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+    if(gz_superc) then
+       opt_qhop_unit=free_unit()
+       open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
+    end if
+    opt_GZ_unit=free_unit()
+    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+    if(GZmin_verbose) then
+       GZmin_unit=free_unit()
+       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+       GZmin_unit_=free_unit()
+       open(GZmin_unit_,file='GZ_proj_min.out')
+    end if
+    NP=Ns
+    MP=NP+1  
+    allocate(y(MP),p(MP,NP))
+    !+- initialize simplex -+!
+    p=simplex_init
+    write(amoeba_unit,*) 'Initializing simplex verteces'
+    !+----------------------+!  
+    do i_vertex=1,MP
+       y(i_vertex) = gz_free_energy_vdm(p(i_vertex,:))
+       write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
+    end do
+    !<DEBUG
+    !stop
+    !DEBUG>
+    !
+    ftol=amoeba_min_tol
+    call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_free_energy_vdm,iter,amoeba_verbose)
+    !+- Optimized Variational Density Matrix -+!
+    optimized_vdm=p(1,:) 
+    !+- Optimized Variational Energy -+!
+    simplex_init=p
+    write(amoeba_unit,*) 
+    write(amoeba_unit,*) 'Last loop simplex verteces'
+    write(amoeba_unit,*) 
+    do i_vertex=1,MP
+       write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
+    end do
+    write(amoeba_unit,*) 
+    write(amoeba_unit,*) 
+    deallocate(y,p)
+    close(amoeba_unit)
+    close(opt_energy_unit)    
+    !
+    optimization_flag=.true.
+    if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
+    GZ_energy = gz_free_energy_vdm(optimized_vdm)
+    !
+  end subroutine gz_free_energy_optimization_vdm_simplex
 
 
 

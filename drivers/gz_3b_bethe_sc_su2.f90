@@ -60,8 +60,12 @@ program GUTZ_mb
   real(8) :: deltaU,Ntest,ndelta,ntarget,nerr
   real(8) :: nread
   logical :: converged_mu
-  real(8) :: xmu1,xmu2,n1,n2,search_mu
-  integer :: xmu_unit
+  real(8) :: xmu1,xmu2,n1,n2,search_mu,Titer
+  integer :: xmu_unit,iiter
+  
+  character(len=10) :: temp_dir_suffix
+  character(len=10) :: temp_dir_iter
+  
 
   !
 
@@ -182,7 +186,7 @@ program GUTZ_mb
         Uloc(2) = Uloc(1) + deltaU*Uloc(1)
         Uloc(3) = Uloc(1) + deltaU*Uloc(1)
         !
-        
+
         if(nread/=0.d0) then        
            xmu_unit=free_unit()
            open(xmu_unit,file='bracket_XMU.out') 
@@ -293,7 +297,7 @@ program GUTZ_mb
         call system('rm *.out *.data fort* ')
         Uiter = Uiter + sweep_step
      end do
-     
+
   case('sweepD')
      !+- sweep JHund -+!
      Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
@@ -364,6 +368,83 @@ program GUTZ_mb
         deltaU = deltaU + sweep_step
      end do
      !
+
+
+
+  case('sweepT')
+     !+- sweep JHund -+!
+     Nsweep = abs(sweep_start-sweep_stop)/abs(sweep_step)
+     Titer = sweep_start
+     do iiter=1,Nsweep
+        !
+        beta=1.d0/Titer
+        !
+        Jh  = Jh        
+        Jsf = Jh
+        Jph = Jh
+        !
+        Uloc(2) = Uloc(1) + deltaU*Uloc(1)
+        Uloc(3) = Uloc(1) + deltaU*Uloc(1)
+        !
+        Ust = Uloc(1)-2.d0*Jh
+        !        
+        !
+
+        write(temp_dir_suffix,'(F6.4)') Titer
+        temp_dir_suffix=adjustl(temp_dir_suffix)
+        temp_dir_iter="TEMP"//trim(temp_dir_suffix)
+        !
+        call system('mkdir -v '//temp_dir_iter)     
+        !
+
+        if(nread/=0.d0.and.deltaU/=0.d0) then        
+           xmu_unit=free_unit()
+           open(xmu_unit,file='bracket_XMU.out') 
+           call bracket_density(xmu1,xmu2,0.01d0,300)     
+           write(xmu_unit,*)  xmu1,xmu2
+           close(xmu_unit)
+           
+           xmu_unit=free_unit()
+           open(xmu_unit,file='search_XMU.out') 
+           search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
+           close(xmu_unit)     
+           !        
+           xmu=search_mu
+           call get_local_hamiltonian_trace
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)           
+           call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+           call get_gz_ground_state_superc(GZ_vector)
+        else
+           call get_local_hamiltonian_trace
+           unit=free_unit()
+           open(unit,file='local_hamiltonian_parameters.out')
+           write(unit,*) 'Uloc',Uloc
+           write(unit,*) 'Ust',Ust
+           write(unit,*) 'Jh',Jh
+           write(unit,*) 'Jsf',Jsf
+           write(unit,*) 'Jph',Jph
+           write(unit,*) 'xmu',xmu
+           close(unit)           
+           call gz_optimization_vdm_Rhop_superc_reduced(R_init,Q_init,slater_lgr_init,gzproj_lgr_init)
+           call get_gz_ground_state_superc(GZ_vector)  
+        end if
+
+        !
+        call print_output_superc
+        call system('cp * '//temp_dir_iter)
+        call system('rm *.out *.data fort.* ')
+        Titer = Titer + sweep_step
+     end do
+
+
   end select
   !
 
@@ -473,7 +554,7 @@ CONTAINS
        call sp_delete_matrix(phik_tmp)
     end do
 
-    
+
 
     out_unit=free_unit()
     open(out_unit,file='optimized_projectors.data')
@@ -1149,7 +1230,7 @@ CONTAINS
     real(8)               :: dens1,dens2,xmu,dens,sign_dens,xmu_max,xmu_min
     real(8),dimension(2)  :: xmu_sort
     integer :: i,xmu_loop
-    
+
     if(xmu2.gt.xmu1) then
        xmu_sort(1) = xmu2
        xmu_sort(2) = xmu1
@@ -1157,7 +1238,7 @@ CONTAINS
        xmu_sort(1) = xmu1
        xmu_sort(2) = xmu2
     end if
-       
+
     xmu_max = xmu_sort(1)
     xmu_min = xmu_sort(2)
 
@@ -1167,7 +1248,7 @@ CONTAINS
     sign_dens = dens1*dens2
 
     write(*,*) 'BRACKET IN',xmu1,xmu2,dens1,dens2
-    
+
     if(sign_dens.gt.0.d0) then
        !+- bracket xmu -+!
        if(dens1.gt.0.d0) then          

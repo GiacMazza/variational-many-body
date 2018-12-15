@@ -56,6 +56,8 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
               slater_dot(is,js,ik) = slater_dot(is,js,ik) - tRR(ks,is)*slater(ks,js,ik)
            end do
         end do
+        slater_dot(is,is,ik) = slater_dot(is,is,ik) + xi*k_qp_diss*fermi(dreal(Hk(is,is)),beta_diss)*(1.0d0-slater(is,is,ik))*abs(Rhop(is,is))**2.d0 !+- pump processes -+!
+        slater_dot(is,is,ik) = slater_dot(is,is,ik) - xi*k_qp_diss*(1.d0-fermi(dreal(Hk(is,is)),beta_diss))*slater(is,is,ik)*abs(Rhop(is,is))**2.d0  !+- loss processes -+!
      end do
      !     
      do is=1,Ns
@@ -96,13 +98,13 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
 end function gz_equations_of_motion
 !
 
-!+- GENERAL EsOM FOR THE SUPERC CASE
+!+- GENERAL EsOM FOR THE SUPERC CASE -+!
 function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   implicit none
   !inputs
   integer                          :: Nsys ! nr of equations
-  real(8)                          :: time ! time variable                                                                                                                                      
-  complex(8),dimension(Nsys)       :: y    ! argument array                                                                                                                                     
+  real(8)                          :: time ! time variable                                                                                               
+  complex(8),dimension(Nsys)       :: y    ! argument array                                                                                             
   complex(8),dimension(Nsys)       :: f    ! result 
   !
   complex(8),dimension(2,Ns,Ns,Lk) :: slater_,slater_dot
@@ -118,6 +120,9 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   complex(8),dimension(Ns,Ns)      :: tRR,tRQ,tQR,tQQ
   complex(8),dimension(Ns,Ns)      :: vdm_natural
   real(8),dimension(Ns)            :: vdm_diag
+  !
+  real(8)                          :: loc_dens
+  !
   !
   if(Nsys.ne.nDynamics) stop "wrong dimensions in the GZ_equations_of_motion"
   !
@@ -146,6 +151,7 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
         Qhop_hc(is,js) = conjg(Qhop(js,is))
      end do
   end do
+
   !
   slater_dot=zero
   gzproj_dot=zero
@@ -259,6 +265,18 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   end do
   !
 
+
+  !+- this is for the dissipative part -+!
+  ! loc_dens=0.d0
+  ! do is=1,Ns
+  !    loc_dens = loc_dens + trace_phi_basis(gzproj,phi_traces_basis_local_dens(is,is,:,:))
+  ! end do
+  ! do iphi=1,Nphi
+  !    gzproj_dot(iphi) = gzproj_dot(iphi) + k_dens_diss*loc_dens*gzproj(iphi)
+  ! end do
+  
+  
+  !
   call wfMatrix_superc_2_dynamicalVector(slater_dot,gzproj_dot,f)
   !
 end function gz_equations_of_motion_superc

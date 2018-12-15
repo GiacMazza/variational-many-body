@@ -14,6 +14,9 @@ MODULE GZ_VARS_INPUT
   integer,parameter    :: lw=512
   real(8)              :: wini,wfin
   logical              :: slater_store
+  real(8)              :: k_dens_diss
+  real(8)              :: k_qp_diss,beta_diss
+  
   
   !# Minimization flags  #!
   integer              :: lancelot_verbose
@@ -73,7 +76,9 @@ contains
     call parse_input_variable(wini,"WINI",INPUTunit,default=-10.d0)
     call parse_input_variable(wfin,"WFIN",INPUTunit,default=10.d0)
     call parse_input_variable(slater_store,"SLATER_STORE",INPUTunit,default=.false.)
-    call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0)  !+- fictitious temperature
+    call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0)           !+- fictitious temperature -+!
+    call parse_input_variable(k_qp_diss,"K_DISS",INPUTunit,default=0.d0)       !+- friction dissipation -+!
+    call parse_input_variable(beta_diss,"BETA_DISS",INPUTunit,default=100.d0)  !+- friction "temperature"; ie fermi-function distribution of the bath -+!
     !
     call parse_input_variable(Nt,"NT",INPUTunit,default=100)
     call parse_input_variable(tstart,"TSTART",INPUTunit,default=0.d0)

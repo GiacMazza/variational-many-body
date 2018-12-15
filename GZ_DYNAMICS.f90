@@ -2,6 +2,7 @@ MODULE GZ_DYNAMICS
   ! SCIFOR
   USE SF_LINALG
   USE SF_OPTIMIZE
+  USE SF_SPECIAL
   USE RK_IDE
   ! GZ routines
   USE GZ_VARS_GLOBAL
@@ -78,6 +79,8 @@ MODULE GZ_DYNAMICS
   complex(8),dimension(:,:,:),allocatable :: neq_Rhop_ext
   complex(8),dimension(:,:,:),allocatable :: neq_Qhop_ext
   !
+  complex(8) :: gz_neq_lgr_diss
+
 
 CONTAINS
   !
@@ -95,6 +98,7 @@ CONTAINS
     allocate(gz_neq_dens_constr_gzproj(Ns,Ns)); gz_neq_dens_constr_gzproj = 0.d0
     gz_neq_unitary_constr = 0.d0
     allocate(gz_neq_Rhop(Ns,Ns)); gz_neq_Rhop = 0.d0
+    gz_neq_lgr_diss=0.d0
   end subroutine setup_neq_dynamics
   !
   subroutine setup_neq_dynamics_superc    
@@ -117,6 +121,7 @@ CONTAINS
     allocate(gz_neq_pair_hopp(Norb,Norb)); gz_neq_pair_hopp = 0.d0
     allocate(gz_neq_spin_flip(Norb,Norb)); gz_neq_spin_flip = 0.d0
     allocate(gz_neq_nqp(Ns,Lk)); gz_neq_nqp = 0.d0
+    gz_neq_lgr_diss=0.d0
   end subroutine setup_neq_dynamics_superc
   !
   subroutine get_neq_local_dens(is,js,x)
@@ -268,9 +273,11 @@ CONTAINS
   end subroutine setup_neq_hamiltonian
 
 
-  subroutine gz_neq_measure(psi_t,time)
+  subroutine gz_neq_measure(psi_t,time,read_slater,read_gzproj)
     complex(8),dimension(nDynamics) :: psi_t
     real(8)                         :: time
+    complex(8),dimension(Nphi),optional   :: read_gzproj
+    complex(8),dimension(Ns,Ns,Lk),optional  :: read_slater
     complex(8),dimension(Ns,Ns,Lk)  :: slater
     complex(8),dimension(Ns,Ns)     :: Hk,Hk_tmp
     complex(8),dimension(Nphi)      :: gzproj
@@ -282,6 +289,8 @@ CONTAINS
     it=t2it(time,tstep)
     !
     call dynamicalVector_2_wfMatrix(psi_t,slater,gzproj)  
+    if(present(read_slater)) read_slater=slater
+    if(present(read_gzproj)) read_gzproj=gzproj
     !
     Estar=0.d0
     do is=1,Ns

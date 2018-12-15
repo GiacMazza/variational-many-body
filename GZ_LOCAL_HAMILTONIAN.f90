@@ -120,6 +120,11 @@ CONTAINS
           phi_traces_basis_Hloc =  phi_traces_basis_Hloc - mu_ph*phi_traces_basis_local_dens(istate,istate,:,:)
        end do
     end do
+    
+    ! do is=1,Ns
+    !    phi_traces_basis_Hloc =  phi_traces_basis_Hloc - xi*k_dens_diss*phi_traces_basis_local_dens(istate,istate,:,:)
+    ! end do
+
     !
   end subroutine get_local_hamiltonian_trace
 

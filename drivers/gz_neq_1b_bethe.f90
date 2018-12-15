@@ -48,6 +48,7 @@ program GUTZ_mb
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
   complex(8),dimension(:,:),allocatable   :: Rhop_matrix
+  complex(8),dimension(:,:,:),allocatable :: slater
   complex(8),dimension(:,:),allocatable :: local_density_matrix
   real(8),dimension(:,:),allocatable    :: local_dens_dens
   complex(8),dimension(:,:),allocatable :: dens_constrSL
@@ -182,12 +183,16 @@ program GUTZ_mb
   unit_neq_sc_order = free_unit()
   open(unit_neq_sc_order,file='neq_sc_order.data')
   !
+  unit_neq_nqp = free_unit()
+  open(unit_neq_nqp,file='neq_slater.data')
+  !
   allocate(Rhop_matrix(Ns,Ns))
   allocate(local_density_matrix(Ns,Ns))
   allocate(local_dens_dens(Ns,Ns))
   allocate(dens_constrSL(Ns,Ns))
   allocate(dens_constrGZ(Ns,Ns))  
   allocate(dump_vect(Ns*Ns))
+  allocate(slater(Ns,Ns,Lk))
 
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
   do it=1,Nt
@@ -197,8 +202,17 @@ program GUTZ_mb
      !
      if(mod(it-1,nprint).eq.0) then        
         !
-        call gz_neq_measure(psi_t,t)
+        call gz_neq_measure(psi_t,t,read_slater=slater)
         !
+
+        !
+        do ik=1,Lk
+           write(unit_neq_nqp,'(10F18.10)') t,epsik(ik),slater(1,1,ik)
+        end do
+        write(unit_neq_nqp,'(10F18.10)')
+        write(unit_neq_nqp,'(10F18.10)')
+        !
+
         do is=1,Ns
            do js=1,Ns
               call get_neq_Rhop(is,js,Rhop_matrix(is,js))              

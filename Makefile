@@ -29,8 +29,8 @@ FPP=
 #EXE=gz_1b_eom
 
 
-EXE=gz_neq_1b_bethe
-#EXE=gz_neq_1b_bethe_sc
+#EXE=gz_neq_1b_bethe
+EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_1b_cubic_sc
 #EXE=gz_neq_1b_cb_sc
 #EXE=gz_neq_1b_bethe_sc_tdlgr
@@ -66,12 +66,15 @@ EXE=gz_neq_1b_bethe
 
 
 DIR=drivers
-DIREXE=$(HOME)/.project_bin
+DIREXE=$(HOME)/.bin
 
 .SUFFIXES: .f90
 
 #REVISION SOFTWARE GIT:
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
+ifeq ($(BRANCH),master)
+BRANCH=
+endif
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 #
 OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o GZ_GREENS_FUNCTIONS.o
@@ -79,7 +82,7 @@ OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRI
 
 
 #FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
-LIBDIR=$(HOME)/opt_local
+LIBDIR=$(HOME)/gm_opt
 #LIBDIR=/opt/
 
 
@@ -95,16 +98,23 @@ GALLIBS2   = -lgalahad_metis
 MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 
 
-INCARGS =-I$(LIBDIR)/SciFortran/gnu/include -L$(LIBDIR)/SciFortran/gnu/lib 
-INCARGS+=-I$(LIBDIR)/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib 
+INCARGS =-I$(LIBDIR)/old_libs/SciFortran/gnu/include -L$(LIBDIR)/SciFortran/gnu/lib 
+INCARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib 
 INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
 #FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
 
+#ARGS=-I$(LIBDIR)/old_libs/SciFortran/gnu/include  -L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
+ARGS=-L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) 
+ARGS+=-L$(LIBDIR)/old_libs/DMFTtools/gnu/lib  -ldmftt
+ARGS+=-L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
+
+#ARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include  -L$(LIBDIR)/old_libs/DMFTtools/gnu/lib  -ldmftt
 
 
-ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I$(GALLIBMOD) -ldmftt -lscifor  -lfftpack -lminpack  -llapack -lblas -larpack #-lparpack    
+
+#ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I$(GALLIBMOD) -ldmftt -lscifor  -lfftpack -lminpack  -llapack -lblas -larpack #-lparpack    
 
 all:compile
 
@@ -115,13 +125,13 @@ compile: version $(OBJS)
 	@echo " !+------------------------------------------------- "
 	@echo " ..................... compile ..................... "
 	@echo " !+------------------------------------------------- "
-	$(FC) $(FFLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE)_$(BRANCH) $(ARGS)
+	$(FC) $(FFLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE)$(BRANCH) $(ARGS)
 	@echo " !+--------------------------------------+! "
 	@echo " .................. done .................. "
 	@echo " !+--------------------------------------+! "
 	@echo ""
 	@echo ""
-	@echo "created" $(DIREXE)/$(EXE)_$(BRANCH)
+	@echo "created" $(DIREXE)/$(EXE)$(BRANCH)
 
 ed_solver:
 	@make -C ED_SOLVER/

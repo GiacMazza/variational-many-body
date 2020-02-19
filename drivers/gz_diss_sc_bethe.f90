@@ -140,42 +140,39 @@ program GUTZ_mb
      Ut(:,itt) = Uneq0 + r*(Uneq*s-Uneq0)
   end do
   !
-  call setup_neq_hamiltonian(Uloc_t_=Ut)
-  !
-  unit_neq_hloc = free_unit()
-  open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
-  !
-  do itt=1,Nt_aux
-     write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
-  end do
-  close(unit_neq_hloc)
-  !
-  call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
-  !
-  !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  nDynamics = 2*Ns*Ns*Lk + Nphi
-  allocate(psi_t(nDynamics))
-  allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))  
-  !
-  call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
-  call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
-
-
-
-  if(bcs_neq) then
-     !+- BCS init
-     !
-     unit_neq_hloc = free_unit()
-     open(unit_neq_hloc,file="equ_refSC.out")
-     call read_SC_order(read_optWF_dir,phiBCS)
-     call getUbcs(phiBCS,Ubcs0)
-     write(unit_neq_hloc,*) phiBCS,Ubcs0
+  ! call setup_neq_hamiltonian(Uloc_t_=Ut)
+  ! !
+  ! unit_neq_hloc = free_unit()
+  ! open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
+  ! !
+  ! do itt=1,Nt_aux
+  !    write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
+  ! end do
+  ! close(unit_neq_hloc)
+  ! !
+  ! call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
+  ! !
+  ! !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
+  ! nDynamics = 2*Ns*Ns*Lk + Nphi
+  ! allocate(psi_t(nDynamics))
+  ! allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))  
+  ! !
+  ! call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
+  ! call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
+  ! if(bcs_neq) then
+  !    !+- BCS init
+  !    !
+  !    unit_neq_hloc = free_unit()
+  !    open(unit_neq_hloc,file="equ_refSC.out")
+  !    call read_SC_order(read_optWF_dir,phiBCS)
+  !    call getUbcs(phiBCS,Ubcs0)
+  !    write(unit_neq_hloc,*) phiBCS,Ubcs0
      
-     call read_SC_order(read_finSC_dir,phiBCS)
-     call getUbcs(phiBCS,Ubcsf)
-     write(unit_neq_hloc,*) phiBCS,Ubcsf
-     close(unit_neq_hloc)
-  end if
+  !    call read_SC_order(read_finSC_dir,phiBCS)
+  !    call getUbcs(phiBCS,Ubcsf)
+  !    write(unit_neq_hloc,*) phiBCS,Ubcsf
+  !    close(unit_neq_hloc)
+  ! end if
   !
   allocate(Ubcs_t(Nt_aux))
   unit_neq_hloc = free_unit()
@@ -208,12 +205,13 @@ program GUTZ_mb
   end do
   !
   !
-!  if(bcs_neq) then
-     allocate(bcs_wf(3,Lk))
-     allocate(psi_bcs_t(3*Lk))
-     ! call init_BCS_wf(bcs_wf,Ubcs0)
-     ! call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
-!  end if
+  ! if(bcs_neq) then
+  allocate(bcs_wf(3,Lk))
+  allocate(psi_bcs_t(3*Lk))
+  !
+  ! call init_BCS_wf(bcs_wf,Ubcs0)
+  ! call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
+  ! end if
   !
   it=1
   Uloc=Uloc_t(:,it)

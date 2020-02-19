@@ -1,7 +1,7 @@
 function BCS_equations_of_motion(time,y,Nsys) result(f)
   implicit none
   !inputs                                                                                                                                                                                                  
-  integer                                     :: Nsys ! nr of equations                                                                                                                                    
+  integer                                     :: Nsys ! nr of equations                                                                                                                                   
   real(8)                                     :: time ! time variable                                                                                                                                      
   complex(8),dimension(Nsys)                  :: y    ! argument array                                                                                                                                     
   complex(8),dimension(Nsys)                  :: f    ! result 

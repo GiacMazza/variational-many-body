@@ -68,7 +68,8 @@ program GUTZ_mb
   real(8) :: Uneq,Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU,dUneq
   real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
   complex(8) :: bcs_sc_order,bcs_delta
-  real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS
+  real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS,bcs_dens
+  real(8) :: sc_phase
   logical :: bcs_neq
   logical :: linear_ramp,trpz
   !
@@ -90,6 +91,7 @@ program GUTZ_mb
   call parse_input_variable(tRamp_neqU,"TRAMP_NEQU","inputGZ.conf",default=0.d0)  
   call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(sc_phase,"sc_phase","inputGZ.conf",default=0.d0) 
   !
   !
   call read_input("inputGZ.conf")
@@ -174,6 +176,9 @@ program GUTZ_mb
   !    close(unit_neq_hloc)
   ! end if
   !
+
+  Ubcs0=Uneq0
+  Ubcsf=Uneq
   allocate(Ubcs_t(Nt_aux))
   unit_neq_hloc = free_unit()
   open(unit_neq_hloc,file="neq_Ubcs.out")
@@ -203,79 +208,112 @@ program GUTZ_mb
         write(unit_neq_hloc,'(2F18.10)') t,Ubcs_t(itt)
      end if
   end do
+  close(unit_neq_hloc)
   !
   !
-  ! if(bcs_neq) then
+  !
+  k_qp_diss=k_qp_diss*abs(Ubcs0)
+  allocate(kdiss_t(Nt_aux))
+  unit_neq_hloc = free_unit()
+  open(unit_neq_hloc,file="neq_kdiss.out")
+  do itt=1,Nt_aux
+     t = t_grid_aux(itt) 
+     !
+     if(t.lt.tStart_neqU) then
+        r=0.d0
+     else
+        if(t.lt.tStart_neqU+tRamp_neqU) then
+           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
+        else
+           r = 1.d0 
+        end if
+     end if
+     !
+     if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
+        s = 1.d0
+     else
+        s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
+     end if
+     !
+     tmpU = r*k_qp_diss
+     !
+     kdiss_t(itt) = tmpU
+     if(mod(itt-1,nprint).eq.0) then        
+        write(unit_neq_hloc,'(2F18.10)') t,kdiss_t(itt)
+     end if
+  end do
+  close(unit_neq_hloc)
+  !
   allocate(bcs_wf(3,Lk))
   allocate(psi_bcs_t(3*Lk))
-  !
-  ! call init_BCS_wf(bcs_wf,Ubcs0)
-  ! call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
-  ! end if
+  call init_BCS_wf(bcs_wf,Ubcs0,sc_phase)
+  call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
   !
   it=1
-  Uloc=Uloc_t(:,it)
-  Ust =Ust_t(it)
-  Jh=Jh_t(it)
-  Jsf=Jsf_t(it)
-  Jph=Jph_t(it)
-  eLevels = eLevels_t(:,it)
-  call get_local_hamiltonian_trace(eLevels)      
-  !
-  call setup_neq_dynamics_superc
-  !    
-  unit_neq_Rhop = free_unit()
-  open(unit_neq_Rhop,file='neq_Rhop_matrix.data')
-  !
-  unit_neq_Qhop = free_unit()
-  open(unit_neq_Qhop,file='neq_Qhop_matrix.data')  
-  !
-  unit_neq_local_dens = free_unit()
-  open(unit_neq_local_dens,file='neq_local_density_matrix.data')
-  !
-  unit_neq_local_dens_dens = free_unit()
-  open(unit_neq_local_dens_dens,file='neq_local_dens_dens.data')
-  !
-  unit_neq_ene = free_unit()
-  open(unit_neq_ene,file='neq_energy.data')
-  !
-  unit_neq_dens_constrSL = free_unit()
-  open(unit_neq_dens_constrSL,file='neq_dens_constrSL.data')
-  !
-  unit_neq_dens_constrGZ = free_unit()
-  open(unit_neq_dens_constrGZ,file='neq_dens_constrGZ.data')
-  !
-  unit_neq_dens_constrSLa = free_unit()
-  open(unit_neq_dens_constrSLa,file='neq_dens_constrSLa.data')
-  !
-  unit_neq_dens_constrGZa = free_unit()
-  open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data')
-  !
-  unit_neq_constrU = free_unit()
-  open(unit_neq_constrU,file='neq_constrU.data')
-  !
-  unit_neq_AngMom = free_unit()
-  open(unit_neq_AngMom,file='neq_AngMom.data')
-  !
-  unit_neq_sc_order = free_unit()
-  open(unit_neq_sc_order,file='neq_sc_order.data')
-  !
-  unit_proj = free_unit()
-  open(unit_proj,file='neq_proj.data')
+
+  !+- this is all gz stuff -+!
+  ! Uloc=Uloc_t(:,it)
+  ! Ust =Ust_t(it)
+  ! Jh=Jh_t(it)
+  ! Jsf=Jsf_t(it)
+  ! Jph=Jph_t(it)
+  ! eLevels = eLevels_t(:,it)
+  ! call get_local_hamiltonian_trace(eLevels)      
+  ! !
+  ! call setup_neq_dynamics_superc
+  ! !    
+  ! unit_neq_Rhop = free_unit()
+  ! open(unit_neq_Rhop,file='neq_Rhop_matrix.data')
+  ! !
+  ! unit_neq_Qhop = free_unit()
+  ! open(unit_neq_Qhop,file='neq_Qhop_matrix.data')  
+  ! !
+  ! unit_neq_local_dens = free_unit()
+  ! open(unit_neq_local_dens,file='neq_local_density_matrix.data')
+  ! !
+  ! unit_neq_local_dens_dens = free_unit()
+  ! open(unit_neq_local_dens_dens,file='neq_local_dens_dens.data')
+  ! !
+  ! unit_neq_ene = free_unit()
+  ! open(unit_neq_ene,file='neq_energy.data')
+  ! !
+  ! unit_neq_dens_constrSL = free_unit()
+  ! open(unit_neq_dens_constrSL,file='neq_dens_constrSL.data')
+  ! !
+  ! unit_neq_dens_constrGZ = free_unit()
+  ! open(unit_neq_dens_constrGZ,file='neq_dens_constrGZ.data')
+  ! !
+  ! unit_neq_dens_constrSLa = free_unit()
+  ! open(unit_neq_dens_constrSLa,file='neq_dens_constrSLa.data')
+  ! !
+  ! unit_neq_dens_constrGZa = free_unit()
+  ! open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data')
+  ! !
+  ! unit_neq_constrU = free_unit()
+  ! open(unit_neq_constrU,file='neq_constrU.data')
+  ! !
+  ! unit_neq_AngMom = free_unit()
+  ! open(unit_neq_AngMom,file='neq_AngMom.data')
+  ! !
+  ! unit_neq_sc_order = free_unit()
+  ! open(unit_neq_sc_order,file='neq_sc_order.data')
+  ! !
+  ! unit_proj = free_unit()
+  ! open(unit_proj,file='neq_proj.data')
   !
   unit_neq_bcs = free_unit()
-  open(unit_neq_bcs,file='neq_bcs.data')
+  open(unit_neq_bcs,file='diss_bcs.data')
   !
-  allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
-  allocate(Qhop_matrix(Ns,Ns))
-  allocate(local_density_matrix(Ns,Ns))
-  allocate(local_dens_dens(Ns,Ns))
-  allocate(dens_constrSL(2,Ns,Ns))
-  allocate(dens_constrGZ(2,Ns,Ns))  
-  allocate(sc_order(Ns,Ns))
-  allocate(neq_gzproj(Nphi))
-  allocate(nqp(Ns,Lk))
-  allocate(dump_vect(Ns*Ns))
+  ! allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
+  ! allocate(Qhop_matrix(Ns,Ns))
+  ! allocate(local_density_matrix(Ns,Ns))
+  ! allocate(local_dens_dens(Ns,Ns))
+  ! allocate(dens_constrSL(2,Ns,Ns))
+  ! allocate(dens_constrGZ(2,Ns,Ns))  
+  ! allocate(sc_order(Ns,Ns))
+  ! allocate(neq_gzproj(Nphi))
+  ! allocate(nqp(Ns,Lk))
+  ! allocate(dump_vect(Ns*Ns))
 
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
   do it=1,Nt
@@ -285,69 +323,67 @@ program GUTZ_mb
      !
      if(mod(it-1,nprint).eq.0) then        
         !
-        call gz_neq_measure_superc(psi_t,t,neq_gzproj)
-        !
-        do is=1,Ns
-           call get_neq_Rhop(is,is,Rhop(is))
-           do js=1,Ns
-              call get_neq_Rhop(is,js,Rhop_matrix(is,js))              
-              call get_neq_Qhop(is,js,Qhop_matrix(is,js))              
-              call get_neq_local_dens(is,js,local_density_matrix(is,js))              
-              call get_neq_local_dens_dens(is,js,local_dens_dens(is,js))              
-              call get_neq_dens_constr_slater(is,js,dens_constrSL(1,is,js))
-              call get_neq_dens_constr_gzproj(is,js,dens_constrGZ(1,is,js))
-              call get_neq_dens_constrA_slater(is,js,dens_constrSL(2,is,js))
-              call get_neq_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))
-              call get_neq_local_sc(is,js,sc_order(is,js))
-           end do
-           ! do ik=1,Lk
-           !    call get_neq_nqp(is,ik,nqp(is,ik))
-           ! end do
-        end do
-        !
-        call get_neq_energies(energies)
-        call get_neq_local_angular_momenta(local_angular_momenta)
-        call get_neq_unitary_constr(unitary_constr)
-        !
-        call write_complex_matrix_grid(Rhop_matrix,unit_neq_Rhop,print_grid_Rhop,t)
-        call write_complex_matrix_grid(Qhop_matrix,unit_neq_Qhop,print_grid_Qhop,t)
-        call write_complex_matrix_grid(sc_order,unit_neq_sc_order,print_grid_SC,t)
-        !
-        call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
-        call write_hermitean_matrix(dens_constrSL(1,:,:),unit_neq_dens_constrSL,t)
-        call write_hermitean_matrix(dens_constrGZ(1,:,:),unit_neq_dens_constrGZ,t)
-        call write_hermitean_matrix(dens_constrSL(2,:,:),unit_neq_dens_constrSLa,t)
-        call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_neq_dens_constrGZa,t)
-        call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
-        call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
-        write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
-        write(unit_neq_ene,'(10F18.10)') t,energies
-        write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
-        write(unit_proj,'(20F18.10)') t,neq_gzproj        
+        ! call gz_neq_measure_superc(psi_t,t,neq_gzproj)
+        ! !
+        ! do is=1,Ns
+        !    call get_neq_Rhop(is,is,Rhop(is))
+        !    do js=1,Ns
+        !       call get_neq_Rhop(is,js,Rhop_matrix(is,js))              
+        !       call get_neq_Qhop(is,js,Qhop_matrix(is,js))              
+        !       call get_neq_local_dens(is,js,local_density_matrix(is,js))              
+        !       call get_neq_local_dens_dens(is,js,local_dens_dens(is,js))              
+        !       call get_neq_dens_constr_slater(is,js,dens_constrSL(1,is,js))
+        !       call get_neq_dens_constr_gzproj(is,js,dens_constrGZ(1,is,js))
+        !       call get_neq_dens_constrA_slater(is,js,dens_constrSL(2,is,js))
+        !       call get_neq_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))
+        !       call get_neq_local_sc(is,js,sc_order(is,js))
+        !    end do
+        !    ! do ik=1,Lk
+        !    !    call get_neq_nqp(is,ik,nqp(is,ik))
+        !    ! end do
+        ! end do
+        ! !
+        ! call get_neq_energies(energies)
+        ! call get_neq_local_angular_momenta(local_angular_momenta)
+        ! call get_neq_unitary_constr(unitary_constr)
+        ! !
+        ! call write_complex_matrix_grid(Rhop_matrix,unit_neq_Rhop,print_grid_Rhop,t)
+        ! call write_complex_matrix_grid(Qhop_matrix,unit_neq_Qhop,print_grid_Qhop,t)
+        ! call write_complex_matrix_grid(sc_order,unit_neq_sc_order,print_grid_SC,t)
+        ! !
+        ! call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
+        ! call write_hermitean_matrix(dens_constrSL(1,:,:),unit_neq_dens_constrSL,t)
+        ! call write_hermitean_matrix(dens_constrGZ(1,:,:),unit_neq_dens_constrGZ,t)
+        ! call write_hermitean_matrix(dens_constrSL(2,:,:),unit_neq_dens_constrSLa,t)
+        ! call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_neq_dens_constrGZa,t)
+        ! call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
+        ! call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
+        ! write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
+        ! write(unit_neq_ene,'(10F18.10)') t,energies
+        ! write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
+        ! write(unit_proj,'(20F18.10)') t,neq_gzproj        
         !        
         !+- measure BCS -+!
-        if(bcs_neq) then
-           call dynamicalVector_2_BCSwf(psi_bcs_t,bcs_wf)
-           bcs_sc_order = zero !<d+d+>
-           bcs_Kenergy = zero
-           bcs_delta=zero
-           do ik=1,Lk
-              bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
-              bcs_delta = bcs_delta + 0.5d0*(bcs_wf(1,ik)-xi*bcs_wf(2,ik))*wtk(ik)
-           end do
-           itt=t2it(t,tstep*0.5d0)
-           bcs_Uenergy = 2.d0*Uloc_t(1,itt)*bcs_delta*conjg(bcs_delta)        
-           write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_delta!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
-           !
-        end if
-        !
-        psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
+        call dynamicalVector_2_BCSwf(psi_bcs_t,bcs_wf)
+        bcs_sc_order = zero !<d+d+>
+        bcs_Kenergy = zero
+        bcs_delta=zero
+        bcs_dens=zero
+        do ik=1,Lk
+           bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
+           bcs_dens = bcs_dens + 0.5d0*(bcs_wf(3,ik)+1.d0)*wtk(ik)
+        end do
+        itt=t2it(t,tstep*0.5d0)
+        bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
+        write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
+        !     
      end if
-     if(trpz) then
-        psi_t = trpz_implicit(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
-     else
-        psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
-     end if
+     psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
+     ! if(trpz) then
+     !    psi_t = trpz_implicit(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
+     ! else
+     !    psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
+     ! end if
      !
   end do
 
@@ -684,25 +720,28 @@ CONTAINS
   end subroutine vdm_NCoff_mat2vec
 
 
-  subroutine init_bcs_wf(bcs_wf,U)
+  subroutine init_bcs_wf(bcs_wf,U,phase)
     complex(8),dimension(:,:) :: bcs_wf
-    real(8) :: U,bcs_sc_order
+    real(8) :: U,bcs_sc_order,phase
     real(8) :: Ek
-    real(8) :: sintk,costk
+    real(8) :: sintk,costk,sinph,cosph
+    complex(8) :: bcs_phi
     if(size(bcs_wf,1).ne.3) stop "error init bcs \sigma"
     if(size(bcs_wf,2).ne.Lk) stop "error init bcs Lk"
     !
     Ubcs=U
+    !write(*,*) bcs_self_cons(0.d0),bcs_self_cons(1.d0);stop
     bcs_sc_order=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
-    write(*,*) Ubcs,bcs_sc_order,bcs_sc_order*0.5d0
+    bcs_phi=bcs_sc_order*exp(xi*phase*pi)
+    sinph=dimag(bcs_phi);cosph=dreal(bcs_phi)
     do ik=1,Lk
        !
        Ek = sqrt(epsik(ik)**2.d0 + (bcs_sc_order*Ubcs)**2.d0)
        sintk=bcs_sc_order*Ubcs/Ek
        costk=epsik(ik)/Ek
        !
-       bcs_wf(1,ik) = -sintk*tanh(beta*Ek*0.5d0)
-       bcs_wf(2,ik) =  zero
+       bcs_wf(1,ik) = -cosph*sintk*tanh(beta*Ek*0.5d0)
+       bcs_wf(2,ik) = -sinph*sintk*tanh(beta*Ek*0.5d0)
        bcs_wf(3,ik) = -costk*tanh(beta*Ek*0.5d0)
        !
     end do

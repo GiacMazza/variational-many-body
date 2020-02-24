@@ -30,7 +30,7 @@ FPP=
 
 
 #EXE=gz_neq_1b_bethe
-EXE=gz_neq_1b_bethe_sc
+#EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_1b_cubic_sc
 #EXE=gz_neq_1b_cb_sc
 #EXE=gz_neq_1b_bethe_sc_tdlgr
@@ -63,6 +63,8 @@ EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_3b_bethe_sc_su2O1
 
 #EXE=gz_GF_pp_sc
+
+EXE=gz_diss_sc_bethe
 
 
 DIR=drivers

@@ -151,8 +151,7 @@ MODULE GZ_VARS_GLOBAL
   real(8),dimension(:,:),allocatable     :: eLevels_t 
   
   !
-  real(8),dimension(:),allocatable :: Ubcs_t
-  
+  real(8),dimension(:),allocatable :: Ubcs_t,kdiss_t
   !
   integer,dimension(:,:),allocatable     :: print_grid_Rhop
   integer,dimension(:,:),allocatable     :: print_grid_Qhop
@@ -239,10 +238,10 @@ MODULE GZ_VARS_GLOBAL
   abstract interface
      subroutine get_Hk(Hkmat,ik,time)
        complex(8),dimension(:,:) :: Hkmat
-       integer                   :: it
+       integer                   :: ik
        real(8)                   :: time
      end subroutine get_Hk
   end interface
   procedure (get_Hk),pointer  :: get_Hk_t => null ()
-
+ 
 END MODULE GZ_VARS_GLOBAL

@@ -13,11 +13,15 @@ CONTAINS
   include 'local_fock_space_algebra.f90'
   include 'local_fock_space_observables.f90'
   !
-  subroutine initialize_local_fock_space
+  subroutine initialize_local_fock_space(Nw_)
     integer :: iorb,jorb,ispin,jspin,ifock,jfock
+    integer,optional :: Nw_
     integer,dimension(:),allocatable   :: Fock,ivec
+    integer :: Nw
     !
-    Ns = 2*Norb        
+    Nw=1
+    if(present(Nw_)) Nw=Nw_
+    Ns = 2*Norb*Nw
     NFock = 2**Ns
     !
     allocate(ivec(Ns))
@@ -26,7 +30,8 @@ CONTAINS
        Fock(ifock)=ifock
        call bdecomp(Fock(ifock),ivec)
        call get_state_number(ivec,jfock)
-       write(*,'(10I3)') ivec(:),ifock,jfock
+       if(jfock/=ifock) stop "error initialization Fock space"
+       write(*,'(10I3)') ivec(:)
     end do
     !
     !+- Allocate and initialize stride -+! 
@@ -36,6 +41,9 @@ CONTAINS
           index(ispin,iorb)=iorb+(ispin-1)*Norb
        enddo
     end do
+    !
+
+    
     !
     call build_local_fock_algebra
     !

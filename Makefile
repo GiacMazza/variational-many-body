@@ -5,6 +5,9 @@ FC=mpif90
 FPP=
 
 
+EXE=ix_double_well
+#EXE=gz_diss_sc_bethe
+
 #EXE=gz_generate_phi_traces
 
 #EXE=gz_1b_nR
@@ -64,7 +67,7 @@ FPP=
 
 #EXE=gz_GF_pp_sc
 
-EXE=gz_diss_sc_bethe
+
 
 
 DIR=drivers
@@ -79,7 +82,7 @@ BRANCH=
 endif
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 #
-OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o GZ_GREENS_FUNCTIONS.o
+OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_TWO_SITES_FOCK_SPACE.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o GZ_GREENS_FUNCTIONS.o
 #
 
 
@@ -127,13 +130,13 @@ compile: version $(OBJS)
 	@echo " !+------------------------------------------------- "
 	@echo " ..................... compile ..................... "
 	@echo " !+------------------------------------------------- "
-	$(FC) $(FFLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE)$(BRANCH) $(ARGS)
+	$(FC) $(FFLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE)_$(BRANCH) $(ARGS)
 	@echo " !+--------------------------------------+! "
 	@echo " .................. done .................. "
 	@echo " !+--------------------------------------+! "
 	@echo ""
 	@echo ""
-	@echo "created" $(DIREXE)/$(EXE)$(BRANCH)
+	@echo "created" $(DIREXE)/$(EXE)_$(BRANCH)
 
 ed_solver:
 	@make -C ED_SOLVER/

@@ -4,7 +4,7 @@ MODULE GZ_VARS_INPUT
 
   public :: read_input
 
-  integer              :: Norb                ! number of orbitals
+  integer              :: Norb                ! number of orbitals  
   real(8),dimension(3) :: Uloc   !local interactions
   real(8)              :: Ust
   real(8)              ::  Jh !hund's coupling
@@ -17,6 +17,7 @@ MODULE GZ_VARS_INPUT
   real(8)              :: k_dens_diss
   real(8)              :: k_qp_diss,beta_diss
   real(8)              :: a_nhh
+  integer              :: Nsite
   
   !# Minimization flags  #!
   integer              :: lancelot_verbose
@@ -80,6 +81,9 @@ contains
     call parse_input_variable(k_qp_diss,"K_DISS",INPUTunit,default=0.d0)       !+- friction dissipation -+!
     call parse_input_variable(a_nhh,"A_NHH",INPUTunit,default=1.d0)       !+- lindblat[a_nhh=1.0] -> non-hermitean [a_nhh=0.0]  -+!
     call parse_input_variable(beta_diss,"BETA_DISS",INPUTunit,default=100.d0)  !+- friction "temperature"; ie fermi-function distribution of the bath -+!
+
+    call parse_input_variable(Nsite,"Nsite",INPUTunit,default=2)
+
     !
     call parse_input_variable(Nt,"NT",INPUTunit,default=100)
     call parse_input_variable(tstart,"TSTART",INPUTunit,default=0.d0)

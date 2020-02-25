@@ -5,8 +5,10 @@ MODULE GZ_AUX_FUNX
   implicit none
   private
   !
-  public :: bdecomp
+  public :: bdecomp  
   public :: get_state_number
+  public :: binomial
+
   public :: vec2mat_stride,mat2vec_stride
   public :: initialize_variational_density_simplex
   public :: initialize_variational_density,initialize_GZ_vect  
@@ -1011,6 +1013,25 @@ CONTAINS
     write(*,*) "FIXED POINT:exceede number of iterations"
   end subroutine fixed_point_sub
 
+
+  function binomial(n1,n2) result(nchoos)
+    real(8) :: xh
+    integer :: n1,n2,i
+    integer nchoos
+    xh = 1.d0
+    if(n2<0) then
+       nchoos = 0
+       return
+    endif
+    if(n2==0) then
+       nchoos = 1
+       return
+    endif
+    do i = 1,n2
+       xh = xh*dble(n1+1-i)/dble(i)
+    enddo
+    nchoos = int(xh + 0.5d0)
+  end function binomial
 
 
 END MODULE GZ_AUX_FUNX

@@ -9,9 +9,20 @@ MODULE GZ_VARS_GLOBAL
   integer                            :: Ns                  ! number of local energy levels = 2*Norb
   integer                              :: state_dim           ! dimension of a single Fock state  |(\up,\dn)_1,...,(\up,\dn)_Norb> ===> Ns = 2*Norb  
   integer,dimension(:,:),allocatable :: index               ! ispin,iorb  to  istate=1,Ns
+
+  integer :: Nh_2p
+  integer,dimension(:),allocatable :: ifk_to_i2p
+  integer,dimension(:),allocatable :: i2p_to_ifk
+
+  integer,dimension(:,:,:),allocatable :: i_ios               ! (ispin,iorb,isite) to istate
+  
+
   !
   !# Operators in the space (nFock X nFock) #!
   real(8),allocatable                :: CC(:,:,:),CA(:,:,:)          ! creation annhilation 
+
+  real(8),allocatable                :: CC_(:,:,:),CA_(:,:,:)          ! creation annhilation 
+
   real(8),allocatable                :: local_hamiltonian(:,:)       ! Hamiltonian of the atomic problem
   real(8),allocatable                :: local_hamiltonian_free(:,:)       ! free Hamiltonian of the atomic problem
   !

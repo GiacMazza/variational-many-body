@@ -27,7 +27,7 @@ program GUTZ_mb
   !
   complex(8),dimension(:,:),allocatable :: bcs_wf
   !
-  complex(8),dimension(:),allocatable     :: psi_t,psi_bcs_t
+  complex(8),dimension(:),allocatable     :: psi_t,psi_bcs_t,psi_bcs_check
   real(8),dimension(:,:),allocatable      :: Ut 
   real(8),dimension(:),allocatable      :: Jht
   real(8) :: r,s,tmpU,Ubcs,Ubcs0,Ubcsf
@@ -248,6 +248,10 @@ program GUTZ_mb
   allocate(psi_bcs_t(3*Lk))
   call init_BCS_wf(bcs_wf,Ubcs0,sc_phase)
   call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
+
+  allocate(psi_bcs_check(3*Lk))
+  call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_check)  
+
   !
   it=1
 
@@ -377,8 +381,21 @@ program GUTZ_mb
         bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
         write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
         !     
+
+        call dynamicalVector_2_BCSwf(psi_bcs_check,bcs_wf)
+        bcs_sc_order = zero !<d+d+>
+        bcs_dens=zero
+        do ik=1,Lk
+           bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
+           bcs_dens = bcs_dens + 0.5d0*(bcs_wf(3,ik)+1.d0)*wtk(ik)
+        end do
+        itt=t2it(t,tstep*0.5d0)
+        bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
+        write(746,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens
      end if
      psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
+     psi_bcs_check = RK_step(3*Lk,4,tstep,t,psi_bcs_check,bcs_eom)
+
      ! if(trpz) then
      !    psi_t = trpz_implicit(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
      ! else

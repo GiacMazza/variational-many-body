@@ -25,7 +25,7 @@ MODULE GZ_DYNAMICS
   !
   public :: gz_eom_superc_lgr_sp !+--> obsolete routine; keep for the moment
   !
-  public :: bcs_equations_of_motion
+  public :: bcs_equations_of_motion,bcs_eom
   !
   public :: setup_neq_hamiltonian
   !

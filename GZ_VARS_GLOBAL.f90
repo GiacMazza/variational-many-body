@@ -10,7 +10,7 @@ MODULE GZ_VARS_GLOBAL
   integer                              :: state_dim           ! dimension of a single Fock state  |(\up,\dn)_1,...,(\up,\dn)_Norb> ===> Ns = 2*Norb  
   integer,dimension(:,:),allocatable :: index               ! ispin,iorb  to  istate=1,Ns
 
-  integer :: Nh_2p
+  integer :: Nh2
   integer,dimension(:),allocatable :: ifk_to_i2p
   integer,dimension(:),allocatable :: i2p_to_ifk
 

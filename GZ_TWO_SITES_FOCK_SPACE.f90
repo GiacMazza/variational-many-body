@@ -6,21 +6,23 @@ MODULE GZ_TWO_SITES_FOCK
   private
   !  
   public :: initialize_two_sites_fock_space       
+  !public :: build_two_sites_hamiltonian
   !public :: build_local_hamiltonian
   !
 CONTAINS
   !
   include 'two_sites_fock_space_algebra.f90'
-  include 'local_fock_space_observables.f90'
   !
   subroutine initialize_two_sites_fock_space
-    integer :: iorb,jorb,ispin,jspin,ifock,jfock,isite,ii
-    integer,dimension(:),allocatable   :: Fock,ivec
+    integer :: iorb,jorb,ispin,jspin,ifock,jfock,isite,ii,is,js
+    integer,dimension(:),allocatable   :: Fock,ivec,jvec
+    real(8) :: sgni
+    real(8),dimension(:,:,:,:),allocatable :: cc_ij
     !
     Ns = 2*Norb*Nsite
     NFock = 2**Ns
     !
-    allocate(ivec(Ns))
+    allocate(ivec(Ns),jvec(Ns))
     allocate(Fock(Nfock))
     do ifock=1,NFock
        Fock(ifock)=ifock
@@ -32,36 +34,30 @@ CONTAINS
     !
     !+- Allocate and initialize stride -+! 
     allocate(i_ios(2,Norb,Nsite))
+    i_ios=0
     do ispin=1,2
        ii = (ispin-1)*Norb*Nsite
-       do iorb=1,Norb
-          do isite=1,Nsite
-             i_ios(ispin,iorb,isite)=ii+iorb+(isite-1)*Nsite
+       do isite=1,Nsite
+          do iorb=1,Norb
+             i_ios(ispin,iorb,isite)=ii+iorb+(isite-1)*Norb
           enddo
        enddo
-    end do
-    !
-    call build_two_sites_fock_algebra
-    !
-    !+- here restrict the Hilbert space to the two-particle sector-+
-    ! call build_local_hamiltonian
-    ! !
-    ! call build_local_observables
+    enddo
     !
     call fock_to_2p_hilbert
     !
   end subroutine initialize_two_sites_fock_space
-
+  
   subroutine fock_to_2p_hilbert
-    integer :: iip,ifock,in
+    integer :: iip,ifock,in,is,jfock,jjp
     integer,dimension(:),allocatable   :: ivec
-
-    Nh_2p = binomial(Ns,2)
-    write(*,*) Nh_2p    
+    Nh2 = binomial(Ns,2)
+    write(*,*) Nh2    
     allocate(ivec(Ns))
-    allocate(ifk_to_i2p(nFock),i2p_to_ifk(Nh_2p))
+    allocate(ifk_to_i2p(nFock),i2p_to_ifk(Nh2))
     !
     ifk_to_i2p=0
+    i2p_to_ifk=0
     iip=0    
     do ifock=1,nFock
        call bdecomp(ifock,ivec)
@@ -74,67 +70,112 @@ CONTAINS
     end do
     write(*,*) i2p_to_ifk
     write(*,*) ifk_to_i2p    
-    do iip=1,Nh_2p       
+    do iip=1,Nh2       
        ifock=i2p_to_ifk(iip)       
        call bdecomp(ifock,ivec)
        write(*,*) '|',ivec(1:Norb),',',ivec(1+Norb:2*Norb),',',ivec(1+2*Norb:3*Norb),',',ivec(1+3*Norb:4*Norb),'>'       
-    end do
+    end do    
+  end subroutine fock_to_2p_hilbert
 
-    allocate(CC_(Ns,nh_2p,nh_2p),CA_(Ns,nh_2p,nh_2p))
+  subroutine build_cdgc_2p_states(CdgC)
+    integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn,ifock,is
+    integer :: isite,js,jfock,jjfock
+    real(8),dimension(:,:,:,:),allocatable :: CdgC
+    integer :: iip,jjp
+    real(8) ::  sgn1,sgn2
+    integer,dimension(Ns) :: ivec
+    !
+    if(allocated(CdgC)) deallocate(CdgC)
+    allocate(CdgC(Ns,Ns,nh2,nh2)); CdgC=0.d0   
+    !
     do is=1,Ns
-       do iip=1,nh_2p
-          do jjp=1,nh_2p
+       do js=1,Ns
+          do iip=1,nh2
              ifock=i2p_to_ifk(iip)
-             jfock=i2p_to_ifk(jjp)
-             CC_(is,iip,jjp) = CC(is,ifock,jfock)
-             CA_(is,iip,jjp) = CA(is,ifock,jfock)
+             call c(js,ifock,jjfock,sgn1)
+             if(jjfock/=0) call cdg(is,jjfock,jfock,sgn2)
+             if(jfock/=0) jjp=ifk_to_i2p(jfock)             
+             if(jjp==0) then
+                call bdecomp(ifock,ivec)
+                write(*,*) ivec
+                write(*,*) ifock,jjfock,jfock,is,js,iip,jjp,sgn1,sgn2
+                stop "error in stride in computing CdgC"
+             end if
+             CdgC(is,js,jjp,iip) = sgn1*sgn2             
           end do
        end do
     end do
-    
-  end subroutine fock_to_2p_hilbert
+    !
+    ! do iip=1,nh2
+    !    write(*,'(10F8.3)') CdgC(1,2,iip,:)
+    ! end do
+    ! do iip=1,nh2
+    !    write(*,'(10F8.3)') CdgC(2,1,iip,:)
+    ! end do
+    !
+  end subroutine build_cdgc_2p_states
 
 
   ! !
-  subroutine build_two_sites_hamiltonian(elevels)
-    integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn,ifock,is
-    real(8),dimension(Ns) :: elevels
-    complex(8),dimension(nh_2p,nh_2p) :: tmpH
-    integer :: iip,jjp
-    !
-    allocate(two_sites_Hamiltonian(nh_2p,nh_2p),tmpH(nh_2p,nh_2p))    
-    do is=1,Ns
-       two_sites_Hamiltonian=two_sites_Hamiltonian+elevels(is)*matmul(CC_(is,:,:),CA_(is,:,:)) 
-    end do
-    !
-    tmph=0.d0
-    do isite=1,Nsite
-       do iorb=1,Norb
-          is=i_ios(1,iorb,isite)
-          js=i_ios(2,iorb,isite)          
-          tmph=matmul(CC_(is,:,:),CA_(is,:,:))
-          tmph=matmul(CA_(js,:,:),tmph)
-          tmph=matmul(CC_(js,:,:),tmph)
-          two_sites_Hamiltonian=two_sites_Hamiltonian+U*tmpH
-       end do
-    end do
+  ! subroutine build_two_sites_hamiltonian(Htwo_sites,elevels,U,V)
+  !   integer :: iorb,jorb,ispin,jspin,istate,jstate,is_up,is_dn,js_up,js_dn,ifock,is
+  !   integer :: isite,js,jfock
+  !   real(8),dimension(Ns) :: elevels
+  !   complex(8),dimension(:,:),allocatable :: tmpH,Htwo_sites
+  !   integer :: iip,jjp
+  !   real(8) :: U,V
+  !   !
+  !   if(allocated(Htwo_sites)) deallocate(Htwo_sites)
+  !   allocate(Htwo_sites(nh2,nh2));Htwo_sites=zero    
+  !   allocate(tmpH(nh2,nh2));tmpH=zero    
+  !   !
+  !   do is=1,Ns
+  !      Htwo_sites=Htwo_sites+elevels(is)*matmul(CC_(is,:,:),CA_(is,:,:)) 
+  !   end do
+  !   !
+  !   tmph=0.d0
+  !   do isite=1,Nsite
+  !      do iorb=1,Norb
+  !         do jorb=1,Norb
+  !            if(jorb.eq.iorb) then
+  !               is=i_ios(1,iorb,isite)
+  !               js=i_ios(2,iorb,isite)          
+  !               tmph=matmul(CC_(is,:,:),CA_(is,:,:))
+  !               tmph=matmul(CA_(js,:,:),tmph)
+  !               tmph=matmul(CC_(js,:,:),tmph)
+  !               Htwo_sites=Htwo_sites+U*tmpH
+  !            else                
+  !               do ispin=1,2
+  !                  do jspin=1,2
+  !                     is=i_ios(ispin,iorb,isite)
+  !                     tmph=matmul(CC_(is,:,:),CA_(is,:,:))
+  !                     tmph=matmul(CA_(js,:,:),tmph)
+  !                     tmph=matmul(CC_(js,:,:),tmph)
+  !                     Htwo_sites=Htwo_sites+U*tmpH
+  !                     js=i_ios(jspin,iorb,isite)                                
+  !                  end do
+  !               end do
 
-    tmph=0.d0
-    do ispin=1,2
-       do jspin=1,2
-          do iorb=1,Norb
-             do jorb=1,Norb
-                is=i_ios(ispin,iorb,1)
-                js=i_ios(jspin,jorb,2)                          
-                tmph=matmul(CC_(is,:,:),CA_(is,:,:))
-                tmph=matmul(CA_(js,:,:),tmph)
-                tmph=matmul(CC_(js,:,:),tmph)
-             end do
-          end do
-       end do
-    end do
-    
-  end subroutine build_two_sites_hamiltonian
+  !            end if
+  !         end do
+  !      end do
+  !   end do
+  !   tmph=0.d0
+  !   do ispin=1,2
+  !      do jspin=1,2
+  !         do iorb=1,Norb
+  !            do jorb=1,Norb
+  !               is=i_ios(ispin,iorb,1)
+  !               js=i_ios(jspin,jorb,2)                          
+  !               tmph=matmul(CC_(is,:,:),CA_(is,:,:))
+  !               tmph=matmul(CA_(js,:,:),tmph)
+  !               tmph=matmul(CC_(js,:,:),tmph)
+  !               Htwo_sites=Htwo_sites+V*tmpH
+  !            end do
+  !         end do
+  !      end do
+  !   end do    
+  ! end subroutine build_two_sites_hamiltonian
   !   !+- energy of the atomic levels -+!
   !   allocate(atomic_energy_levels(Ns))
   !   select case(Norb)

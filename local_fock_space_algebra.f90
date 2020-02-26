@@ -6,6 +6,8 @@ subroutine build_local_fock_algebra
   real(8)                            :: rnd    
   !+- allocate and build creation/anhhilation operators -+!
   allocate(CC(Ns,nFock,nFock),CA(Ns,nFock,nFock))
+  CC=0.d0
+  CA=0.d0
   do ispin=1,2
      do iorb=1,Norb
         istate=index(ispin,iorb)

@@ -74,13 +74,42 @@ program GUTZ_mb
   logical :: bcs_neq
   logical :: linear_ramp,trpz
   !
+
+  real(8),dimension(:,:,:,:) :: cc_ij
+  real(8) :: Uw,Vw
+
   !
+  
+  call parse_input_variable(Uw,"Uw","inputIX.conf",default=1.d0)  
+  call parse_input_variable(Vw,"Vw","inputIX.conf",default=1.d0)  
   call read_input("inputIX.conf")
   call save_input_file("inputIX.conf")
   !
-  wf_symmetry=4
-  !
   call initialize_two_sites_fock_space
+  !
+  
+  allocate(cc_ij(Ns,Ns,nh2,nh2))
+  
+  
+
+
+
+
+
+  
+  !+-> here I should get the solution of the two q-wells <-+!
+  !+-> get the energy levels
+
+  !+-> simply solve the 2p-hamiltonian -+!
+
+
+  !+-> compute the dipole matrix elements for the wells <-+!
+
+  
+  
+
+
+
 
   !call build_lattice_model; 
   ! get_Hk_t => getHk

@@ -213,7 +213,7 @@ program GUTZ_mb
   !
   !
   k_qp_diss=k_qp_diss*abs(Ubcs0)
-  allocate(kdiss_t(Nt_aux))
+  allocate(kdiss_t(Nt_aux),kpump_t(Nt_aux))
   unit_neq_hloc = free_unit()
   open(unit_neq_hloc,file="neq_kdiss.out")
   do itt=1,Nt_aux
@@ -235,11 +235,10 @@ program GUTZ_mb
         s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
      end if
      !
-     tmpU = r*k_qp_diss
-     !
-     kdiss_t(itt) = tmpU
+     kdiss_t(itt) = r*k_qp_diss
+     kpump_t(itt) = r*k_qp_pump
      if(mod(itt-1,nprint).eq.0) then        
-        write(unit_neq_hloc,'(2F18.10)') t,kdiss_t(itt)
+        write(unit_neq_hloc,'(2F18.10)') t,kdiss_t(itt),kpump_t(itt)
      end if
   end do
   close(unit_neq_hloc)
@@ -379,7 +378,7 @@ program GUTZ_mb
         end do
         itt=t2it(t,tstep*0.5d0)
         bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
-        write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
+        write(unit_neq_bcs,'(10F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
         !     
 
         call dynamicalVector_2_BCSwf(psi_bcs_check,bcs_wf)
@@ -748,7 +747,12 @@ CONTAINS
     !
     Ubcs=U
     !write(*,*) bcs_self_cons(0.d0),bcs_self_cons(1.d0);stop
-    bcs_sc_order=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    if(U.lt.0.d0) then
+       bcs_sc_order=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    else
+       bcs_sc_order=1.d-6
+    end if
+    
     bcs_phi=bcs_sc_order*exp(xi*phase*pi)
     sinph=dimag(bcs_phi);cosph=dreal(bcs_phi)
     do ik=1,Lk

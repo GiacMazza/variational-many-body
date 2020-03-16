@@ -63,7 +63,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
 
      !+ add here the non-hermitean part -+!
      !
-     nhh_dot = -delta_tk(ik)*n_tk(ik) + delta_t*n_tk(ik)**2.d0-conjg(delta_t)*delta_tk(ik)
+     nhh_dot = -0.5d0*n_t*delta_tk(ik)*n_tk(ik) + delta_t*n_tk(ik)**2.d0-conjg(delta_t)*delta_tk(ik)
      !
      bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2.d0*(1.d0-a_nhh)*kdiss_t(it)*2.d0*dreal(nhh_dot)
      bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2.d0*(1.d0-a_nhh)*kdiss_t(it)*2.d0*dimag(nhh_dot)
@@ -80,6 +80,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
   if(abs(nnsum).gt.1.d-12) then
      cmu = cmu -xi*Sz_dot/4.d0/nnsum
   end if
+  write(965,'(10F18.10)') time,cmu,Sz_dot,nnsum
  
   !+- complex chemical potential -+!  
   if(diss_fixdens) then
@@ -125,7 +126,6 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
   ! end if
 
   ! !write(965,*) tmp_delta*0.5d0,dimag(delta_t)
-  write(965,'(10F18.10)') time,cmu
   !
   !
   call BCSwf_2_dynamicalVector(bcsWF_dot,f)

@@ -212,7 +212,7 @@ program GUTZ_mb
   !
   !
   !
-  k_qp_diss=k_qp_diss*abs(Ubcs0)
+  k_qp_diss=k_qp_diss*abs(Ubcsf)
   allocate(kdiss_t(Nt_aux),kpump_t(Nt_aux))
   unit_neq_hloc = free_unit()
   open(unit_neq_hloc,file="neq_kdiss.out")

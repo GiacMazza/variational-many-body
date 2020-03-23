@@ -21,7 +21,7 @@ program GUTZ_mb
   real(8) :: t
   integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin,isite
   integer :: jorb,jspin,jsite
-  integer :: ilm,jlm,iilm,jjlm
+  integer :: ilm,jlm,iilm,jjlm,iw
   integer :: uio
   integer :: ix
   integer :: i2,j2,k2
@@ -82,6 +82,9 @@ program GUTZ_mb
 
   real(8),dimension(:,:,:,:),allocatable :: cc_ij,ccH_ij
   complex(8),dimension(:,:,:,:),allocatable :: ccHlm_ij
+
+  complex(8),dimension(:,:),allocatable :: aph_ij
+  
   real(8),dimension(:,:,:,:),allocatable :: nn_ij
   complex(8),dimension(:,:),allocatable :: Hdw,Hlm
 
@@ -95,8 +98,10 @@ program GUTZ_mb
   real(8) :: dwell,Lwell
   real(8) :: xlmin,xlmax,xrmin,xrmax
   real(8),dimension(:),allocatable :: xr,wtr
-  
 
+  integer :: Lreal
+  real(8) :: wmin,wmax
+  
   integer :: Nph,Nh
 
   real(8) :: wph
@@ -111,6 +116,8 @@ program GUTZ_mb
   !
   real(8) :: hbarc,mel
   real(8) :: chiLR,chi_tmp,chi_ij,zeta,chiLR_bare
+  complex(8),dimension(:),allocatable :: gph
+  complex(8) :: gtmp
 
   real(8) :: leff !+- effective length of the cavity. i.e. (e A0/hbar) \sim 1/leff
   
@@ -126,6 +133,12 @@ program GUTZ_mb
   call parse_input_variable(Vw,"Vw","inputIX.conf",default=1.d0)
   call parse_input_variable(Nxw,"Nxw","inputIX.conf",default=1000)  
   call parse_input_variable(Nxd,"Nxd","inputIX.conf",default=100)
+
+  call parse_input_variable(Lreal,"Lreal","inputIX.conf",default=500)
+
+  call parse_input_variable(wmin,"WMIN","inputIX.conf",default=0.d0)
+  call parse_input_variable(wmax,"WMAX","inputIX.conf",default=8.d0)
+
   !
   call parse_input_variable(Nph,"Nph","inputIX.conf",default=10)
   call parse_input_variable(wph,"wph","inputIX.conf",default=1.d0) !+- this is defined the ratio with the first inter-subband transition
@@ -278,8 +291,6 @@ program GUTZ_mb
      end do
   end do
   !
-
-  !write(*,*) pnn_H2(1,3),pnn_H2(3,1)
   
 
   
@@ -346,8 +357,6 @@ program GUTZ_mb
      end do
   end do
   close(uio)
-
-
   
   !+-  here write down the light-matter hamiltonian -+!
   Nh=Nph*nh2
@@ -398,18 +407,10 @@ program GUTZ_mb
      end do
   end do
 
+
   !
-  write(*,*) Hlm(1,21),Hlm(21,1);
-  do ilm=1,Nh
-     do jlm=ilm+1,Nh
-        write(111,'(2I8,10F30.22)') ilm,jlm,Hlm(ilm,jlm)
-        write(112,'(2I8,10F30.22)') ilm,jlm,Hlm(jlm,ilm)
-     end do
-  end do
   call eigh(Hlm,eigv_lm)
-
-
-
+  !
   open(unit=out_unit,file='lm2p_spectrum.data')
   uio=free_unit()
   open(unit=uio,file='lm2p_eigenstates.data')  
@@ -423,9 +424,10 @@ program GUTZ_mb
   close(out_unit)
   close(uio)
   
+
+
   
   allocate(ccHlm_ij(Ns,Ns,Nh,Nh)) !+- cc-operator transformation -+!
-
   ccHlm_ij=0.d0
   do ik=1,Nph
      do i2=1,nh2
@@ -444,10 +446,51 @@ program GUTZ_mb
      end do
   end do
 
+  allocate(aph_ij(Nh,Nh)); aph_ij=0.d0
+  do ik=1,Nph-1     
+     do i2=1,nh2
+        !jk=ik+1
+        ilm = (i2-1)*Nph + ik
+        jlm = (i2-1)*Nph + ik+1
+        !
+        aph_ij(ilm,jlm) = sqrt(dble(ik)) ! 
+        !
+     end do
+  end do
+  !
+  aph_ij=matmul(aph_ij,Hlm)
+  aph_ij=matmul(transpose(conjg(Hlm)),aph_ij)
+  !
+  !+- compute the photonic greens function -+!
+  allocate(wr(Lreal)); wr=linspace(wmin,wmax,Lreal)
+  allocate(gph(Lreal)); gph=0.d0
+
+  open(unit=out_unit,file='ph_gf.data')  
+  
+  do iw=1,Lreal
+     gph(iw)=0.d0
+     do ilm=1,Nh
+        do jlm=1,Nh
+           !
+           if(abs(eigv_lm(ilm)-eigv_lm(jlm)).gt.1.d-15) then
+              !
+              gtmp = exp(-beta*(eigv_lm(jlm)-eigv_lm(1)))-exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+              gtmp = gtmp/(wr(iw)+eigv_lm(ilm)-eigv_lm(jlm)+xi*0.02)
+              gtmp = gtmp*abs(aph_ij(ilm,jlm))**2.d0                    
+              !
+           else
+              !
+              gtmp = beta*exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))*abs(aph_ij(ilm,jlm))**2.d0
+              !
+           end if
+           gph(iw) = gph(iw) - gtmp/zeta                 
+        end do
+     end do
+     write(out_unit,'(10F18.10)') wr(iw),gph(iw)     
+  end do
+  close(out_unit)
+  
   !+- compute again the left-right susceptibility -+!
-
-
-    !+- compute left/right susceptibility at zero frequency -+!
   zeta=0.d0
   do ilm=1,Nh
      zeta=zeta+exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
@@ -483,14 +526,11 @@ program GUTZ_mb
         end do
      end do
   end do
-
+  
   open(unit=out_unit,file='chiLR.data')  
   write(out_unit,*) chiLR,zeta,chiLR_bare
   close(out_unit)
 
-  
-  write(*,*) 'READY to GO'
-  stop
 
 
   

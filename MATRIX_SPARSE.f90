@@ -711,8 +711,8 @@ contains
     integer                            :: i,j,Ndim1,Ndim2
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
-    if(Ndim1/=Ndim2)print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
-    if(sparse%Nrow /= Ndim1)stop"Warning SPARSE/load_matrix: dimensions error"
+    if(Ndim1/=Ndim2) print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
+    if(sparse%Nrow /= Ndim1) stop "Warning SPARSE/load_matrix: dimensions error"
     do i=1,Ndim1
        do j=1,Ndim2
           if(matrix(i,j)/=0.d0)call sp_insert_element_d(sparse,matrix(i,j),i,j)

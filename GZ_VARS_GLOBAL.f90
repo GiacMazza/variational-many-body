@@ -15,6 +15,7 @@ MODULE GZ_VARS_GLOBAL
   integer,dimension(:),allocatable :: i2p_to_ifk
 
   integer,dimension(:,:,:),allocatable :: i_ios               ! (ispin,iorb,isite) to istate
+  integer,dimension(:,:),allocatable :: ios_i               ! (ispin,iorb,isite) to istate
   
 
   !

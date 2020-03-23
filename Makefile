@@ -86,15 +86,15 @@ OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRI
 #
 
 
-#FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
-LIBDIR=$(HOME)/gm_opt
-#LIBDIR=/opt/
+LIBDIR=$(HOME)/opt_tools/
 
 
-#GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
-#GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
-GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
-GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
+# GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
+# GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
+
+GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
+GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
+
 
 
 GALLIBS1   = -lgalahad -lgalahad_hsl 
@@ -103,17 +103,18 @@ GALLIBS2   = -lgalahad_metis
 MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 
 
-INCARGS =-I$(LIBDIR)/old_libs/SciFortran/gnu/include -L$(LIBDIR)/SciFortran/gnu/lib 
-INCARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib 
+INCARGS =-I$(LIBDIR)/old_libs/SciFortran/gnu/include -L$(LIBDIR)/old_libs/SciFortran/gnu/lib 
+INCARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include -L$(LIBDIR)/old_libs/DMFTtools/gnu/lib 
 INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
-#FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
+FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
 
 #ARGS=-I$(LIBDIR)/old_libs/SciFortran/gnu/include  -L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
 ARGS=-L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) 
-ARGS+=-L$(LIBDIR)/old_libs/DMFTtools/gnu/lib  -ldmftt
-ARGS+=-L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
+ARGS+=-L$(LIBDIR)/old_libs/DMFTtools/gnu/lib -ldmftt
+ARGS+=-L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack -larpack -llapack -lblas
+
 
 #ARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include  -L$(LIBDIR)/old_libs/DMFTtools/gnu/lib  -ldmftt
 

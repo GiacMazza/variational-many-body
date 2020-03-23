@@ -5,7 +5,8 @@ MODULE GZ_TWO_SITES_FOCK
   implicit none
   private
   !  
-  public :: initialize_two_sites_fock_space       
+  public :: initialize_two_sites_fock_space
+  public :: build_cdgc_2p_states
   !public :: build_two_sites_hamiltonian
   !public :: build_local_hamiltonian
   !
@@ -13,11 +14,16 @@ CONTAINS
   !
   include 'two_sites_fock_space_algebra.f90'
   !
-  subroutine initialize_two_sites_fock_space
+  subroutine initialize_two_sites_fock_space(info)
     integer :: iorb,jorb,ispin,jspin,ifock,jfock,isite,ii,is,js
     integer,dimension(:),allocatable   :: Fock,ivec,jvec
     real(8) :: sgni
     real(8),dimension(:,:,:,:),allocatable :: cc_ij
+    logical,optional :: info
+    logical :: info_
+    integer :: unit_info
+    info_=.false.
+    if(present(info)) info_=info
     !
     Ns = 2*Norb*Nsite
     NFock = 2**Ns
@@ -29,17 +35,23 @@ CONTAINS
        call bdecomp(Fock(ifock),ivec)
        call get_state_number(ivec,jfock)
        if(jfock/=ifock) stop "error initialization Fock space"
-       write(*,*) '|',ivec(1:Norb),',',ivec(1+Norb:2*Norb),',',ivec(1+2*Norb:3*Norb),',',ivec(1+3*Norb:4*Norb),'>'
+       if(info_) write(*,*) '|',ivec(1:Norb),',',ivec(1+Norb:2*Norb),',',ivec(1+2*Norb:3*Norb),',',ivec(1+3*Norb:4*Norb),'>'
     end do
     !
     !+- Allocate and initialize stride -+! 
     allocate(i_ios(2,Norb,Nsite))
-    i_ios=0
+    allocate(ios_i(3,Ns))
+    i_ios=0;ios_i=0
     do ispin=1,2
        ii = (ispin-1)*Norb*Nsite
        do isite=1,Nsite
           do iorb=1,Norb
              i_ios(ispin,iorb,isite)=ii+iorb+(isite-1)*Norb
+             !
+             ios_i(1,i_ios(ispin,iorb,isite)) = ispin
+             ios_i(2,i_ios(ispin,iorb,isite)) = iorb
+             ios_i(3,i_ios(ispin,iorb,isite)) = isite
+             !
           enddo
        enddo
     enddo
@@ -51,8 +63,8 @@ CONTAINS
   subroutine fock_to_2p_hilbert
     integer :: iip,ifock,in,is,jfock,jjp
     integer,dimension(:),allocatable   :: ivec
+    integer :: unit_info
     Nh2 = binomial(Ns,2)
-    write(*,*) Nh2    
     allocate(ivec(Ns))
     allocate(ifk_to_i2p(nFock),i2p_to_ifk(Nh2))
     !
@@ -68,13 +80,18 @@ CONTAINS
           ifk_to_i2p(ifock) = iip
        end if
     end do
-    write(*,*) i2p_to_ifk
-    write(*,*) ifk_to_i2p    
+    ! write(*,*) i2p_to_ifk
+    ! write(*,*) ifk_to_i2p
+
+    open(unit_info,file='two_sites_fock.info')
     do iip=1,Nh2       
        ifock=i2p_to_ifk(iip)       
        call bdecomp(ifock,ivec)
-       write(*,*) '|',ivec(1:Norb),',',ivec(1+Norb:2*Norb),',',ivec(1+2*Norb:3*Norb),',',ivec(1+3*Norb:4*Norb),'>'       
-    end do    
+       write(*,*) '|',ivec(1:Norb),',',ivec(1+Norb:2*Norb),',',ivec(1+2*Norb:3*Norb),',',ivec(1+3*Norb:4*Norb),'>'
+       write(unit_info,*) iip,'|',ivec(1:Norb),',',ivec(1+Norb:2*Norb),',',ivec(1+2*Norb:3*Norb),',',ivec(1+3*Norb:4*Norb),'>'       
+    end do
+    close(unit_info)
+    write(*,*) 'number of fock states with 2 particles',Nh2
   end subroutine fock_to_2p_hilbert
 
   subroutine build_cdgc_2p_states(CdgC)

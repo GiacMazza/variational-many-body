@@ -19,7 +19,12 @@ program GUTZ_mb
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t
-  integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin
+  integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin,isite
+  integer :: jorb,jspin,jsite
+  integer :: ilm,jlm,iilm,jjlm
+  integer :: uio
+  integer :: ix
+  integer :: i2,j2,k2
   integer :: nprint
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir,read_finSC_dir
@@ -75,342 +80,532 @@ program GUTZ_mb
   logical :: linear_ramp,trpz
   !
 
-  real(8),dimension(:,:,:,:) :: cc_ij
+  real(8),dimension(:,:,:,:),allocatable :: cc_ij,ccH_ij
+  complex(8),dimension(:,:,:,:),allocatable :: ccHlm_ij
+  real(8),dimension(:,:,:,:),allocatable :: nn_ij
+  complex(8),dimension(:,:),allocatable :: Hdw,Hlm
+
+  complex(8),dimension(:,:),allocatable :: pnn
+  complex(8),dimension(:,:),allocatable :: pnn_h2 
+  
+  real(8),dimension(:),allocatable :: Edw,eigv_lm
+  
   real(8) :: Uw,Vw
 
+  real(8) :: dwell,Lwell
+  real(8) :: xlmin,xlmax,xrmin,xrmax
+  real(8),dimension(:),allocatable :: xr,wtr
+  
+
+  integer :: Nph,Nh
+
+  real(8) :: wph
+  real(8) :: Daa,Dpa
+  
+  integer :: Nxw,Nxd  
+  real(8),dimension(:,:),allocatable :: ewells
+
+  real(8),dimension(:,:,:),allocatable :: psi_w,dpsi_w
+  real(8) :: kn
+  
   !
+  real(8) :: hbarc,mel
+  real(8) :: chiLR,chi_tmp,chi_ij,zeta,chiLR_bare
+
+  real(8) :: leff !+- effective length of the cavity. i.e. (e A0/hbar) \sim 1/leff
+  
+  hbarc=Planck_constant_in_eV_s/2.d0/pi*speed_of_light_in_vacuum*1.d9 !+- speed of light in nm/s !!
+  mel=electron_mass_energy_equivalent_in_Mev*1.d6
   
   call parse_input_variable(Uw,"Uw","inputIX.conf",default=1.d0)  
-  call parse_input_variable(Vw,"Vw","inputIX.conf",default=1.d0)  
+  call parse_input_variable(Vw,"Vw","inputIX.conf",default=1.d0)
+  call parse_input_variable(dwell,"dwell","inputIX.conf",default=20.d0)
+  call parse_input_variable(Lwell,"Lwell","inputIX.conf",default=20.d0)
+  call parse_input_variable(leff,"leff","inputIX.conf",default=100.d0)
+
+  call parse_input_variable(Vw,"Vw","inputIX.conf",default=1.d0)
+  call parse_input_variable(Nxw,"Nxw","inputIX.conf",default=1000)  
+  call parse_input_variable(Nxd,"Nxd","inputIX.conf",default=100)
+  !
+  call parse_input_variable(Nph,"Nph","inputIX.conf",default=10)
+  call parse_input_variable(wph,"wph","inputIX.conf",default=1.d0) !+- this is defined the ratio with the first inter-subband transition
+
+  !
   call read_input("inputIX.conf")
   call save_input_file("inputIX.conf")
-  !
+
+  write(*,*) 'hbarc^2/m [eV nm^2]',hbarc**2.0/mel
+  
+  !+- initialize the fock space -+!
   call initialize_two_sites_fock_space
-  !
   
+  !+- build the single particle operators on the two-particle subspace -+!
   allocate(cc_ij(Ns,Ns,nh2,nh2))
-  
-  
-
-
-
-
+  call build_cdgc_2p_states(cc_ij)
 
   
-  !+-> here I should get the solution of the two q-wells <-+!
-  !+-> get the energy levels
+  !
+  !+- get all the double well wavefunctions and the dipole matrix elements -+!
+  !
+  xlmin=-Lwell-dwell*0.5d0
+  xlmax=xlmin+Lwell  
+  xrmin=dwell*0.5d0
+  xrmax=xrmin+Lwell
+  !
+  allocate(xr(2*Nxw+Nxd),wtr(2*Nxw+Nxd)) 
+  xr(1:Nxw)=linspace(xlmin,xlmax,Nxw,iend=.true.,istart=.true.)
+  wtr(1:Nxw)=xr(2)-xr(1)
+  !
+  xr(Nxw+1:Nxw+Nxd)=linspace(xlmax,xrmin,Nxd,iend=.false.,istart=.false.)
+  wtr(Nxw+1:Nxw+Nxd)=xr(Nxw+2)-xr(Nxw+1)
+  !
+  xr(Nxw+Nxd+1:2*Nxw+Nxd)=linspace(xrmin,xrmax,Nxw,iend=.true.,istart=.true.)
+  wtr(Nxw+Nxd+1:2*Nxw+Nxd)=xr(Nxw+Nxd+2)-xr(Nxw+Nxd+2)
+  !
+  Nxw=Nxw*2+Nxd
 
-  !+-> simply solve the 2p-hamiltonian -+!
 
-
-  !+-> compute the dipole matrix elements for the wells <-+!
-
+  !+- initialize the two-wells spectrum -+!
+  out_unit=free_unit()  
+  Lwell=Lwell
+  allocate(eWells(Norb,2))
+  open(unit=out_unit,file='dw_spectrum.data')
+  do isite=1,2
+     do iorb=1,Norb
+        eWells(iorb,isite)=hbarc**2.d0/2.d0/mel/Lwell/Lwell*pi*pi*dble(iorb)**2.0
+        write(out_unit,*) iorb,isite,eWells(iorb,isite)
+     end do
+  end do
+  close(out_unit)
   
   
+  !
+  open(unit=out_unit,file='dw_wavefunctions.data')
+  !
+  allocate(psi_w(2,Norb,Nxw)); psi_w=0.d0
+  allocate(dpsi_w(2,Norb,Nxw)); dpsi_w=0.d0
+  do iorb=1,Norb
+     psi_w(:,iorb,:)=0.d0
+     do ix=1,Nxw
+        if(xr(ix).ge.xlmin.and.xr(ix).le.xlmax) then
+           kn=pi*dble(iorb)/Lwell
+           psi_w(1,iorb,ix) = sqrt(2.d0/Lwell)*sin(kn*(xr(ix)-xlmin))
+           dpsi_w(1,iorb,ix) = kn*sqrt(2.d0/Lwell)*cos(kn*(xr(ix)-xlmin))
+        end if
+        if(xr(ix).ge.xrmin.and.xr(ix).le.xrmax) then
+           kn=pi*dble(iorb)/Lwell
+           psi_w(2,iorb,ix) = sqrt(2.d0/Lwell)*sin(kn*(xr(ix)-xrmin))
+        end if
+        write(out_unit,'(10F18.10)') xr(ix),psi_w(1,iorb,ix),psi_w(2,iorb,ix)
+     end do
+     write(out_unit,*)
+     write(out_unit,*)
+  end do
+  close(out_unit)
+  !
 
+  !+- get all the matrix elements -+!
+  open(unit=out_unit,file='dw_pmatrix_elements.data')  
+  allocate(pnn(Ns,Ns))
+  do is=1,Ns
+     do js=1,Ns
+        pnn(is,js)=p_matrix_element(is,js)
+        write(out_unit,'(2I4,10F18.10)') is,js,pnn(is,js) 
+     end do
+  end do
+  !
+  close(out_unit)
 
+  allocate(Hdw(nh2,nh2));  
+  Hdw=0.d0
+  do is=1,Ns
+     ispin=ios_i(1,is)
+     iorb=ios_i(2,is)
+     isite=ios_i(3,is)
+     !
+     !write(*,*) ispin,iorb,isite,eWells(iorb,isite)
+     do i2=1,nh2
+        Hdw(i2,i2)=Hdw(i2,i2)+eWells(iorb,isite)*cc_ij(is,is,i2,i2)
+        
+        do js=1,Ns
+           jspin=ios_i(1,js)
+           jorb=ios_i(2,js)
+           jsite=ios_i(3,js)
+           !
+           if(isite.eq.jsite) then
+              !U
+              if(iorb.ne.jorb) then
+                 Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Uw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
+              else
+                 if(ispin.ne.jspin) then
+                    Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Uw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
+                 end if
+              end if
+           else
+              Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Vw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
+           end if
+           !
+        end do
+     end do
+  end do
 
-
-  !call build_lattice_model; 
-  ! get_Hk_t => getHk
-  ! allocate(eLevels(Ns)); eLevels=0.d0
-  ! !
   
-  ! !+- INITIALIZE TIME GRIDS -+!
-  ! Nt_aux=2*Nt+1
-  ! allocate(t_grid(Nt),t_grid_aux(Nt_aux))
-  ! !
-  ! t_grid = linspace(tstart,tstep*real(Nt-1,8),Nt)
-  ! t_grid_aux = linspace(tstart,0.5d0*tstep*real(Nt_aux-1,8),Nt_aux)
-  ! !
+  open(unit=out_unit,file='2p_spectrum.data')
+  uio=free_unit()
+  open(unit=uio,file='2p_eigenstates.data')  
+  allocate(Edw(nh2))
+  call eigh(Hdw,Edw)
+  do i2=1,nh2
+     write(out_unit,'(10F18.10)') Edw(i2)
+     do j2=1,nh2
+        write(uio,'(2I4,10F18.10)') i2,j2,Hdw(j2,i2)        
+     end do
+     write(uio,'(10F18.10)')
+  end do
+  close(out_unit)
+  close(uio)
+  !
+  !
+  allocate(ccH_ij(Ns,Ns,nh2,nh2))
+  allocate(pnn_H2(nh2,nh2)) !+- momentum operator on the two-particle basis -+!
 
-  ! allocate(Ut(3,Nt_aux))  
-  ! do itt=1,Nt_aux
-  !    t = t_grid_aux(itt) 
-  !    !
-  !    if(t.lt.tStart_neqU) then
-  !       r=0.d0
-  !    else
-  !       if(t.lt.tStart_neqU+tRamp_neqU) then
-  !          if(linear_ramp) then
-  !             r = (t-tStart_neqU)/tRamp_neqU
-  !          else
-  !             r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
-  !          end if
-  !       else
-  !          r = 1.d0 
-  !       end if
-  !    end if
-  !    !
-  !    if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
-  !       s = 1.d0
-  !    else
-  !       s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
-  !    end if
-  !    !
-  !    tmpU = Uneq0 + r*(Uneq*s-Uneq0)
-  !    !
-  !    Ut(:,itt) = Uneq0 + r*(Uneq*s-Uneq0)
+  pnn_H2 = 0.d0
+  do is=1,Ns
+     do js=1,Ns
+        ccH_ij(is,js,:,:) = matmul(cc_ij(is,js,:,:),Hdw)
+        ccH_ij(is,js,:,:) = matmul(transpose(conjg(Hdw)),ccH_ij(is,js,:,:))
+        pnn_H2 = pnn_H2 + pnn(is,js)*ccH_ij(is,js,:,:)
+     end do
+  end do
+  !
+
+  !write(*,*) pnn_H2(1,3),pnn_H2(3,1)
+  
+
+  
+  !+- compute left/right susceptibility at zero frequency -+!
+  zeta=0.d0
+  do i2=1,nh2
+     zeta=zeta+exp(-beta*(Edw(i2)-Edw(1)))
+  end do   
+  chiLR=0.d0; 
+  isite=1
+  jsite=2
+  do ispin=1,2
+     do iorb=1,Norb           
+        do jorb=1,Norb
+           is=i_ios(ispin,iorb,isite)
+           js=i_ios(ispin,jorb,jsite)
+           !+- here compute chi_{is,js} !+-> chiLR=\sum_{is,js} chi_{is,js}
+           chi_ij=0.d0
+           do i2=1,nh2
+              do j2=1,nh2
+                 !
+                 if(abs(Edw(i2)-Edw(j2)).gt.1.d-10) then
+                    !
+                    chi_tmp = exp(-beta*(Edw(j2)-Edw(1)))-exp(-beta*(Edw(i2)-Edw(1)))
+                    chi_tmp = chi_tmp/(Edw(i2)-Edw(j2))
+                    chi_tmp = chi_tmp*ccH_ij(is,js,i2,j2)**2.d0                    
+                    !
+                 else
+                    !
+                    chi_tmp = beta*exp(-beta*(Edw(i2)-Edw(1)))*ccH_ij(is,js,i2,j2)**2.d0
+                    !
+                 end if                 
+                 chi_ij = chi_ij - chi_tmp/zeta                 
+              end do
+           end do
+           chiLR=chiLR+chi_ij           
+        end do
+     end do
+  end do
+
+  open(unit=out_unit,file='chiLR_bare.data')  
+  write(out_unit,*) chiLR,zeta
+  close(out_unit)
+  chiLR_bare=chiLR
+
+  if(Norb.eq.1) stop
+  !
+  wph=wph*(eWells(2,1)-eWells(1,1))
+  Daa=0.5d0*hbarc**2.d0/mel/leff/leff!*0.d0
+  Dpa=hbarc**2.d0/mel/leff!*0.d0
+  open(unit=out_unit,file='cavity_info.data')
+  write(out_unit,*) 'cavity effective lenght; defined as (e A_0/\hbar) = 1/l_eff',leff
+  write(out_unit,*) ' (e A_0/\hbar) [nm^{-1}]',1.d0/leff
+  write(out_unit,*) ' wph ',wph
+  write(out_unit,*) ' Dpa',Dpa
+  write(out_unit,*) ' Daa',Daa
+  close(out_unit)
+
+
+  open(unit=uio,file='2p_dipole_matrix_el.data')
+  do i2=1,nh2
+     do j2=1,nh2
+        write(uio,'(2I4,30F8.4)') i2,j2,pnn_H2(i2,j2),Dpa*pnn_H2(i2,j2)/wph
+     end do
+  end do
+  close(uio)
+
+
+  
+  !+-  here write down the light-matter hamiltonian -+!
+  Nh=Nph*nh2
+  !
+  allocate(eigv_lm(Nh))
+  allocate(Hlm(Nh,Nh)); 
+  !
+  Hlm=0.d0
+  do i2=1,nh2
+     do ik=1,Nph
+        !
+        ilm = (i2-1)*Nph+ik
+        Hlm(ilm,ilm) = Edw(i2) + dble(ik-1)*(wph+2.d0*Daa)
+        !
+        do j2=1,nh2
+           !
+           if(ik.lt.Nph) then
+              !
+              ilm = (i2-1)*Nph + ik 
+              jlm = (j2-1)*Nph + ik + 1                 
+              Hlm(ilm,jlm) = Hlm(ilm,jlm) + Dpa*pnn_H2(i2,j2)*sqrt(dble(ik))
+              !              
+           end if
+           !
+           if(ik.gt.1) then
+              !
+              ilm = (i2-1)*Nph + ik 
+              jlm = (j2-1)*Nph + ik - 1
+              Hlm(ilm,jlm) = Hlm(ilm,jlm) + Dpa*pnn_H2(i2,j2)*sqrt(dble(ik-1))
+              !
+           end if
+           !
+           if(i2.eq.j2) then
+              !
+              if(ik.lt.Nph-1) then
+                 ilm = (i2-1)*Nph + ik 
+                 jlm = (j2-1)*Nph + ik + 2                 
+                 Hlm(ilm,jlm) = Hlm(ilm,jlm) + Daa*sqrt(dble(ik))*sqrt(dble(ik+1))                    
+              end if
+              if(ik.gt.2) then
+                 ilm = (i2-1)*Nph + ik 
+                 jlm = (j2-1)*Nph + ik - 2                 
+                 Hlm(ilm,jlm) = Hlm(ilm,jlm) + Daa*sqrt(dble(ik))*sqrt(dble(ik-1))                    
+              end if
+              !
+           end if
+        end do
+     end do
+  end do
+
+  !
+  write(*,*) Hlm(1,21),Hlm(21,1);
+  do ilm=1,Nh
+     do jlm=ilm+1,Nh
+        write(111,'(2I8,10F30.22)') ilm,jlm,Hlm(ilm,jlm)
+        write(112,'(2I8,10F30.22)') ilm,jlm,Hlm(jlm,ilm)
+     end do
+  end do
+  call eigh(Hlm,eigv_lm)
+
+
+
+  open(unit=out_unit,file='lm2p_spectrum.data')
+  uio=free_unit()
+  open(unit=uio,file='lm2p_eigenstates.data')  
+  do ilm=1,Nh
+     write(out_unit,'(10F18.10)') eigv_lm(ilm)
+     do jlm=1,Nh
+        write(uio,'(2I4,10F18.10)') ilm,jlm,Hlm(jlm,ilm)        
+     end do
+     write(uio,'(10F18.10)')
+  end do
+  close(out_unit)
+  close(uio)
+  
+  
+  allocate(ccHlm_ij(Ns,Ns,Nh,Nh)) !+- cc-operator transformation -+!
+
+  ccHlm_ij=0.d0
+  do ik=1,Nph
+     do i2=1,nh2
+        do j2=1,nh2
+           iilm = (i2-1)*Nph + ik
+           jjlm = (j2-1)*Nph + ik
+           ccHlm_ij(:,:,iilm,jjlm) = ccH_ij(:,:,i2,j2)           
+        end do
+     end do
+  end do
+  !
+  do is=1,Ns
+     do js=1,Ns
+        ccHlm_ij(is,js,:,:) = matmul(ccHlm_ij(is,js,:,:),Hlm)
+        ccHlm_ij(is,js,:,:) = matmul(transpose(conjg(Hlm)),ccHlm_ij(is,js,:,:))
+     end do
+  end do
+
+  !+- compute again the left-right susceptibility -+!
+
+
+    !+- compute left/right susceptibility at zero frequency -+!
+  zeta=0.d0
+  do ilm=1,Nh
+     zeta=zeta+exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+  end do   
+  chiLR=0.d0
+  isite=1
+  jsite=2
+  do ispin=1,2
+     do iorb=1,Norb           
+        do jorb=1,Norb
+           is=i_ios(ispin,iorb,isite)
+           js=i_ios(ispin,jorb,jsite)
+           !+- here compute chi_{is,js} !+-> chiLR=\sum_{is,js} chi_{is,js}
+           chi_ij=0.d0
+           do ilm=1,Nh
+              do jlm=1,Nh
+                 !
+                 if(abs(eigv_lm(ilm)-eigv_lm(jlm)).gt.1.d-15) then
+                    !
+                    chi_tmp = exp(-beta*(eigv_lm(jlm)-eigv_lm(1)))-exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+                    chi_tmp = chi_tmp/(eigv_lm(ilm)-eigv_lm(jlm))
+                    chi_tmp = chi_tmp*abs(ccHlm_ij(is,js,ilm,jlm))**2.d0                    
+                    !
+                 else
+                    !
+                    chi_tmp = beta*exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))*abs(ccHlm_ij(is,js,ilm,jlm))**2.d0
+                    !
+                 end if                 
+                 chi_ij = chi_ij - chi_tmp/zeta                 
+              end do
+           end do
+           chiLR=chiLR+chi_ij           
+        end do
+     end do
+  end do
+
+  open(unit=out_unit,file='chiLR.data')  
+  write(out_unit,*) chiLR,zeta,chiLR_bare
+  close(out_unit)
+
+  
+  write(*,*) 'READY to GO'
+  stop
+
+
+  
+  ! stop
+  
+  ! allocate(ccHlm_ij(Ns,Ns,Nh,Nh)) !+- cc-operator transformation -+!
+  ! do is=1,Ns
+  !    do js=1,Ns
+  !       do ilm=1,Nh
+  !          do jlm=1,Nh
+  !             ccHlm_ij(is,js,ilm,jlm)=0.d0
+
+  !             do ik=1,Nph
+  !                do i2=1,nh2
+  !                   do j2=1,nh2
+  !                      iilm = (i2-1)*Nph + ik
+  !                      jjlm = (j2-1)*Nph + ik
+  !                      !
+  !                      ccHlm_ij(is,js,ilm,jlm) = ccHlm_ij(is,js,ilm,jlm) + &
+  !                           conjg(Hlm(iilm,ilm))*ccH_ij(is,js,i2,j2)*Hlm(jjlm,jlm)
+  !                      !
+  !                   end do
+  !                end do
+  !             end do
+              
+  !          end do
+  !       end do                
+  !    end do
   ! end do
-  ! !
-  ! ! call setup_neq_hamiltonian(Uloc_t_=Ut)
-  ! ! !
-  ! ! unit_neq_hloc = free_unit()
-  ! ! open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
-  ! ! !
-  ! ! do itt=1,Nt_aux
-  ! !    write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
-  ! ! end do
-  ! ! close(unit_neq_hloc)
-  ! ! !
-  ! ! call init_variational_matrices(wf_symmetry,read_dir_=read_dir)  
-  ! ! !
-  ! ! !+- READ EQUILIBRIUM AND SETUP DYNAMICAL VECTOR -+!
-  ! ! nDynamics = 2*Ns*Ns*Lk + Nphi
-  ! ! allocate(psi_t(nDynamics))
-  ! ! allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))  
-  ! ! !
-  ! ! call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
-  ! ! call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
-  ! ! if(bcs_neq) then
-  ! !    !+- BCS init
-  ! !    !
-  ! !    unit_neq_hloc = free_unit()
-  ! !    open(unit_neq_hloc,file="equ_refSC.out")
-  ! !    call read_SC_order(read_optWF_dir,phiBCS)
-  ! !    call getUbcs(phiBCS,Ubcs0)
-  ! !    write(unit_neq_hloc,*) phiBCS,Ubcs0
-     
-  ! !    call read_SC_order(read_finSC_dir,phiBCS)
-  ! !    call getUbcs(phiBCS,Ubcsf)
-  ! !    write(unit_neq_hloc,*) phiBCS,Ubcsf
-  ! !    close(unit_neq_hloc)
-  ! ! end if
-  ! !
+  
 
-  ! Ubcs0=Uneq0
-  ! Ubcsf=Uneq
-  ! allocate(Ubcs_t(Nt_aux))
-  ! unit_neq_hloc = free_unit()
-  ! open(unit_neq_hloc,file="neq_Ubcs.out")
-  ! do itt=1,Nt_aux
-  !    t = t_grid_aux(itt) 
-  !    !
-  !    if(t.lt.tStart_neqU) then
-  !       r=0.d0
-  !    else
-  !       if(t.lt.tStart_neqU+tRamp_neqU) then
-  !          r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
-  !       else
-  !          r = 1.d0 
-  !       end if
-  !    end if
-  !    !
-  !    if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
-  !       s = 1.d0
-  !    else
-  !       s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
-  !    end if
-  !    !
-  !    tmpU = Ubcs0 + r*(Ubcsf*s-Ubcs0)
-  !    !
-  !    Ubcs_t(itt) = tmpU
-  !    if(mod(itt-1,nprint).eq.0) then        
-  !       write(unit_neq_hloc,'(2F18.10)') t,Ubcs_t(itt)
-  !    end if
-  ! end do
-  ! close(unit_neq_hloc)
-  ! !
-  ! !
-  ! !
-  ! k_qp_diss=k_qp_diss*abs(Ubcs0)
-  ! allocate(kdiss_t(Nt_aux))
-  ! unit_neq_hloc = free_unit()
-  ! open(unit_neq_hloc,file="neq_kdiss.out")
-  ! do itt=1,Nt_aux
-  !    t = t_grid_aux(itt) 
-  !    !
-  !    if(t.lt.tStart_neqU) then
-  !       r=0.d0
-  !    else
-  !       if(t.lt.tStart_neqU+tRamp_neqU) then
-  !          r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
-  !       else
-  !          r = 1.d0 
-  !       end if
-  !    end if
-  !    !
-  !    if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
-  !       s = 1.d0
-  !    else
-  !       s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
-  !    end if
-  !    !
-  !    tmpU = r*k_qp_diss
-  !    !
-  !    kdiss_t(itt) = tmpU
-  !    if(mod(itt-1,nprint).eq.0) then        
-  !       write(unit_neq_hloc,'(2F18.10)') t,kdiss_t(itt)
-  !    end if
-  ! end do
-  ! close(unit_neq_hloc)
-  ! !
-  ! allocate(bcs_wf(3,Lk))
-  ! allocate(psi_bcs_t(3*Lk))
-  ! call init_BCS_wf(bcs_wf,Ubcs0,sc_phase)
-  ! call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
-  ! !
-  ! it=1
-
-  ! !+- this is all gz stuff -+!
-  ! ! Uloc=Uloc_t(:,it)
-  ! ! Ust =Ust_t(it)
-  ! ! Jh=Jh_t(it)
-  ! ! Jsf=Jsf_t(it)
-  ! ! Jph=Jph_t(it)
-  ! ! eLevels = eLevels_t(:,it)
-  ! ! call get_local_hamiltonian_trace(eLevels)      
-  ! ! !
-  ! ! call setup_neq_dynamics_superc
-  ! ! !    
-  ! ! unit_neq_Rhop = free_unit()
-  ! ! open(unit_neq_Rhop,file='neq_Rhop_matrix.data')
-  ! ! !
-  ! ! unit_neq_Qhop = free_unit()
-  ! ! open(unit_neq_Qhop,file='neq_Qhop_matrix.data')  
-  ! ! !
-  ! ! unit_neq_local_dens = free_unit()
-  ! ! open(unit_neq_local_dens,file='neq_local_density_matrix.data')
-  ! ! !
-  ! ! unit_neq_local_dens_dens = free_unit()
-  ! ! open(unit_neq_local_dens_dens,file='neq_local_dens_dens.data')
-  ! ! !
-  ! ! unit_neq_ene = free_unit()
-  ! ! open(unit_neq_ene,file='neq_energy.data')
-  ! ! !
-  ! ! unit_neq_dens_constrSL = free_unit()
-  ! ! open(unit_neq_dens_constrSL,file='neq_dens_constrSL.data')
-  ! ! !
-  ! ! unit_neq_dens_constrGZ = free_unit()
-  ! ! open(unit_neq_dens_constrGZ,file='neq_dens_constrGZ.data')
-  ! ! !
-  ! ! unit_neq_dens_constrSLa = free_unit()
-  ! ! open(unit_neq_dens_constrSLa,file='neq_dens_constrSLa.data')
-  ! ! !
-  ! ! unit_neq_dens_constrGZa = free_unit()
-  ! ! open(unit_neq_dens_constrGZa,file='neq_dens_constrGZa.data')
-  ! ! !
-  ! ! unit_neq_constrU = free_unit()
-  ! ! open(unit_neq_constrU,file='neq_constrU.data')
-  ! ! !
-  ! ! unit_neq_AngMom = free_unit()
-  ! ! open(unit_neq_AngMom,file='neq_AngMom.data')
-  ! ! !
-  ! ! unit_neq_sc_order = free_unit()
-  ! ! open(unit_neq_sc_order,file='neq_sc_order.data')
-  ! ! !
-  ! ! unit_proj = free_unit()
-  ! ! open(unit_proj,file='neq_proj.data')
-  ! !
-  ! unit_neq_bcs = free_unit()
-  ! open(unit_neq_bcs,file='diss_bcs.data')
-  ! !
-  ! ! allocate(Rhop(Ns));allocate(Rhop_matrix(Ns,Ns))
-  ! ! allocate(Qhop_matrix(Ns,Ns))
-  ! ! allocate(local_density_matrix(Ns,Ns))
-  ! ! allocate(local_dens_dens(Ns,Ns))
-  ! ! allocate(dens_constrSL(2,Ns,Ns))
-  ! ! allocate(dens_constrGZ(2,Ns,Ns))  
-  ! ! allocate(sc_order(Ns,Ns))
-  ! ! allocate(neq_gzproj(Nphi))
-  ! ! allocate(nqp(Ns,Lk))
-  ! ! allocate(dump_vect(Ns*Ns))
-
-  ! !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
-  ! do it=1,Nt
-  !    write(*,*) it,Nt
-  !    !
-  !    t=t_grid(it)
-  !    !
-  !    if(mod(it-1,nprint).eq.0) then        
-  !       !
-  !       ! call gz_neq_measure_superc(psi_t,t,neq_gzproj)
-  !       ! !
-  !       ! do is=1,Ns
-  !       !    call get_neq_Rhop(is,is,Rhop(is))
-  !       !    do js=1,Ns
-  !       !       call get_neq_Rhop(is,js,Rhop_matrix(is,js))              
-  !       !       call get_neq_Qhop(is,js,Qhop_matrix(is,js))              
-  !       !       call get_neq_local_dens(is,js,local_density_matrix(is,js))              
-  !       !       call get_neq_local_dens_dens(is,js,local_dens_dens(is,js))              
-  !       !       call get_neq_dens_constr_slater(is,js,dens_constrSL(1,is,js))
-  !       !       call get_neq_dens_constr_gzproj(is,js,dens_constrGZ(1,is,js))
-  !       !       call get_neq_dens_constrA_slater(is,js,dens_constrSL(2,is,js))
-  !       !       call get_neq_dens_constrA_gzproj(is,js,dens_constrGZ(2,is,js))
-  !       !       call get_neq_local_sc(is,js,sc_order(is,js))
-  !       !    end do
-  !       !    ! do ik=1,Lk
-  !       !    !    call get_neq_nqp(is,ik,nqp(is,ik))
-  !       !    ! end do
-  !       ! end do
-  !       ! !
-  !       ! call get_neq_energies(energies)
-  !       ! call get_neq_local_angular_momenta(local_angular_momenta)
-  !       ! call get_neq_unitary_constr(unitary_constr)
-  !       ! !
-  !       ! call write_complex_matrix_grid(Rhop_matrix,unit_neq_Rhop,print_grid_Rhop,t)
-  !       ! call write_complex_matrix_grid(Qhop_matrix,unit_neq_Qhop,print_grid_Qhop,t)
-  !       ! call write_complex_matrix_grid(sc_order,unit_neq_sc_order,print_grid_SC,t)
-  !       ! !
-  !       ! call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
-  !       ! call write_hermitean_matrix(dens_constrSL(1,:,:),unit_neq_dens_constrSL,t)
-  !       ! call write_hermitean_matrix(dens_constrGZ(1,:,:),unit_neq_dens_constrGZ,t)
-  !       ! call write_hermitean_matrix(dens_constrSL(2,:,:),unit_neq_dens_constrSLa,t)
-  !       ! call write_hermitean_matrix(dens_constrGZ(2,:,:),unit_neq_dens_constrGZa,t)
-  !       ! call write_hermitean_matrix(local_density_matrix,unit_neq_local_dens,t)
-  !       ! call write_symmetric_matrix(local_dens_dens,unit_neq_local_dens_dens,t)
-  !       ! write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
-  !       ! write(unit_neq_ene,'(10F18.10)') t,energies
-  !       ! write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
-  !       ! write(unit_proj,'(20F18.10)') t,neq_gzproj        
-  !       !        
-  !       !+- measure BCS -+!
-  !       call dynamicalVector_2_BCSwf(psi_bcs_t,bcs_wf)
-  !       bcs_sc_order = zero !<d+d+>
-  !       bcs_Kenergy = zero
-  !       bcs_delta=zero
-  !       bcs_dens=zero
-  !       do ik=1,Lk
-  !          bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
-  !          bcs_dens = bcs_dens + 0.5d0*(bcs_wf(3,ik)+1.d0)*wtk(ik)
-  !       end do
-  !       itt=t2it(t,tstep*0.5d0)
-  !       bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
-  !       write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
-  !       !     
-  !    end if
-  !    psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
-  !    ! if(trpz) then
-  !    !    psi_t = trpz_implicit(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
-  !    ! else
-  !    !    psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
-  !    ! end if
-  !    !
-  ! end do
-
-
-
-
-
-
-
-
-
-
-
-
+  
+  
+  
   !
 CONTAINS
+
+
+  ! function x_matrix_element(ik,jk) result(Hpk)
+  !   integer :: ik,jk
+  !   complex(8) :: Hpk
+  !   real(8) :: k,kk
+  !   integer ::ix
+  !   !
+  !   Hpk=0.d0
+  !   do ix=1,Nx
+  !      !
+  !      k=sqrt(2.d0/(xmax-xmin))*cos(dble(ik)*pi*xr(ix)/(xmax-xmin))
+  !      if(mod(ik,2).eq.0) then
+  !         k=sqrt(2.d0/(xmax-xmin))*sin(dble(ik)*pi*xr(ix)/(xmax-xmin))
+  !      end if
+  !      !
+  !      kk=sqrt(2.d0/(xmax-xmin))*cos(dble(jk)*pi*xr(ix)/(xmax-xmin))
+  !      if(mod(jk,2).eq.0) then
+  !         kk=sqrt(2.d0/(xmax-xmin))*sin(dble(jk)*pi*xr(ix)/(xmax-xmin))
+  !      end if
+  !      Hpk=Hpk+k*kk*xr(ix)*wtr(ix)
+  !   end do
+  !   !
+  !   !write(111,'(10F18.10)') dble(ik),dble(jk),Hpk
+  ! end function x_matrix_element
+
+  ! function x2_matrix_element(ik,jk) result(Hpk)
+  !   integer :: ik,jk
+  !   complex(8) :: Hpk
+  !   real(8) :: k,kk
+  !   integer ::ix
+  !   !
+  !   Hpk=0.d0
+  !   do ix=1,Nx
+  !      !
+  !      k=sqrt(2.d0/(xmax-xmin))*cos(dble(ik)*pi*xr(ix)/(xmax-xmin))
+  !      if(mod(ik,2).eq.0) then
+  !         k=sqrt(2.d0/(xmax-xmin))*sin(dble(ik)*pi*xr(ix)/(xmax-xmin))
+  !      end if
+
+  !      kk=sqrt(2.d0/(xmax-xmin))*cos(dble(jk)*pi*xr(ix)/(xmax-xmin))
+  !      if(mod(jk,2).eq.0) then
+  !         kk=sqrt(2.d0/(xmax-xmin))*sin(dble(jk)*pi*xr(ix)/(xmax-xmin))
+  !      end if
+  !      Hpk=Hpk+k*kk*xr(ix)*xr(ix)*wtr(ix)
+  !   end do
+  !   !
+  !   !write(111,'(10F18.10)') dble(ik),dble(jk),Hpk
+  ! end function x2_matrix_element
+
+  
+  function p_matrix_element(is,js) result(Hpk)
+    integer :: is,js
+    integer ::ix
+    complex(8) :: Hpk,tmp
+
+    integer :: isite,jsite,iorb,jorb,ispin,jspin
+
+    ispin=ios_i(1,is)
+    jspin=ios_i(1,js)
+    !
+    iorb=ios_i(2,is)
+    jorb=ios_i(2,js)
+    !
+    isite=ios_i(3,is)
+    jsite=ios_i(3,js)
+
+    
+    Hpk=0.d0
+    if(ispin.eq.jspin) then
+       do ix=1,Nxw-1 !+-> minus one to compute the derivative numerically. (Last point is zero anyway)
+          !tmp=psi_w(isite,iorb,ix)*(psi_w(jsite,jorb,ix+1)-psi_w(jsite,jorb,ix))/(xr(ix+1)-xr(ix))*wtr(ix)
+          tmp=psi_w(isite,iorb,ix)*dpsi_w(jsite,jorb,ix)*wtr(ix)
+          Hpk = Hpk + tmp
+       end do
+    end if
+    Hpk=-xi*Hpk
+  end function p_matrix_element
+
   !
   subroutine build_lattice_model  
     implicit none

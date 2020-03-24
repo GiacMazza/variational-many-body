@@ -82,7 +82,7 @@ CONTAINS
     end do
     ! write(*,*) i2p_to_ifk
     ! write(*,*) ifk_to_i2p
-
+    unit_info=free_unit()
     open(unit_info,file='two_sites_fock.info')
     do iip=1,Nh2       
        ifock=i2p_to_ifk(iip)       

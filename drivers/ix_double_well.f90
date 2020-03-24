@@ -82,16 +82,17 @@ program GUTZ_mb
 
   real(8),dimension(:,:,:,:),allocatable :: cc_ij,ccH_ij
   complex(8),dimension(:,:,:,:),allocatable :: ccHlm_ij
+  complex(8) :: cc_tmp
 
   complex(8),dimension(:,:),allocatable :: aph_ij
   
   real(8),dimension(:,:,:,:),allocatable :: nn_ij
-  complex(8),dimension(:,:),allocatable :: Hdw,Hlm
+  complex(8),dimension(:,:),allocatable :: Hdw,Hlm,Hlm_cut
 
   complex(8),dimension(:,:),allocatable :: pnn
   complex(8),dimension(:,:),allocatable :: pnn_h2 
   
-  real(8),dimension(:),allocatable :: Edw,eigv_lm
+  real(8),dimension(:),allocatable :: Edw,eigv_lm,eigv_cut
   
   real(8) :: Uw,Vw
 
@@ -102,7 +103,7 @@ program GUTZ_mb
   integer :: Lreal
   real(8) :: wmin,wmax
   
-  integer :: Nph,Nh
+  integer :: Nph,Nh,Nh_cut
 
   real(8) :: wph
   real(8) :: Daa,Dpa
@@ -119,6 +120,8 @@ program GUTZ_mb
   complex(8),dimension(:),allocatable :: gph
   complex(8) :: gtmp
 
+  real(8) :: threshold
+
   real(8) :: leff !+- effective length of the cavity. i.e. (e A0/hbar) \sim 1/leff
   
   hbarc=Planck_constant_in_eV_s/2.d0/pi*speed_of_light_in_vacuum*1.d9 !+- speed of light in nm/s !!
@@ -130,7 +133,6 @@ program GUTZ_mb
   call parse_input_variable(Lwell,"Lwell","inputIX.conf",default=20.d0)
   call parse_input_variable(leff,"leff","inputIX.conf",default=100.d0)
 
-  call parse_input_variable(Vw,"Vw","inputIX.conf",default=1.d0)
   call parse_input_variable(Nxw,"Nxw","inputIX.conf",default=1000)  
   call parse_input_variable(Nxd,"Nxd","inputIX.conf",default=100)
 
@@ -139,6 +141,7 @@ program GUTZ_mb
   call parse_input_variable(wmin,"WMIN","inputIX.conf",default=0.d0)
   call parse_input_variable(wmax,"WMAX","inputIX.conf",default=8.d0)
 
+  call parse_input_variable(threshold,"threshold","inputIX.conf",default=1.d-10)
   !
   call parse_input_variable(Nph,"Nph","inputIX.conf",default=10)
   call parse_input_variable(wph,"wph","inputIX.conf",default=1.d0) !+- this is defined the ratio with the first inter-subband transition
@@ -426,26 +429,6 @@ program GUTZ_mb
   
 
 
-  
-  allocate(ccHlm_ij(Ns,Ns,Nh,Nh)) !+- cc-operator transformation -+!
-  ccHlm_ij=0.d0
-  do ik=1,Nph
-     do i2=1,nh2
-        do j2=1,nh2
-           iilm = (i2-1)*Nph + ik
-           jjlm = (j2-1)*Nph + ik
-           ccHlm_ij(:,:,iilm,jjlm) = ccH_ij(:,:,i2,j2)           
-        end do
-     end do
-  end do
-  !
-  do is=1,Ns
-     do js=1,Ns
-        ccHlm_ij(is,js,:,:) = matmul(ccHlm_ij(is,js,:,:),Hlm)
-        ccHlm_ij(is,js,:,:) = matmul(transpose(conjg(Hlm)),ccHlm_ij(is,js,:,:))
-     end do
-  end do
-
   allocate(aph_ij(Nh,Nh)); aph_ij=0.d0
   do ik=1,Nph-1     
      do i2=1,nh2
@@ -464,9 +447,8 @@ program GUTZ_mb
   !+- compute the photonic greens function -+!
   allocate(wr(Lreal)); wr=linspace(wmin,wmax,Lreal)
   allocate(gph(Lreal)); gph=0.d0
-
-  open(unit=out_unit,file='ph_gf.data')  
   
+  open(unit=out_unit,file='ph_gf.data')    
   do iw=1,Lreal
      gph(iw)=0.d0
      do ilm=1,Nh
@@ -490,11 +472,7 @@ program GUTZ_mb
   end do
   close(out_unit)
   
-  !+- compute again the left-right susceptibility -+!
-  zeta=0.d0
-  do ilm=1,Nh
-     zeta=zeta+exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
-  end do   
+  !+-> recompute the chi without storing the matrix elements. it's just a waste of memory -+!
   chiLR=0.d0
   isite=1
   jsite=2
@@ -508,30 +486,49 @@ program GUTZ_mb
            do ilm=1,Nh
               do jlm=1,Nh
                  !
-                 if(abs(eigv_lm(ilm)-eigv_lm(jlm)).gt.1.d-15) then
+                 chi_tmp=0.d0
+                 if(abs(eigv_lm(ilm)-eigv_lm(jlm)).gt.1.d-12) then
                     !
                     chi_tmp = exp(-beta*(eigv_lm(jlm)-eigv_lm(1)))-exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
                     chi_tmp = chi_tmp/(eigv_lm(ilm)-eigv_lm(jlm))
-                    chi_tmp = chi_tmp*abs(ccHlm_ij(is,js,ilm,jlm))**2.d0                    
                     !
                  else
+                    !                    
+                    chi_tmp = beta*exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
                     !
-                    chi_tmp = beta*exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))*abs(ccHlm_ij(is,js,ilm,jlm))**2.d0
-                    !
-                 end if                 
-                 chi_ij = chi_ij - chi_tmp/zeta                 
+                 end if
+                 
+                 !+- here I should compute the ccHlm_ij matrix elements w/out storing it before -+!
+                 cc_tmp=0.d0
+                 do i2=1,nh2
+                    do j2=1,nh2
+                       do ik=1,Nph
+                          iilm = (i2-1)*Nph + ik
+                          jjlm = (j2-1)*Nph + ik
+                          cc_tmp = cc_tmp + conjg(Hlm(iilm,ilm))*ccH_ij(is,js,i2,j2)*Hlm(jjlm,jlm)                          
+                       end do
+                    end do
+                 end do
+                 !
+                 chi_tmp = chi_tmp*abs(cc_tmp)**2.d0
+                 chi_ij = chi_ij - chi_tmp/zeta
+                 !
               end do
-           end do
+           end do           
            chiLR=chiLR+chi_ij           
         end do
      end do
   end do
   
-  open(unit=out_unit,file='chiLR.data')  
+  open(unit=out_unit,file='chiLR_cutoff.data')  
   write(out_unit,*) chiLR,zeta,chiLR_bare
   close(out_unit)
 
+  
+  stop
+  
 
+  
 
   
   ! stop
@@ -1085,3 +1082,67 @@ end program GUTZ_mb
 !AMOEBA TEST
 
 
+
+
+
+  !+- compute again the left-right susceptibility -+!
+  ! zeta=0.d0
+  ! do ilm=1,Nh
+  !    zeta=zeta+exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+  ! end do   
+  ! chiLR=0.d0
+  ! isite=1
+  ! jsite=2
+  ! do ispin=1,2
+  !    do iorb=1,Norb           
+  !       do jorb=1,Norb
+  !          is=i_ios(ispin,iorb,isite)
+  !          js=i_ios(ispin,jorb,jsite)
+  !          !+- here compute chi_{is,js} !+-> chiLR=\sum_{is,js} chi_{is,js}
+  !          chi_ij=0.d0
+  !          do ilm=1,Nh
+  !             do jlm=1,Nh
+  !                !
+  !                if(abs(eigv_lm(ilm)-eigv_lm(jlm)).gt.1.d-15) then
+  !                   !
+  !                   chi_tmp = exp(-beta*(eigv_lm(jlm)-eigv_lm(1)))-exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+  !                   chi_tmp = chi_tmp/(eigv_lm(ilm)-eigv_lm(jlm))
+  !                   chi_tmp = chi_tmp*abs(ccHlm_ij(is,js,ilm,jlm))**2.d0                    
+  !                   !
+  !                else
+  !                   !
+  !                   chi_tmp = beta*exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))*abs(ccHlm_ij(is,js,ilm,jlm))**2.d0
+  !                   !
+  !                end if                 
+  !                chi_ij = chi_ij - chi_tmp/zeta                 
+  !             end do
+  !          end do
+  !          chiLR=chiLR+chi_ij           
+  !       end do
+  !    end do
+  ! end do
+  
+  ! open(unit=out_unit,file='chiLR.data')  
+  ! write(out_unit,*) chiLR,zeta,chiLR_bare
+  ! close(out_unit)
+
+
+
+  ! allocate(ccHlm_ij(Ns,Ns,Nh,Nh)) !+- cc-operator transformation -+!
+  ! ccHlm_ij=0.d0
+  ! do ik=1,Nph
+  !    do i2=1,nh2
+  !       do j2=1,nh2
+  !          iilm = (i2-1)*Nph + ik
+  !          jjlm = (j2-1)*Nph + ik
+  !          ccHlm_ij(:,:,iilm,jjlm) = ccH_ij(:,:,i2,j2)           
+  !       end do
+  !    end do
+  ! end do
+  ! !
+  ! do is=1,Ns
+  !    do js=1,Ns
+  !       ccHlm_ij(is,js,:,:) = matmul(ccHlm_ij(is,js,:,:),Hlm)
+  !       ccHlm_ij(is,js,:,:) = matmul(transpose(conjg(Hlm)),ccHlm_ij(is,js,:,:))
+  !    end do
+  ! end do

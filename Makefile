@@ -86,14 +86,15 @@ OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRI
 #
 
 
-LIBDIR=$(HOME)/opt_tools/
+#LIBDIR=$(HOME)/opt_tools/
+LIBDIR=$(HOME)/gm_opt/
 
 
-# GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
-# GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
+GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
+GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
 
-GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
-GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
+# GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
+# GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
 
 
 
@@ -108,7 +109,7 @@ INCARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include -L$(LIBDIR)/old_libs/DMFTtoo
 INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
-FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
+#FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
 
 #ARGS=-I$(LIBDIR)/old_libs/SciFortran/gnu/include  -L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
 ARGS=-L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) 

@@ -123,6 +123,8 @@ program GUTZ_mb
   real(8) :: threshold
 
   real(8) :: leff !+- effective length of the cavity. i.e. (e A0/hbar) \sim 1/leff
+
+  logical :: lm_coupling
   
   hbarc=Planck_constant_in_eV_s/2.d0/pi*speed_of_light_in_vacuum*1.d9 !+- speed of light in nm/s !!
   mel=electron_mass_energy_equivalent_in_Mev*1.d6
@@ -145,6 +147,9 @@ program GUTZ_mb
   !
   call parse_input_variable(Nph,"Nph","inputIX.conf",default=10)
   call parse_input_variable(wph,"wph","inputIX.conf",default=1.d0) !+- this is defined the ratio with the first inter-subband transition
+
+
+  call parse_input_variable(lm_coupling,"lm_coupling","inputIX.conf",default=.true.)
 
   !
   call read_input("inputIX.conf")
@@ -339,7 +344,7 @@ program GUTZ_mb
   close(out_unit)
   chiLR_bare=chiLR
 
-  if(Norb.eq.1) stop
+  if(Norb.eq.1.or.(.not.lm_coupling)) stop
   !
   wph=wph*(eWells(2,1)-eWells(1,1))
   Daa=0.5d0*hbarc**2.d0/mel/leff/leff!*0.d0

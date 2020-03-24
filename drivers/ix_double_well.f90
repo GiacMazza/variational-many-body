@@ -141,7 +141,7 @@ program GUTZ_mb
   call parse_input_variable(wmin,"WMIN","inputIX.conf",default=0.d0)
   call parse_input_variable(wmax,"WMAX","inputIX.conf",default=8.d0)
 
-  call parse_input_variable(threshold,"threshold","inputIX.conf",default=1.d-10)
+  call parse_input_variable(threshold,"threshold","inputIX.conf",default=1.d-9)
   !
   call parse_input_variable(Nph,"Nph","inputIX.conf",default=10)
   call parse_input_variable(wph,"wph","inputIX.conf",default=1.d0) !+- this is defined the ratio with the first inter-subband transition
@@ -447,6 +447,12 @@ program GUTZ_mb
   !+- compute the photonic greens function -+!
   allocate(wr(Lreal)); wr=linspace(wmin,wmax,Lreal)
   allocate(gph(Lreal)); gph=0.d0
+
+
+  zeta=0.d0
+  do ilm=1,Nh
+     zeta=zeta+exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+  end do
   
   open(unit=out_unit,file='ph_gf.data')    
   do iw=1,Lreal
@@ -472,7 +478,20 @@ program GUTZ_mb
   end do
   close(out_unit)
   
-  !+-> recompute the chi without storing the matrix elements. it's just a waste of memory -+!
+  !+-> recompute the chi without storing the cc matrix elements and by cutting-off the spectrum -+!
+  zeta=0.d0
+  do ilm=1,Nh
+     if(exp(-beta*(eigv_lm(ilm)-eigv_lm(1))).gt.threshold) then
+        zeta = zeta + exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+     else
+        Nh_cut=ilm-1
+        exit
+     end if
+  end do
+  
+  write(*,*) 'spectrum cut-off for computing chiLR',Nh_cut,Nh
+  !
+  !
   chiLR=0.d0
   isite=1
   jsite=2
@@ -482,45 +501,100 @@ program GUTZ_mb
            is=i_ios(ispin,iorb,isite)
            js=i_ios(ispin,jorb,jsite)
            !+- here compute chi_{is,js} !+-> chiLR=\sum_{is,js} chi_{is,js}
+                     
            chi_ij=0.d0
-           do ilm=1,Nh
+           do ilm=1,Nh_cut
               do jlm=1,Nh
                  !
                  chi_tmp=0.d0
                  if(abs(eigv_lm(ilm)-eigv_lm(jlm)).gt.1.d-12) then
                     !
-                    chi_tmp = exp(-beta*(eigv_lm(jlm)-eigv_lm(1)))-exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+                    chi_tmp = -exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
                     chi_tmp = chi_tmp/(eigv_lm(ilm)-eigv_lm(jlm))
                     !
-                 else
-                    !                    
-                    chi_tmp = beta*exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
-                    !
-                 end if
-                 
-                 !+- here I should compute the ccHlm_ij matrix elements w/out storing it before -+!
-                 cc_tmp=0.d0
-                 do i2=1,nh2
-                    do j2=1,nh2
-                       do ik=1,Nph
-                          iilm = (i2-1)*Nph + ik
-                          jjlm = (j2-1)*Nph + ik
-                          cc_tmp = cc_tmp + conjg(Hlm(iilm,ilm))*ccH_ij(is,js,i2,j2)*Hlm(jjlm,jlm)                          
+                    !+- here I should compute the ccHlm_ij matrix elements w/out storing it before -+!
+                    cc_tmp=0.d0
+                    do i2=1,nh2
+                       do j2=1,nh2
+                          do ik=1,Nph
+                             iilm = (i2-1)*Nph + ik
+                             jjlm = (j2-1)*Nph + ik
+                             cc_tmp = cc_tmp + conjg(Hlm(iilm,ilm))*ccH_ij(is,js,i2,j2)*Hlm(jjlm,jlm)                          
+                          end do
                        end do
                     end do
-                 end do
-                 !
-                 chi_tmp = chi_tmp*abs(cc_tmp)**2.d0
+                    !
+                    chi_tmp = chi_tmp*abs(cc_tmp)**2.d0
+                 end if
                  chi_ij = chi_ij - chi_tmp/zeta
                  !
               end do
-           end do           
-           chiLR=chiLR+chi_ij           
+           end do
+           chiLR=chiLR+chi_ij
+
+
+           
+           chi_ij=0.d0
+           do ilm=1,Nh
+              do jlm=1,Nh_cut
+                 !
+                 chi_tmp=0.d0
+                 if(abs(eigv_lm(ilm)-eigv_lm(jlm)).gt.1.d-12) then
+                    !
+                    chi_tmp = exp(-beta*(eigv_lm(jlm)-eigv_lm(1)))
+                    chi_tmp = chi_tmp/(eigv_lm(ilm)-eigv_lm(jlm))
+                    !
+                    !+- here I should compute the ccHlm_ij matrix elements w/out storing it before -+!
+                    cc_tmp=0.d0
+                    do i2=1,nh2
+                       do j2=1,nh2
+                          do ik=1,Nph
+                             iilm = (i2-1)*Nph + ik
+                             jjlm = (j2-1)*Nph + ik
+                             cc_tmp = cc_tmp + conjg(Hlm(iilm,ilm))*ccH_ij(is,js,i2,j2)*Hlm(jjlm,jlm)                          
+                          end do
+                       end do
+                    end do
+                    chi_tmp = chi_tmp*abs(cc_tmp)**2.d0
+                 end if
+                 chi_ij = chi_ij - chi_tmp/zeta
+                 !
+              end do
+           end do
+           chiLR=chiLR+chi_ij
+           !
+           chi_ij=0.d0
+           do ilm=1,Nh_cut
+              do jlm=1,Nh_cut
+                 !
+                 chi_tmp=0.d0
+                 if(abs(eigv_lm(ilm)-eigv_lm(jlm)).lt.1.d-12) then
+                    !
+                    chi_tmp = beta*exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+                    !
+                    !+- here I should compute the ccHlm_ij matrix elements w/out storing it before -+!
+                    cc_tmp=0.d0
+                    do i2=1,nh2
+                       do j2=1,nh2
+                          do ik=1,Nph
+                             iilm = (i2-1)*Nph + ik
+                             jjlm = (j2-1)*Nph + ik
+                             cc_tmp = cc_tmp + conjg(Hlm(iilm,ilm))*ccH_ij(is,js,i2,j2)*Hlm(jjlm,jlm)                          
+                          end do
+                       end do
+                    end do
+                    chi_tmp = chi_tmp*abs(cc_tmp)**2.d0
+                    !
+                 end if
+                 chi_ij = chi_ij - chi_tmp/zeta
+              end do
+           end do
+           chiLR=chiLR+chi_ij
         end do
      end do
   end do
   
-  open(unit=out_unit,file='chiLR_cutoff.data')  
+  open(unit=out_unit,file='chiLR.data')  
   write(out_unit,*) chiLR,zeta,chiLR_bare
   close(out_unit)
 
@@ -1146,3 +1220,61 @@ end program GUTZ_mb
   !       ccHlm_ij(is,js,:,:) = matmul(transpose(conjg(Hlm)),ccHlm_ij(is,js,:,:))
   !    end do
   ! end do
+
+
+
+  !
+  !
+  !
+  ! chiLR=0.d0
+  ! isite=1
+  ! jsite=2
+  ! do ispin=1,2
+  !    do iorb=1,Norb           
+  !       do jorb=1,Norb
+  !          is=i_ios(ispin,iorb,isite)
+  !          js=i_ios(ispin,jorb,jsite)
+  !          !+- here compute chi_{is,js} !+-> chiLR=\sum_{is,js} chi_{is,js}
+                     
+  !          chi_ij=0.d0
+  !          do ilm=1,Nh
+  !             do jlm=1,Nh
+  !                !
+  !                chi_tmp=0.d0
+  !                if(abs(eigv_lm(ilm)-eigv_lm(jlm)).gt.1.d-12) then
+  !                   !
+  !                   chi_tmp = exp(-beta*(eigv_lm(jlm)-eigv_lm(1)))-exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+  !                   chi_tmp = chi_tmp/(eigv_lm(ilm)-eigv_lm(jlm))
+  !                   !
+  !                else
+  !                   !                    
+  !                   chi_tmp = beta*exp(-beta*(eigv_lm(ilm)-eigv_lm(1)))
+  !                   !
+  !                end if
+                 
+  !                !+- here I should compute the ccHlm_ij matrix elements w/out storing it before -+!
+  !                cc_tmp=0.d0
+  !                do i2=1,nh2
+  !                   do j2=1,nh2
+  !                      do ik=1,Nph
+  !                         iilm = (i2-1)*Nph + ik
+  !                         jjlm = (j2-1)*Nph + ik
+  !                         cc_tmp = cc_tmp + conjg(Hlm(iilm,ilm))*ccH_ij(is,js,i2,j2)*Hlm(jjlm,jlm)                          
+  !                      end do
+  !                   end do
+  !                end do
+  !                !
+  !                chi_tmp = chi_tmp*abs(cc_tmp)**2.d0
+  !                chi_ij = chi_ij - chi_tmp/zeta
+  !                !
+  !             end do
+  !          end do           
+  !          chiLR=chiLR+chi_ij           
+  !       end do
+  !    end do
+  ! end do
+  
+  ! open(unit=out_unit,file='chiLR.data')  
+  ! write(out_unit,*) chiLR,zeta,chiLR_bare
+  ! close(out_unit)
+

@@ -23,7 +23,7 @@ program GUTZ_mb
   integer :: jorb,jspin,jsite
   integer :: ilm,jlm,iilm,jjlm,iw
   integer :: uio
-  integer :: ix
+  integer :: ix,jx
   integer :: i2,j2,k2
   integer :: nprint
   !
@@ -93,11 +93,13 @@ program GUTZ_mb
   complex(8),dimension(:,:),allocatable :: pnn_h2 
   
   real(8),dimension(:),allocatable :: Edw,eigv_lm,eigv_cut
-  
-  real(8) :: Uw,Vw
+
+  integer :: int_cut
+  real(8) :: Uw,Vw,Utmp
+  real(8),dimension(:,:),allocatable :: Uorb,Vorb
 
   real(8) :: dwell,Lwell
-  real(8) :: xlmin,xlmax,xrmin,xrmax
+  real(8) :: xlmin,xlmax,xrmin,xrmax,xx,yy
   real(8),dimension(:),allocatable :: xr,wtr
 
   integer :: Lreal
@@ -131,6 +133,8 @@ program GUTZ_mb
   
   call parse_input_variable(Uw,"Uw","inputIX.conf",default=1.d0)  
   call parse_input_variable(Vw,"Vw","inputIX.conf",default=1.d0)
+  call parse_input_variable(int_cut,"int_cut","inputIX.conf",default=2)
+
   call parse_input_variable(dwell,"dwell","inputIX.conf",default=20.d0)
   call parse_input_variable(Lwell,"Lwell","inputIX.conf",default=20.d0)
   call parse_input_variable(leff,"leff","inputIX.conf",default=100.d0)
@@ -156,14 +160,18 @@ program GUTZ_mb
   call save_input_file("inputIX.conf")
 
   write(*,*) 'hbarc^2/m [eV nm^2]',hbarc**2.0/mel
+
+  if(Norb.gt.6) stop "Norb must be <= 6" 
   
   !+- initialize the fock space -+!
   call initialize_two_sites_fock_space
+  !
   
   !+- build the single particle operators on the two-particle subspace -+!
   allocate(cc_ij(Ns,Ns,nh2,nh2))
   call build_cdgc_2p_states(cc_ij)
-
+  !
+  
   
   !
   !+- get all the double well wavefunctions and the dipole matrix elements -+!
@@ -181,11 +189,10 @@ program GUTZ_mb
   wtr(Nxw+1:Nxw+Nxd)=xr(Nxw+2)-xr(Nxw+1)
   !
   xr(Nxw+Nxd+1:2*Nxw+Nxd)=linspace(xrmin,xrmax,Nxw,iend=.true.,istart=.true.)
-  wtr(Nxw+Nxd+1:2*Nxw+Nxd)=xr(Nxw+Nxd+2)-xr(Nxw+Nxd+2)
+  wtr(Nxw+Nxd+1:2*Nxw+Nxd)=xr(Nxw+Nxd+2)-xr(Nxw+Nxd+1)
   !
   Nxw=Nxw*2+Nxd
-
-
+  !
   !+- initialize the two-wells spectrum -+!
   out_unit=free_unit()  
   Lwell=Lwell
@@ -198,8 +205,6 @@ program GUTZ_mb
      end do
   end do
   close(out_unit)
-  
-  
   !
   open(unit=out_unit,file='dw_wavefunctions.data')
   !
@@ -237,6 +242,36 @@ program GUTZ_mb
   !
   close(out_unit)
 
+
+
+  !+- try to compute U and V -+!
+  ! allocate(Uorb(Norb,Norb),Vorb(Norb,Norb))
+  ! do iorb=1,Norb
+  !    do jorb=1,Norb
+  !       !
+  !       Uorb(iorb,jorb) = 0.d0
+  !       Vorb(iorb,jorb) = 0.d0
+  !       !
+  !       do ix=1,Nxw
+  !          Utmp=0.d0
+  !          do jx=1,Nxw
+  !             xx=xr(ix)
+  !             yy=xr(jx)          
+  !             if(ix.ne.jx) then
+  !                Utmp = Utmp + psi_w(1,iorb,jx)**2.d0/abs(xx-yy)*wtr(jx)*wtr(ix)
+  !                !Vtmp = Vtmp + psi_w(1,iorb,jx)**2.d0/abs(xx-yy)*wtr(jx)*wtr(ix)
+  !             end if
+  !          end do
+  !          !write(111,*) xx,Utmp,Utmp*psi_w(1,jorb,ix)**2.d0
+  !          Uorb(iorb,jorb) = Uorb(iorb,jorb) + Utmp*psi_w(1,jorb,ix)**2.d0*wtr(ix)
+  !          Vorb(iorb,jorb) = Vorb(iorb,jorb) + Utmp*psi_w(2,jorb,ix)**2.d0*wtr(ix)
+  !       end do
+  !       write(*,*) iorb,jorb,Uorb(iorb,jorb),Vorb(iorb,jorb)
+  !    end do
+  ! end do
+  ! stop
+
+  
   allocate(Hdw(nh2,nh2));  
   Hdw=0.d0
   do is=1,Ns
@@ -244,7 +279,6 @@ program GUTZ_mb
      iorb=ios_i(2,is)
      isite=ios_i(3,is)
      !
-     !write(*,*) ispin,iorb,isite,eWells(iorb,isite)
      do i2=1,nh2
         Hdw(i2,i2)=Hdw(i2,i2)+eWells(iorb,isite)*cc_ij(is,is,i2,i2)
         
@@ -253,17 +287,19 @@ program GUTZ_mb
            jorb=ios_i(2,js)
            jsite=ios_i(3,js)
            !
-           if(isite.eq.jsite) then
-              !U
-              if(iorb.ne.jorb) then
-                 Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Uw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
-              else
-                 if(ispin.ne.jspin) then
+           if(iorb.le.int_cut.and.jorb.le.int_cut) then           
+              if(isite.eq.jsite) then
+                 !U
+                 if(iorb.ne.jorb) then
                     Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Uw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
+                 else
+                    if(ispin.ne.jspin) then
+                       Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Uw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
+                    end if
                  end if
+              else
+                 Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Vw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
               end if
-           else
-              Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Vw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
            end if
            !
         end do

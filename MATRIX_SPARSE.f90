@@ -712,7 +712,7 @@ contains
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
     if(Ndim1/=Ndim2)print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
-    if(sparse%Nrow /= Ndim1)stop"Warning SPARSE/load_matrix: dimensions error"
+    if(sparse%Nrow /= Ndim1) stop "Warning SPARSE/load_matrix: dimensions error"
     do i=1,Ndim1
        do j=1,Ndim2
           if(matrix(i,j)/=0.d0)call sp_insert_element_d(sparse,matrix(i,j),i,j)
@@ -727,7 +727,7 @@ contains
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
     if(Ndim1/=Ndim2)print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
-    if(sparse%Nrow /= Ndim1)stop "Warning SPARSE/load_matrix: dimensions error"
+    if(sparse%Nrow /= Ndim1) stop "Warning SPARSE/load_matrix: dimensions error"
     do i=1,Ndim1
        do j=1,Ndim2
           if(matrix(i,j)/=cmplx(0.d0,0.d0,8))call sp_insert_element_c(sparse,matrix(i,j),i,j)
@@ -742,13 +742,13 @@ contains
     integer                               :: i,j,Ndim1,Ndim2,Nnz
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
-    if(Ndim1/=Ndim2)stop  "SPARSE/load_matrix Ndim1.ne.Ndim2: modify the code."
-    if(sparse%status)stop "SPARSE/load_matrix CSR matrix should not be init on call load. I'll take care of this."
+    if(Ndim1/=Ndim2) stop  "SPARSE/load_matrix Ndim1.ne.Ndim2: modify the code."
+    if(sparse%status) stop "SPARSE/load_matrix CSR matrix should not be init on call load. I'll take care of this."
     call sp_init_matrix(A,Ndim1)
     Nnz=0
     do i=1,Ndim1
        do j=1,Ndim2
-          if(matrix(i,j)/=0.d0)then
+          if(matrix(i,j)/=0.d0) then
              Nnz=Nnz+1
              call sp_insert_element_d(A,matrix(i,j),i,j)
           endif
@@ -771,8 +771,8 @@ contains
     complex(8) :: tmp_c
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
-    if(Ndim1/=Ndim2)stop  "SPARSE/load_matrix Ndim1.ne.Ndim2: modify the code."
-    if(sparse%status)stop "SPARSE/load_matrix CSR matrix should not be init on call load. I'll take care of this."
+    if(Ndim1/=Ndim2) stop  "SPARSE/load_matrix Ndim1.ne.Ndim2: modify the code."
+    if(sparse%status) stop "SPARSE/load_matrix CSR matrix should not be init on call load. I'll take care of this."
     call sp_init_matrix(A,Ndim1)
     Nnz=0
     do i=1,Ndim1
@@ -844,7 +844,7 @@ contains
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
     !if(Ndim1/=Ndim2)print*,"Warning: SPARSE_MATRIX/sp_dump_matrix_d: Ndim1/=Ndim2"
-    if(sparse%Nrow /= Ndim1)stop "Warning SPARSE_MATRIX/sp_dump_matrix_d: dimensions error"
+    if(sparse%Nrow /= Ndim1) stop "Warning SPARSE_MATRIX/sp_dump_matrix_d: dimensions error"
     matrix=0.d0
     do i=1,Ndim1
        c => sparse%row(i)%root%next
@@ -892,11 +892,11 @@ contains
     type(sparse_matrix_csr)      :: M
     type(sparse_element),pointer :: c
     integer                      :: i,count,Nrow,Nnz
-    if(.not.sparse%status)stop "sp_dump_sparse: sparse not allocated"
-    if(.not.M%status)stop "sp_dump_sparse: M not allocated"
+    if(.not.sparse%status) stop "sp_dump_sparse: sparse not allocated"
+    if(.not.M%status) stop "sp_dump_sparse: M not allocated"
     Nnz  = sp_get_nnz(sparse)
     Nrow = sparse%Nrow
-    if(Nnz /= size(M%values))stop "sp_dump_sparse: dimension mismatch"
+    if(Nnz /= size(M%values)) stop "sp_dump_sparse: dimension mismatch"
     count=1
     do i=1,Nrow
        c => sparse%row(i)%root%next
@@ -928,10 +928,10 @@ contains
     type(sparse_matrix_csr)      :: M
     type(sparse_element),pointer :: c,p
     integer                      :: i,count,Nrow,Nnz
-    if(.not.sparse%status)stop "sp_dump_sparse: sparse not allocated"
-    if(.not.M%status)stop "sp_dump_sparse: M not allocated"
+    if(.not.sparse%status) stop "sp_dump_sparse: sparse not allocated"
+    if(.not.M%status) stop "sp_dump_sparse: M not allocated"
     Nnz  = sp_get_nnz(sparse)
-    if(Nnz /= size(M%values))stop "sp_dump_sparse: dimension mismatch"
+    if(Nnz /= size(M%values)) stop "sp_dump_sparse: dimension mismatch"
     Nrow = sparse%Nrow
     count= 1
     do i=1,Nrow
@@ -962,10 +962,10 @@ contains
     type(sparse_matrix_csr_z)      :: M
     type(sparse_element),pointer :: c,p
     integer                      :: i,count,Nrow,Nnz
-    if(.not.sparse%status)stop "sp_dump_sparse: sparse not allocated"
-    if(.not.M%status)stop "sp_dump_sparse: M not allocated"
+    if(.not.sparse%status) stop "sp_dump_sparse: sparse not allocated"
+    if(.not.M%status) stop "sp_dump_sparse: M not allocated"
     Nnz  = sp_get_nnz(sparse)
-    if(Nnz /= size(M%values))stop "sp_dump_sparse: dimension mismatch"
+    if(Nnz /= size(M%values)) stop "sp_dump_sparse: dimension mismatch"
     Nrow = sparse%Nrow
     count= 1
     do i=1,Nrow

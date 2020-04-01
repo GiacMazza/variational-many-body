@@ -66,6 +66,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable      :: dump_vect
   real(8) :: fin_sc_dir
   real(8) :: Uneq,Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU,dUneq
+  real(8) :: tStart_kdiss,tRamp_kdiss,tSin_kdiss
   real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
   complex(8) :: bcs_sc_order,bcs_delta
   real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS,bcs_dens
@@ -86,10 +87,17 @@ program GUTZ_mb
   call parse_input_variable(trpz,"TRPZ","inputGZ.conf",default=.false.)  
   !
   call parse_input_variable(Uneq,"Uneq","inputGZ.conf",default=0.d0) 
-  call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0) 
+  call parse_input_variable(Uneq0,"Uneq0","inputGZ.conf",default=0.d0)
+  !
   call parse_input_variable(tStart_neqU,"TSTART_NEQU","inputGZ.conf",default=0.d0)
-  call parse_input_variable(tRamp_neqU,"TRAMP_NEQU","inputGZ.conf",default=0.d0)  
+  call parse_input_variable(tRamp_neqU,"TRAMP_NEQU","inputGZ.conf",default=0.d0)
+  !
+  call parse_input_variable(tStart_kdiss,"TSTART_KDISS","inputGZ.conf",default=0.d0)
+  call parse_input_variable(tRamp_kdiss,"TRAMP_KDISS","inputGZ.conf",default=0.d0)
+  !
   call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
+  call parse_input_variable(tSin_kdiss,"TSIN_KDISS","inputGZ.conf",default=0.5d0)
+  !
   call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(sc_phase,"sc_phase","inputGZ.conf",default=0.d0) 
   !
@@ -219,20 +227,20 @@ program GUTZ_mb
   do itt=1,Nt_aux
      t = t_grid_aux(itt) 
      !
-     if(t.lt.tStart_neqU) then
+     if(t.lt.tStart_kdiss) then
         r=0.d0
      else
-        if(t.lt.tStart_neqU+tRamp_neqU) then
-           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_neqU)/tRamp_neqU) + 0.5d0*(cos(pi*(t-tStart_neqU)/tRamp_neqU))**3)*0.5d0
+        if(t.lt.tStart_kdiss+tRamp_kdiss) then
+           r = (1.d0 - 1.5d0*cos(pi*(t-tStart_kdiss)/tRamp_kdiss) + 0.5d0*(cos(pi*(t-tStart_kdiss)/tRamp_kdiss))**3)*0.5d0
         else
            r = 1.d0 
         end if
      end if
      !
-     if(t.lt.tStart_neqU+tRamp_neqU+tSin_neqU) then
+     if(t.lt.tStart_kdiss+tRamp_kdiss+tSin_kdiss) then
         s = 1.d0
      else
-        s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_neqU)
+        s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_kdiss)
      end if
      !
      kdiss_t(itt) = r*k_qp_diss

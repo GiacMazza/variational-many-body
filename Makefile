@@ -86,15 +86,15 @@ OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRI
 #
 
 
-LIBDIR=$(HOME)/opt_tools/
-#LIBDIR=$(HOME)/gm_opt/
+#LIBDIR=$(HOME)/opt_tools/
+LIBDIR=$(HOME)/gm_opt/
 
 
-# GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
-# GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
+GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
+GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
 
-GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
-GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
+# GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
+# GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
 
 
 

@@ -126,7 +126,7 @@ program GUTZ_mb
 
   real(8) :: leff !+- effective length of the cavity. i.e. (e A0/hbar) \sim 1/leff
 
-  logical :: lm_coupling
+  logical :: lm_coupling,print_out
   
   hbarc=Planck_constant_in_eV_s/2.d0/pi*speed_of_light_in_vacuum*1.d9 !+- speed of light in nm/s !!
   mel=electron_mass_energy_equivalent_in_Mev*1.d6
@@ -154,6 +154,7 @@ program GUTZ_mb
 
 
   call parse_input_variable(lm_coupling,"lm_coupling","inputIX.conf",default=.true.)
+  call parse_input_variable(print_out,"print_out","inputIX.conf",default=.false.)
 
   !
   call read_input("inputIX.conf")
@@ -287,8 +288,8 @@ program GUTZ_mb
            jorb=ios_i(2,js)
            jsite=ios_i(3,js)
            !
-           if(iorb.le.int_cut.and.jorb.le.int_cut) then           
-              if(isite.eq.jsite) then
+           if(isite.eq.jsite) then
+              if(iorb.le.int_cut.and.jorb.le.int_cut) then           
                  !U
                  if(iorb.ne.jorb) then
                     Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Uw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
@@ -297,9 +298,9 @@ program GUTZ_mb
                        Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Uw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
                     end if
                  end if
-              else
-                 Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Vw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
               end if
+           else
+              Hdw(i2,i2) = Hdw(i2,i2) + 0.5d0*Vw*cc_ij(is,is,i2,i2)*cc_ij(js,js,i2,i2)
            end if
            !
         end do
@@ -309,17 +310,17 @@ program GUTZ_mb
   
   open(unit=out_unit,file='2p_spectrum.data')
   uio=free_unit()
-  open(unit=uio,file='2p_eigenstates.data')  
+  if(print_out) open(unit=uio,file='2p_eigenstates.data')  
   allocate(Edw(nh2))
   call eigh(Hdw,Edw)
   do i2=1,nh2
      write(out_unit,'(10F18.10)') Edw(i2)
      do j2=1,nh2
-        write(uio,'(2I4,10F18.10)') i2,j2,Hdw(j2,i2)        
+        if(print_out) write(uio,'(2I4,10F18.10)') i2,j2,Hdw(j2,i2)        
      end do
-     write(uio,'(10F18.10)')
+     if(print_out) write(uio,'(10F18.10)')
   end do
-  close(out_unit)
+  if(print_out) close(out_unit)
   close(uio)
   !
   !
@@ -366,7 +367,7 @@ program GUTZ_mb
                     !
                     chi_tmp = beta*exp(-beta*(Edw(i2)-Edw(1)))*ccH_ij(is,js,i2,j2)**2.d0
                     !
-                 end if                 
+                 end if
                  chi_ij = chi_ij - chi_tmp/zeta                 
               end do
            end do
@@ -383,7 +384,7 @@ program GUTZ_mb
   if(Norb.eq.1.or.(.not.lm_coupling)) stop
   !
   wph=wph*(eWells(2,1)-eWells(1,1))
-  Daa=0.5d0*hbarc**2.d0/mel/leff/leff!*0.d0
+  Daa=0.5d0*hbarc**2.d0/mel/leff/leff*2.d0 ! the two here comes from the number of particles 
   Dpa=hbarc**2.d0/mel/leff!*0.d0
   open(unit=out_unit,file='cavity_info.data')
   write(out_unit,*) 'cavity effective lenght; defined as (e A_0/\hbar) = 1/l_eff',leff
@@ -397,7 +398,9 @@ program GUTZ_mb
   open(unit=uio,file='2p_dipole_matrix_el.data')
   do i2=1,nh2
      do j2=1,nh2
-        write(uio,'(2I4,30F8.4)') i2,j2,pnn_H2(i2,j2),Dpa*pnn_H2(i2,j2)/wph
+        if(abs(pnn_H2(i2,j2)).gt.1.d-12) then
+           write(uio,'(2I4,30F8.4)') i2,j2,pnn_H2(i2,j2),Dpa*pnn_H2(i2,j2)/wph
+        end if
      end do
   end do
   close(uio)
@@ -457,16 +460,18 @@ program GUTZ_mb
   !
   open(unit=out_unit,file='lm2p_spectrum.data')
   uio=free_unit()
-  open(unit=uio,file='lm2p_eigenstates.data')  
+  if(print_out) open(unit=uio,file='lm2p_eigenstates.data')  
   do ilm=1,Nh
      write(out_unit,'(10F18.10)') eigv_lm(ilm)
-     do jlm=1,Nh
-        write(uio,'(2I4,10F18.10)') ilm,jlm,Hlm(jlm,ilm)        
-     end do
-     write(uio,'(10F18.10)')
+     if(print_out) then
+        do jlm=1,Nh
+           write(uio,'(2I4,10F18.10)') ilm,jlm,Hlm(jlm,ilm)        
+        end do
+        write(uio,'(10F18.10)')
+     end if
   end do
   close(out_unit)
-  close(uio)
+  if(print_out) close(uio)
   
 
 

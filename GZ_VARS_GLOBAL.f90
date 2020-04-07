@@ -152,6 +152,7 @@ MODULE GZ_VARS_GLOBAL
   
   !
   real(8),dimension(:),allocatable :: Ubcs_t,kdiss_t,kpump_t
+  real(8) :: sc_seed
   !
   integer,dimension(:,:),allocatable     :: print_grid_Rhop
   integer,dimension(:,:),allocatable     :: print_grid_Qhop

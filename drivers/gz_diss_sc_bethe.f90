@@ -83,6 +83,9 @@ program GUTZ_mb
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
   call parse_input_variable(bcs_neq,"BCS_NEQ","inputGZ.conf",default=.false.)  
+
+  call parse_input_variable(sc_seed,"sc_seed","inputGZ.conf",default=1.d-2)  
+
   call parse_input_variable(linear_ramp,"LIN_RAMP","inputGZ.conf",default=.true.)  
   call parse_input_variable(trpz,"TRPZ","inputGZ.conf",default=.false.)  
   !
@@ -389,19 +392,19 @@ program GUTZ_mb
         write(unit_neq_bcs,'(10F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
         !     
 
-        call dynamicalVector_2_BCSwf(psi_bcs_check,bcs_wf)
-        bcs_sc_order = zero !<d+d+>
-        bcs_dens=zero
-        do ik=1,Lk
-           bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
-           bcs_dens = bcs_dens + 0.5d0*(bcs_wf(3,ik)+1.d0)*wtk(ik)
-        end do
-        itt=t2it(t,tstep*0.5d0)
-        bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
-        write(746,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens
+        ! call dynamicalVector_2_BCSwf(psi_bcs_check,bcs_wf)
+        ! bcs_sc_order = zero !<d+d+>
+        ! bcs_dens=zero
+        ! do ik=1,Lk
+        !    bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
+        !    bcs_dens = bcs_dens + 0.5d0*(bcs_wf(3,ik)+1.d0)*wtk(ik)
+        ! end do
+        ! itt=t2it(t,tstep*0.5d0)
+        ! bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
+        ! write(746,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens
      end if
      psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
-     psi_bcs_check = RK_step(3*Lk,4,tstep,t,psi_bcs_check,bcs_eom)
+     !psi_bcs_check = RK_step(3*Lk,4,tstep,t,psi_bcs_check,bcs_eom)
 
      ! if(trpz) then
      !    psi_t = trpz_implicit(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)

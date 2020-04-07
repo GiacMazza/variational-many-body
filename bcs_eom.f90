@@ -37,7 +37,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      n_t = n_t + 1.d0*(bcsWF(3,ik)+1.d0)*wtk(ik)
      n_tk(ik) = 0.5d0*(bcsWF(3,ik)+1.d0)
   end do
-  phi_t = (Ubcs_t(it)+xi*kdiss_t(it))*delta_t !
+  phi_t = (Ubcs_t(it)+xi*kdiss_t(it))*delta_t + sc_seed !
   !delta_t = (Ubcs_t(it)+xi*kdiss_t(it))*delta_t !
   !
 

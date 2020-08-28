@@ -81,7 +81,6 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
   Jsf=Jsf_t(it)
   Jph=Jph_t(it)
   eLevels = eLevels_t(:,it)
-  write(777,*) time,Uloc
   call get_local_hamiltonian_trace(eLevels)  
   call build_neqH_GZproj(Hproj,slater_derivatives,Rhop,vdm_diag)
   !

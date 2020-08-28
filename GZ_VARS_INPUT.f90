@@ -17,7 +17,8 @@ MODULE GZ_VARS_INPUT
   real(8)              :: k_dens_diss
   real(8)              :: k_qp_diss,k_qp_pump,beta_diss
   real(8)              :: a_nhh
-  logical              :: diss_fixdens
+  logical              :: diss_fixdens,diss_complexU
+  logical              :: mu_bcs_pot
   
   !# Minimization flags  #!
   integer              :: lancelot_verbose
@@ -81,8 +82,12 @@ contains
     call parse_input_variable(k_qp_diss,"K_DISS",INPUTunit,default=0.d0)       !+- friction dissipation -+!
     call parse_input_variable(k_qp_pump,"K_PUMP",INPUTunit,default=0.d0)       !+- friction dissipation -+!
     call parse_input_variable(a_nhh,"A_NHH",INPUTunit,default=1.d0)       !+- lindblat[a_nhh=1.0] -> non-hermitean [a_nhh=0.0]  -+!
-    call parse_input_variable(diss_fixdens,"DISS_FIXDENS",INPUTunit,default=.false.)       !+- lindblat[a_nhh=1.0] -> non-hermitean [a_nhh=0.0]  -+!
+    call parse_input_variable(diss_fixdens,"DISS_FIXDENS",INPUTunit,default=.false.)       !+- keep density fixed in the dissipative dynamics-+!
+    call parse_input_variable(diss_complexU,"DISS_COMPLEXU",INPUTunit,default=.false.)       !+- keep only the complex-U part in the equations of motions  -+!
+
     call parse_input_variable(beta_diss,"BETA_DISS",INPUTunit,default=100.d0)  !+- friction "temperature"; ie fermi-function distribution of the bath -+!
+    call parse_input_variable(mu_bcs_pot,"MU_BCS_POT",INPUTunit,default=.true.)       !+- lindblat[a_nhh=1.0] -> non-hermitean [a_nhh=0.0]  -+!
+
     !
     call parse_input_variable(Nt,"NT",INPUTunit,default=100)
     call parse_input_variable(tstart,"TSTART",INPUTunit,default=0.d0)

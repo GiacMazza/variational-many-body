@@ -254,8 +254,10 @@ program GUTZ_mb
   end do
   close(unit_neq_hloc)
   !
-  allocate(bcs_wf(3,Lk))
-  allocate(psi_bcs_t(3*Lk))
+  allocate(bcs_wf(3,Lk));bcs_wf=0.d0
+  allocate(psi_bcs_t(3*Lk));psi_bcs_t=0.d0
+  call init_BCS_wf(bcs_wf,Ubcsf,sc_phase,iprint=.true.)
+  bcs_wf=0.d0
   call init_BCS_wf(bcs_wf,Ubcs0,sc_phase)
   call BCSwf_2_dynamicalVector(bcs_wf,psi_bcs_t)  
 
@@ -747,23 +749,34 @@ CONTAINS
   end subroutine vdm_NCoff_mat2vec
 
 
-  subroutine init_bcs_wf(bcs_wf,U,phase)
+  subroutine init_bcs_wf(bcs_wf,U,phase,iprint)
     complex(8),dimension(:,:) :: bcs_wf
     real(8) :: U,bcs_sc_order,phase
     real(8) :: Ek
     real(8) :: sintk,costk,sinph,cosph
     complex(8) :: bcs_phi
+    logical,optional :: iprint
+    logical :: iprint_
+    integer :: uio
     if(size(bcs_wf,1).ne.3) stop "error init bcs \sigma"
     if(size(bcs_wf,2).ne.Lk) stop "error init bcs Lk"
     !
+    iprint_=.false.
+    if(present(iprint)) iprint_=iprint
+    !
     Ubcs=U
-    !write(*,*) bcs_self_cons(0.d0),bcs_self_cons(1.d0);stop
     if(U.lt.0.d0) then
        bcs_sc_order=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
     else
        bcs_sc_order=1.d-6
     end if
     
+    if(iprint_) then
+       uio=free_unit()
+       open(unit=uio,file='bcs_equ.out')
+       write(uio,'(10F18.10)') U,bcs_sc_order,U*bcs_sc_order
+    end if
+
     bcs_phi=bcs_sc_order*exp(xi*phase*pi)
     sinph=dimag(bcs_phi);cosph=dreal(bcs_phi)
     do ik=1,Lk

@@ -72,7 +72,7 @@ program GUTZ_mb
   real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS,bcs_dens
   real(8) :: sc_phase
   logical :: bcs_neq
-  logical :: linear_ramp,trpz
+  logical :: linear_ramp,trpz,flat_dos
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
@@ -83,6 +83,7 @@ program GUTZ_mb
   call parse_input_variable(store_dir,"STORE_GZ_BASIS_DIR","inputGZ.conf",default='./READ_PHI_TRACES/')
   call parse_input_variable(nprint,"NPRINT","inputGZ.conf",default=10)  
   call parse_input_variable(bcs_neq,"BCS_NEQ","inputGZ.conf",default=.false.)  
+  call parse_input_variable(flat_dos,"FLAT_DOS","inputGZ.conf",default=.false.)  
 
   call parse_input_variable(sc_seed,"sc_seed","inputGZ.conf",default=1.d-2)  
 
@@ -450,6 +451,7 @@ CONTAINS
     do ix=1,Lk
        if(epsik(ix).gt.-Wband/2.d0.and.epsik(ix).lt.Wband/2) then
           wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
+          if(flat_dos) wtk(ix) = 1.d0/Wband
        else
           wtk(ix) = 0.d0
        end if

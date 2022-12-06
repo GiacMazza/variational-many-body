@@ -15,7 +15,7 @@ MODULE GZ_VARS_INPUT
   real(8)              :: wini,wfin
   logical              :: slater_store
   real(8)              :: k_dens_diss
-  real(8)              :: k_qp_diss,k_qp_pump,beta_diss
+  real(8)              :: k_qp_diss,k_qp_pump,k_qp_loss,beta_diss
   real(8)              :: a_nhh
   logical              :: diss_fixdens,diss_complexU
   logical              :: mu_bcs_pot
@@ -79,8 +79,10 @@ contains
     call parse_input_variable(wfin,"WFIN",INPUTunit,default=10.d0)
     call parse_input_variable(slater_store,"SLATER_STORE",INPUTunit,default=.false.)
     call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0)           !+- fictitious temperature -+!
-    call parse_input_variable(k_qp_diss,"K_DISS",INPUTunit,default=0.d0)       !+- friction dissipation -+!
-    call parse_input_variable(k_qp_pump,"K_PUMP",INPUTunit,default=0.d0)       !+- friction dissipation -+!
+    call parse_input_variable(k_qp_diss,"K_DISS",INPUTunit,default=0.d0)       !+- two-body dissipation -+!
+    call parse_input_variable(k_qp_pump,"K_PUMP",INPUTunit,default=0.d0)       !+- one-body pump dissipation -+!
+    call parse_input_variable(k_qp_loss,"K_LOSS",INPUTunit,default=0.d0)       !+- one-body loss dissipation -+!
+    
     call parse_input_variable(a_nhh,"A_NHH",INPUTunit,default=1.d0)       !+- lindblat[a_nhh=1.0] -> non-hermitean [a_nhh=0.0]  -+!
     call parse_input_variable(diss_fixdens,"DISS_FIXDENS",INPUTunit,default=.false.)       !+- keep density fixed in the dissipative dynamics-+!
     call parse_input_variable(diss_complexU,"DISS_COMPLEXU",INPUTunit,default=.false.)       !+- keep only the complex-U part in the equations of motions  -+!

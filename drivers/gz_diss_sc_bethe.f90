@@ -85,7 +85,7 @@ program GUTZ_mb
   call parse_input_variable(bcs_neq,"BCS_NEQ","inputGZ.conf",default=.false.)  
   call parse_input_variable(flat_dos,"FLAT_DOS","inputGZ.conf",default=.false.)  
 
-  call parse_input_variable(sc_seed,"sc_seed","inputGZ.conf",default=1.d-2)  
+  call parse_input_variable(sc_seed,"sc_seed","inputGZ.conf",default=0.d0)  
 
   call parse_input_variable(linear_ramp,"LIN_RAMP","inputGZ.conf",default=.true.)  
   call parse_input_variable(trpz,"TRPZ","inputGZ.conf",default=.false.)  
@@ -225,7 +225,8 @@ program GUTZ_mb
   !
   !
   k_qp_diss=k_qp_diss*abs(Ubcsf)
-  allocate(kdiss_t(Nt_aux),kpump_t(Nt_aux))
+  k_qp_loss=k_qp_loss*abs(Ubcsf)
+  allocate(kdiss_t(Nt_aux),kpump_t(Nt_aux),kloss_t(Nt_aux))
   unit_neq_hloc = free_unit()
   open(unit_neq_hloc,file="neq_kdiss.out")
   do itt=1,Nt_aux
@@ -249,8 +250,9 @@ program GUTZ_mb
      !
      kdiss_t(itt) = r*k_qp_diss
      kpump_t(itt) = r*k_qp_pump
+     kloss_t(itt) = r*k_qp_loss
      if(mod(itt-1,nprint).eq.0) then        
-        write(unit_neq_hloc,'(2F18.10)') t,kdiss_t(itt),kpump_t(itt)
+        write(unit_neq_hloc,'(5F18.10)') t,kdiss_t(itt),kpump_t(itt),kloss_t(itt)
      end if
   end do
   close(unit_neq_hloc)
@@ -391,10 +393,19 @@ program GUTZ_mb
            bcs_dens = bcs_dens + 0.5d0*(bcs_wf(3,ik)+1.d0)*wtk(ik)
         end do
         itt=t2it(t,tstep*0.5d0)
-        bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
-        write(unit_neq_bcs,'(10F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
-        !     
+        bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)                
+        write(unit_neq_bcs,'(30F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens, & 
+             dreal(bcs_wf(1,Lk/2-10)),dreal(bcs_wf(1,Lk/2-20)),dreal(bcs_wf(1,Lk/2-30)), &
+             dreal(bcs_wf(2,Lk/2-10)),dreal(bcs_wf(2,Lk/2-20)),dreal(bcs_wf(2,Lk/2-30)), &
+             dreal(bcs_wf(3,Lk/2-10)),dreal(bcs_wf(3,Lk/2-20)),dreal(bcs_wf(3,Lk/2-30)), &
+             dreal(bcs_wf(1,Lk/2+10)),dreal(bcs_wf(1,Lk/2+20)),dreal(bcs_wf(1,Lk/2+30)), &
+             dreal(bcs_wf(2,Lk/2+10)),dreal(bcs_wf(2,Lk/2+20)),dreal(bcs_wf(2,Lk/2+30)), &
+             dreal(bcs_wf(3,Lk/2+10)),dreal(bcs_wf(3,Lk/2+20)),dreal(bcs_wf(3,Lk/2+30))
 
+
+        !,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
+        !     
+        
         ! call dynamicalVector_2_BCSwf(psi_bcs_check,bcs_wf)
         ! bcs_sc_order = zero !<d+d+>
         ! bcs_dens=zero
@@ -449,9 +460,9 @@ CONTAINS
     !
     test_k=0.d0
     do ix=1,Lk
-       if(epsik(ix).gt.-Wband/2.d0.and.epsik(ix).lt.Wband/2) then
+       if(epsik(ix).gt.-Wband/2.d0.and.epsik(ix).lt.Wband/2.d0) then
           wtk(ix)=4.d0/Wband/pi*sqrt(1.d0-(2.d0*epsik(ix)/Wband)**2.d0)*de
-          if(flat_dos) wtk(ix) = 1.d0/Wband
+          if(flat_dos) wtk(ix) = 1.d0/Wband*de
        else
           wtk(ix) = 0.d0
        end if

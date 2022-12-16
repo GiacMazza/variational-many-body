@@ -39,7 +39,6 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
   end do
   phi_t = (Ubcs_t(it)+xi*kdiss_t(it))*delta_t + sc_seed !
   !
-
   Sz_dot=0.d0
   nnsum=0.d0
   cmu=0.d0
@@ -65,9 +64,11 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      ! !
      bcsWF_dot(3,ik) =  2.d0*dreal(phi_t)*bcsWF(2,ik) - 2.d0*dimag(phi_t)*bcsWF(1,ik)
      if(.not.diss_complexU) then
+        !
         bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - kdiss_t(it)*n_t*(bcsWF(3,ik)+1.d0)
         bcsWF_dot(3,ik) = bcsWF_dot(3,ik) + 2.d0*kpump_t(it)*(1.d0-n_tk(ik))
         bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2.d0*kloss_t(it)*(bcsWF(3,ik)+1.d0)
+        !
      end if
      !
 

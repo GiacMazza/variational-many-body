@@ -74,7 +74,7 @@ program GUTZ_mb
   real(8) :: sc_phase,bcs_sc_soliton,tmp_bcs,dot_bcs
   logical :: bcs_neq
   logical :: linear_ramp,trpz,flat_dos
-  real(8) :: energy_init,delta_pm(2),delta_plus,delta_minus,delta_plus_save
+  real(8) :: energy_init,delta_pm(2),delta_plus,delta_minus,delta_plus_save,period_save
   real(8) :: tmax,sc_max,esn,ecn,edn,ephi,ck,ce
   integer :: iter
   logical :: soliton_solve,skip_bcs
@@ -268,6 +268,11 @@ program GUTZ_mb
   write(uio,*) delta_pm,solitons_deltas(delta_pm),ck,ce,delta_minus,delta_plus
   close(uio)
 
+
+  call solitons_self_cons(delta_minus,delta_plus)
+  stop
+
+
   ! delta_plus_save=delta_plus
   ! delta_pm=0d0
   ! !
@@ -442,7 +447,7 @@ program GUTZ_mb
                 dreal(bcs_wf(3,Lk/2+10)),dreal(bcs_wf(3,Lk/2+20)),dreal(bcs_wf(3,Lk/2+30))
            
            !
-           ! ,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
+           !,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
            !     
            !
            ! call dynamicalVector_2_BCSwf(psi_bcs_check,bcs_wf)
@@ -455,7 +460,6 @@ program GUTZ_mb
            ! itt=t2it(t,tstep*0.5d0)
            ! bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)        
            ! write(746,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens
-           !
         end if
         psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
      end do
@@ -491,36 +495,75 @@ program GUTZ_mb
 CONTAINS
   
 
-  ! function bcs_self_cons(phi) result(x)
-  !   real(8),intent(in) :: phi
+  subroutine solitons_self_cons(delta_minus,delta_plus)
+    real(8),intent(inout) :: delta_minus,delta_plus
+    real(8) :: period,ck,ce,delta_pm(2)
+    integer :: iself
+    !
+    !
+    !
+    call comelp (1.d0-delta_minus**2d0/delta_plus**2d0, ck, ce )
+    period = 2d0*ck/abs(Ubcsf)/delta_plus
+    
+    do iself=1,100
+       period_save = period
+       
+       delta_pm(1) = delta_minus
+       delta_pm(2) = delta_plus
+       call fsolve(solitons_deltas_diss,delta_pm,tol=1d-18,info=iter)
+       delta_plus=max(delta_pm(1),delta_pm(2))
+       delta_minus=min(delta_pm(1),delta_pm(2))
 
+       call comelp (1.d0-delta_minus**2d0/delta_plus**2d0, ck, ce )
+       period = 2d0*ck/abs(Ubcsf)/delta_plus
+       
+       write(400,*) period,abs(period-period_save),delta_pm,solitons_deltas_diss(delta_pm)
+    end do
 
+    !
+    !
+  end subroutine solitons_self_cons
+  !
+  !
+  !
   function solitons_deltas_diss(deltas) result(self_cons)
-    real(8),intent(in) :: deltas
-    real(8) :: self_cons
+    implicit none
+    real(8),dimension(:) :: deltas
+    real(8),dimension(size(deltas)) :: self_cons
     real(8) :: delta_plus,delta_minus,denk,numk
+    real(8) :: gamma_diss
     !
-    !
-    delta_minus=deltas
-    delta_plus=delta_plus_save
+    
+    gamma_diss = period_save*k_qp_loss*0.5d0 
+
+    if(size(deltas).ne.2) then
+       write(*,*) 'size(deltas).ne.2'
+       stop
+    end if
+    delta_minus=deltas(1);delta_plus=deltas(2)
     !
     self_cons=0d0
     do ik=1,Lk
        !
-       denk = Ubcsf**2.d0*(delta_minus**2.d0+delta_plus**2.d0) + 4.d0*epsik(ik)**2.d0 + k_qp_loss**2.d0
+       denk = Ubcsf**2.d0*(delta_minus**2.d0+delta_plus**2.d0) + 4.d0*epsik(ik)**2.d0 
        denk = denk**2.d0
        denk = denk - 4.d0*Ubcsf**4.d0*delta_minus**2.d0*delta_plus**2.d0
        denk = denk**0.5d0
        !
-       self_cons = self_cons + 2.d0*epsik(ik)*sign(1.d0,epsik(ik))/denk*wtk(ik)
+       self_cons(1) = self_cons(1) + 2.d0*epsik(ik)*sign(1.d0,epsik(ik))/denk*wtk(ik)*sqrt(1d0-2.d0*gamma_diss)
+       !
+       numk=0.5d0*(delta_plus**2.d0-delta_minus**2.d0)-2.d0*epsik(ik)**2.d0/Ubcsf**2.d0
+       self_cons(2) = self_cons(2) + 2.d0*Ubcsf**2.d0*epsik(ik)*sign(1.d0,epsik(ik))/denk*numk*wtk(ik)*sqrt(1d0-2.d0*gamma_diss)
        !
     end do
     !
-    self_cons = abs(Ubcsf)*self_cons-1d0
     !
+    self_cons(1) = abs(Ubcsf)*self_cons(1)-1d0
+    self_cons(2) = self_cons(2) - abs(Ubcsf)*delta_plus**2.d0-energy_init*(1d0-0.d0*gamma_diss)
+    !
+    ! 
   end function solitons_deltas_diss
-
-
+  
 
 
   function solitons_deltas(deltas) result(self_cons)
@@ -909,10 +952,9 @@ CONTAINS
     if(braket(1)*braket(2).le.0d0) then
        bcs_sc_order=fzero_brentq(bcs_self_cons,1.d-9,1.d0)
     else
-       if(U.lt.1d-6) then
+       if(U.lt.1d-8) then
           bcs_sc_order = 1e-10
        else
-
           bcs_sc_order = Wband/abs(Ubcs)*exp(-Wband/abs(Ubcs))
           write(*,*) 'approximate solution'
           stop

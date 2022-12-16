@@ -64,7 +64,8 @@ FPP=
 
 #EXE=gz_GF_pp_sc
 
-EXE=gz_diss_sc_bethe
+#EXE=gz_diss_sc_bethe
+EXE=bcs_diss_solitons
 
 
 DIR=drivers
@@ -105,7 +106,7 @@ INCARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/li
 INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
 FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
-#FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
+FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
 
 #ARGS=-I$(LIBDIR)/old_libs/SciFortran/gnu/include  -L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
 ARGS=-L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) 

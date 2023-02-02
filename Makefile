@@ -82,76 +82,61 @@ VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o GZ_GREENS_FUNCTIONS.o
 #
 
-
-#FFLAG +=-fpp -D_$(FPP) ONLY WITH mpif90
-LIBDIR=$(HOME)/gm_opt
-#LIBDIR=$(HOME)/opt_tools/
-
-
-GALLIBDIR  = $(LIBDIR)/galahad/objects/mac64.osx.gfo/double
-GALLIBMOD  = $(LIBDIR)/galahad/modules/mac64.osx.gfo/double
+GLOB_INC:=$(shell pkg-config --cflags dmft_tools scifor)
+GLOB_LIB:=$(shell pkg-config --libs dmft_tools scifor)  
+#
+#
+LIBDIR=$(HOME)/opt
 GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
 GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
+GALLIBS = -lgalahad -lgalahad_hsl -lgalahad_metis4
 
+GLOB_INC+=-I$(GALLIBMOD) -L$(GALLIBDIR)
+GLOB_LIB+=$(GALLIBS)
 
-GALLIBS1   = -lgalahad -lgalahad_hsl 
-GALLIBS2   = -lgalahad_metis 
+#
 
-MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
-
-
-INCARGS =-I$(LIBDIR)/old_libs/SciFortran/gnu/include -L$(LIBDIR)/SciFortran/gnu/lib 
-INCARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib 
-INCARGS+=-I$(GALLIBDIR) -L$(GALLIBDIR)
-FFLAG += -ffree-line-length-none -cpp $(INCARGS)
+#INCARGS =-I$(LIBDIR)/old_libs/SciFortran/gnu/include -L$(LIBDIR)/SciFortran/gnu/lib 
+#INCARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include -L$(LIBDIR)/DMFTtools/gnu/lib 
+#INCARGS+=-I$(GALLIBMOD) -L$(GALLIBDIR)
+#FFLAG += -ffree-line-length-none -cpp $(INCARGS)
 
 #FFLAG+=-O0 -p -g -Wall -fbounds-check -fbacktrace -Wuninitialized
-
 #ARGS=-I$(LIBDIR)/old_libs/SciFortran/gnu/include  -L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
-ARGS=-L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) 
-ARGS+=-L$(LIBDIR)/old_libs/DMFTtools/gnu/lib  -ldmftt
-ARGS+=-L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
 
-#ARGS+=-I$(LIBDIR)/old_libs/DMFTtools/gnu/include  -L$(LIBDIR)/old_libs/DMFTtools/gnu/lib  -ldmftt
-
+#ARGS=-L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) 
+#ARGS+=-L$(LIBDIR)/old_libs/DMFTtools/gnu/lib  -ldmftt
+#ARGS+=-L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
 
 
-#ARGS= -L$(GALLIBDIR) $(GALLIBS1) $(GALLIBS2) -I$(GALLIBMOD) -ldmftt -lscifor  -lfftpack -lminpack  -llapack -lblas -larpack #-lparpack    
+FFLAG = -O2 -ffree-line-length-none
+DFLAG = -O0 -p -g -fimplicit-none -Wsurprising -Wuninitialized -fbounds-check  -Waliasing -Wall -fwhole-file -fcheck=all -pedantic -fbacktrace -ffree-line-length-none
+OFLAG = -O3 -ffast-math -march=native -funroll-loops -ffree-line-length-none
+FPPSERIAL =-cpp -D_
+FPPMPI =-cpp -D_MPI	
 
-all:compile
+
+.f90.o:
+	$(FC) $(FLAG) $(GLOB_INC) -c $<
 
 
-lib: ed_solver
-
-compile: version $(OBJS)
-	@echo " !+------------------------------------------------- "
-	@echo " ..................... compile ..................... "
-	@echo " !+------------------------------------------------- "
-	$(FC) $(FFLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE)$(BRANCH) $(ARGS)
-	@echo " !+--------------------------------------+! "
-	@echo " .................. done .................. "
-	@echo " !+--------------------------------------+! "
+all: FLAG:=${FFLAG} ${FPPMPI}
+all:	$(OBJS)
 	@echo ""
+	$(call colorecho,"compiling $(EXE).f90 ")
 	@echo ""
-	@echo "created" $(DIREXE)/$(EXE)$(BRANCH)
+	$(FC) $(FLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE) ${GLOB_INC} ${GLOB_LIB}
+	@echo "Done"
 
-ed_solver:
-	@make -C ED_SOLVER/
-
-.f90.o:	
-	$(FC) $(FFLAG)  -c $< 
-
-completion:
-	sf_lib_completion.sh $(DIR)/$(EXE).f90
-	@echo "run: . .bash_completion.d/$(EXE) to add completion for $(EXE) in this shell"
+debug: FLAG:=${DFLAG} ${FPPMPI}
+debug: $(OBJS)
+	@echo ""
+	$(call colorecho,"compiling $(EXE).f90 ")
+	@echo ""
+	$(FC) $(FLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE) ${GLOB_INC} ${GLOB_LIB}
+	@echo "Done"
 
 clean: 
 	@echo "Cleaning:"
 	@rm -f *.mod *.o *~ revision.inc
-
-all_clean: clean
-	@make -C ED_SOLVER/ clean
-
-version:
-	@echo $(VER)
 

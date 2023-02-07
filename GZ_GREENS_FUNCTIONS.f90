@@ -146,7 +146,7 @@ contains
              end do
              !
              tmpVt = intHt(iti,:,:) - intHt(jtj,:,:)
-             call matrix_diagonalize(tmpVt,tmp_iHt)
+             call eigh(tmpVt,tmp_iHt)
              !
              do is=1,2*Ns
                 do js=1,2*Ns
@@ -251,7 +251,7 @@ contains
              end do
              !
              tmpVt = intHt(iti,:,:) - intHt(jtj,:,:)
-             call matrix_diagonalize(tmpVt,tmp_iHt)
+             call eigh(tmpVt,tmp_iHt)
              !
              do is=1,2*Ns
                 do js=1,2*Ns
@@ -381,7 +381,7 @@ contains
           !+- (safest way to avoid memory allocations issues)
           call get_hamiltonian_2times_int_superc(ik,jtj,iti,tmpVt,Rhop,Qhop,sl_lgr) 
           ! tmpVt = intHkt(ik,iti,:,:) - intHkt(ik,jtj,:,:)
-          call matrix_diagonalize(tmpVt,tmp_iHt)
+          call eigh(tmpVt,tmp_iHt)
           !
           do is=1,2*Ns
              do js=1,2*Ns
@@ -459,7 +459,7 @@ contains
           jtj = iti + 1 - jt
           !
           tmpVt = intHt(iti,:,:) - intHt(jtj,:,:)
-          call matrix_diagonalize(tmpVt,tmp_iHt)
+          call eigh(tmpVt,tmp_iHt)
           !
           Vt_exp(it,jt,:,:) = tmpVt
           Ht_exp(it,jt,:) = tmp_iHt
@@ -567,7 +567,7 @@ contains
        end if
        !
        expHt_v = expHt
-       call matrix_diagonalize(expHt_v,expHt_e)
+       call eigh(expHt_v,expHt_e)
        !
        do is=1,2
           do js=1,2
@@ -944,7 +944,7 @@ contains
    !   end do
    !   !
    !   expHt_v = expHt
-   !   call matrix_diagonalize(expHt_v,expHt_e)     
+   !   call eigh(expHt_v,expHt_e)     
    !   !
    !   do is=1,2*Ns
    !      do js=1,2*Ns

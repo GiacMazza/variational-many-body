@@ -109,7 +109,8 @@ contains
        ! add Lagrange multipliers !
        Hk=Hk+lm                     
        ! diagonalize hamiltonian !
-       call  matrix_diagonalize(Hk,ek)
+       !call  matrix_diagonalize(Hk,ek)
+       call  eigh(Hk,ek)
        !compute local density matrix
        do istate=1,Ns
           do jstate=1,Ns
@@ -137,7 +138,7 @@ contains
   end function get_delta_local_density_matrix
   !
   function fix_density(lm_) result(delta)
-    real(8),dimension(:)   :: lm_
+    real(8),dimension(:),intent(in)   :: lm_
     real(8),dimension(size(lm_))      :: delta
     complex(8),dimension(Ns,Ns)  :: lm
     complex(8),dimension(Ns,Ns)  :: delta_local_density_matrix,local_density_matrix
@@ -173,7 +174,8 @@ contains
        ! add Lagrange multipliers !
        Hk=Hk+lm                     
        ! diagonalize hamiltonian !
-       call  matrix_diagonalize(Hk,ek)
+       !call  matrix_diagonalize(Hk,ek)
+       call eigh(Hk,ek)
        !compute local density matrix
        do istate=1,Ns
           do jstate=1,Ns
@@ -278,7 +280,7 @@ subroutine slater_minimization_fixed_lgr(Rhop,lm,Estar,n0,slater_derivatives,sla
      Hstar=Hk
      Hk=Hk+lm
      !
-     call  matrix_diagonalize(Hk,ek)
+     call  eigh(Hk,ek)!matrix_diagonalize(Hk,ek)
      ek_store(:,ik) = ek
      !
      ! store slater determinant matrix elements
@@ -537,7 +539,7 @@ contains
           end do
        end do
        ! diagonalize hamiltonian !
-       call  matrix_diagonalize(Hk,ek,'V','L')
+       call  eigh(Hk,ek)!matrix_diagonalize(Hk,ek,'V','L')
        !compute local density matrix [Normal and Anomalous part]       
        do is=1,Ns
           do js=1,Ns
@@ -573,7 +575,7 @@ contains
   end function get_delta_local_density_matrix
   !
   function fix_density(lm_) result(delta)
-    real(8),dimension(:)                :: lm_
+    real(8),dimension(:),intent(in)     :: lm_
     real(8),dimension(size(lm_))        :: delta
     complex(8),dimension(:),allocatable :: lm_cmplx,delta_cmplx
     complex(8),dimension(2,Ns,Ns)       :: lm   !+- this may be also (2,Ns,Ns)
@@ -639,7 +641,7 @@ contains
           end do
        end do
        ! diagonalize hamiltonian !
-       call  matrix_diagonalize(Hk,ek,'V','L')
+       call  eigh(Hk,ek)!matrix_diagonalize(Hk,ek,'V','L')
        !compute local density matrix [Normal and Anomalous part]       
        do is=1,Ns
           do js=1,Ns
@@ -790,7 +792,7 @@ subroutine slater_minimization_fixed_lgr_superc(Rhop,Qhop,lm,Estar,n0,slater_der
         end do
      end do
      ! diagonalize hamiltonian !
-     call  matrix_diagonalize(Hk,ek) 
+     call  eigh(Hk,ek)!matrix_diagonalize(Hk,ek) 
      do is=1,Ns
         eps_ik(is) = ek(is)-ek(is+Ns)
      end do
@@ -1079,7 +1081,7 @@ contains
           end do
        end do
        ! diagonalize hamiltonian !
-       call  matrix_diagonalize(Hk,ek,'V','L')
+       call  eigh(Hk,ek)!matrix_diagonalize(Hk,ek,'V','L')
        !compute local density matrix [Normal and Anomalous part]       
        do is=1,Ns
           do js=1,Ns
@@ -1115,7 +1117,7 @@ contains
   end function get_delta_local_density_matrix
   !
   function fix_density(lm_) result(delta)
-    real(8),dimension(:)                :: lm_
+    real(8),dimension(:),intent(in)                :: lm_
     real(8),dimension(size(lm_))        :: delta
     complex(8),dimension(:),allocatable :: lm_cmplx,delta_cmplx
     complex(8),dimension(2,Ns,Ns)       :: lm   !+- this may be also (2,Ns,Ns)
@@ -1181,7 +1183,7 @@ contains
           end do
        end do
        ! diagonalize hamiltonian !
-       call  matrix_diagonalize(Hk,ek,'V','L')
+       call  eigh(Hk,ek)!matrix_diagonalize(Hk,ek,'V','L')
        !compute local density matrix [Normal and Anomalous part]       
        do is=1,Ns
           do js=1,Ns
@@ -1334,7 +1336,7 @@ subroutine free_energy_slater_fixed_lgr_superc(Rhop,Qhop,lm,Estar,Sstar,n0,slate
         end do
      end do
      ! diagonalize hamiltonian !
-     call  matrix_diagonalize(Hk,ek) 
+     call  eigh(Hk,ek) !matrix_diagonalize(Hk,ek) 
      do is=1,Ns
         eps_ik(is) = ek(is)-ek(is+Ns)
      end do

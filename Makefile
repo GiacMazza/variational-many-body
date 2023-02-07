@@ -64,13 +64,14 @@ FPP=
 
 #EXE=gz_GF_pp_sc
 
-EXE=gz_diss_sc_bethe
+#EXE=gz_diss_sc_bethe
+EXE=bcs_diss_solitons
 
 
 DIR=drivers
 DIREXE=$(HOME)/.bin
 
-.SUFFIXES: .f90
+
 
 #REVISION SOFTWARE GIT:
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
@@ -116,6 +117,17 @@ FPPSERIAL =-cpp -D_
 FPPMPI =-cpp -D_MPI	
 
 
+
+
+define colorecho	
+	@tput setaf $2
+	@tput bold
+	@echo $1
+	@tput sgr0
+endef
+
+.SUFFIXES: .f90
+
 .f90.o:
 	$(FC) $(FLAG) $(GLOB_INC) -c $<
 
@@ -123,18 +135,22 @@ FPPMPI =-cpp -D_MPI
 all: FLAG:=${FFLAG} ${FPPMPI}
 all:	$(OBJS)
 	@echo ""
-	$(call colorecho,"compiling $(EXE).f90 ")
+	$(call colorecho,"compiling $(EXE).f90 ", 6)
 	@echo ""
 	$(FC) $(FLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE) ${GLOB_INC} ${GLOB_LIB}
 	@echo "Done"
+	$(call colorecho,"created $(EXE) in  $(DIREXE)", 1)
+
 
 debug: FLAG:=${DFLAG} ${FPPMPI}
 debug: $(OBJS)
 	@echo ""
-	$(call colorecho,"compiling $(EXE).f90 ")
+	$(call colorecho,"compiling $(EXE).f90 ", 6)
 	@echo ""
 	$(FC) $(FLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE) ${GLOB_INC} ${GLOB_LIB}
 	@echo "Done"
+	$(call colorecho,"created $(EXE) in  $(DIREXE)", 1)
+
 
 clean: 
 	@echo "Cleaning:"

@@ -88,7 +88,7 @@ contains
     !+- build up the local H_projectors -+!
     call build_H_GZproj_(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !  
-    call matrix_diagonalize(H_projectors,H_eigens)         
+    call eigh(H_projectors,H_eigens)         
     !
     proj_gs = H_projectors(:,1)
     !
@@ -113,7 +113,7 @@ contains
   end function get_delta_proj_variational_density
   !
   function fix_density(lm_) result(delta)
-    real(8),dimension(:)         :: lm_
+    real(8),dimension(:),intent(in)         :: lm_
     real(8),dimension(size(lm_)) :: delta
     complex(8),dimension(:),allocatable :: lm_cmplx,delta_cmplx
     complex(8),dimension(Ns,Ns) :: lm
@@ -137,7 +137,7 @@ contains
     !+- build up the local H_projectors -+!
     call build_H_GZproj_(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !  
-    call matrix_diagonalize(H_projectors,H_eigens)         
+    call eigh(H_projectors,H_eigens)         
     !
     proj_gs = H_projectors(:,1)
     !
@@ -431,12 +431,14 @@ subroutine gz_proj_free_energy_lgr_superc(slater_matrix_el,n0,Evar,Eslater,Egutz
   GZvect_indep_=GZvect_indep
   !GZvect_indep_=1.d0/sqrt(dble(n_min))
   write(*,*) GZvect_indep_
-  call lancelot_simple(n_min,GZvect_indep_,GZ_free_energy,exit_code,my_fun=energy_GZproj_functional, &
-       bl = bl, bu = bu,                                                                      &
+  call lancelot_simple(n_min,GZvect_indep_,my_fun=energy_GZproj_functional,                   &
+       fx=GZ_free_energy, exit_code=exit_code,                                         &
+       bl = bl, bu = bu,                                                    &
        neq = neq, nin = nin,                                                                  &
        cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
        gradtol = gradtol, feastol = feastol,                                                  &
        print_level = print_level )
+
   !+--------------------------------------------------------------------------------------+!    
   !
   if(iverbose_) then
@@ -676,7 +678,7 @@ subroutine gz_proj_minimization_fixed_lgr(n0,slater_derivatives,lgr_multip,E_Hlo
   !
   call build_H_GZproj_(H_projectors,slater_derivatives,n0,lgr_multip)
   !
-  call matrix_diagonalize(H_projectors,H_eigens)         
+  call eigh(H_projectors,H_eigens)         
   !
   GZvect=H_projectors(1:Nphi,1)
   !
@@ -716,7 +718,7 @@ subroutine gz_proj_minimization_fixed_lgr_hop(n0,lgr_multip,lgr_multip_Rhop,E_Hl
      end do
   end do
   !
-  call matrix_diagonalize(H_projectors,H_eigens)
+  call eigh(H_projectors,H_eigens)
   !
   GZvect=H_projectors(1:Nphi,1)
   E_Hloc=trace_phi_basis(GZvect,phi_traces_basis_Hloc)
@@ -846,7 +848,7 @@ contains
     !+- build up the local H_projectors -+!
     call build_H_GZproj_superc(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !
-    call matrix_diagonalize(H_projectors,H_eigens)!,'V','L')         
+    call eigh(H_projectors,H_eigens)!,'V','L')         
     !
     proj_gs = H_projectors(:,1)
     !
@@ -874,7 +876,7 @@ contains
   end function get_delta_proj_variational_density
   !
   function fix_density(lm_) result(delta)
-    real(8),dimension(:)         :: lm_
+    real(8),dimension(:),intent(in)         :: lm_
     real(8),dimension(size(lm_)) :: delta
     complex(8),dimension(:),allocatable :: lm_cmplx,delta_cmplx
     complex(8),dimension(2,Ns,Ns) :: lm
@@ -905,7 +907,7 @@ contains
     !+- build up the local H_projectors -+!
     call build_H_GZproj_superc(H_projectors,slater_derivatives,n0_target,lm,ifree_)
     !
-    call matrix_diagonalize(H_projectors,H_eigens)!,'V','L')         
+    call eigh(H_projectors,H_eigens)!,'V','L')         
     !
     proj_gs = H_projectors(:,1)
     !
@@ -964,7 +966,7 @@ subroutine gz_proj_minimization_fixed_lgr_superc(n0,slater_derivatives,lgr_multi
   !
   call build_H_GZproj_superc(H_projectors,slater_derivatives,n0,lgr_multip)
   !
-  call matrix_diagonalize(H_projectors,H_eigens)         
+  call eigh(H_projectors,H_eigens)         
   !
   GZvect=H_projectors(1:Nphi,1)
   !
@@ -1012,7 +1014,7 @@ subroutine gz_proj_minimization_fixed_lgr_hop_superc(n0,lgr_multip,lgr_multip_Rh
      end do
   end do
   !
-  call matrix_diagonalize(H_projectors,H_eigens)!,'V','L')
+  call eigh(H_projectors,H_eigens)!,'V','L')
   !
   GZvect=H_projectors(1:Nphi,1)
   E_Hloc=trace_phi_basis(GZvect,phi_traces_basis_Hloc)

@@ -740,7 +740,8 @@ CONTAINS
        iinit_=iinit
        allocate(Vinit(N,N)); Vinit=A(:,:,iinit_)
        allocate(tmp_eigen(N))
-       call matrix_diagonalize(Vinit,tmp_eigen)       
+       !call matrix_diagonalize(Vinit,tmp_eigen)
+       call eigh(Vinit,tmp_eigen)
        A=zero
        do k=1,M       
           do i=1,N
@@ -780,7 +781,8 @@ CONTAINS
                    G = G + get_gmatrix(Gvec)
                 end do
                 !              
-                call matrix_diagonalize(G,Geigen,'V','U')
+                !call matrix_diagonalize(G,Geigen,'V','U')
+                call eigh(G,Geigen)
                 Jacobi_vec = G(:,3)
                 !
                 !Givens rotations

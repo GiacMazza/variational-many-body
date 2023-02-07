@@ -938,7 +938,7 @@ contains
 
   function fix_anomalous_lgr_sl(lgr) result(delta)
     implicit none
-    real(8),dimension(:) :: lgr
+    real(8),dimension(:),intent(in) :: lgr
     real(8),dimension(size(lgr)) :: delta
     complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
     complex(8),dimension(Ns,Ns) :: anomalous_constrSL_dot,lgrSL
@@ -1185,7 +1185,7 @@ contains
   !
   function fix_anomalous_vdm_gz(lgr) result(delta)
     implicit none
-    real(8),dimension(:)                :: lgr
+    real(8),dimension(:),intent(in)     :: lgr
     real(8),dimension(size(lgr))        :: delta
     complex(8),dimension(:),allocatable :: lgr_cmplx,delta_cmplx
     complex(8),dimension(Ns,Ns)         :: anomalous_constrGZ_dot,lgrGZ
@@ -1241,7 +1241,7 @@ contains
   !
   function fix_anomalous_lgr_sl(lgr) result(delta)
     implicit none
-    real(8),dimension(:) :: lgr
+    real(8),dimension(:),intent(in) :: lgr
     real(8),dimension(size(lgr)) :: delta
     complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
     complex(8),dimension(Ns,Ns) :: anomalous_constrSL_dot,lgrSL
@@ -1602,7 +1602,7 @@ contains
 
   function fix_anomalous_vdm_sl(lgr) result(delta)
     implicit none
-    real(8),dimension(:) :: lgr
+    real(8),dimension(:),intent(in) :: lgr
     real(8),dimension(size(lgr)) :: delta
     complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
     complex(8),dimension(Ns,Ns) :: anomalous_constrSL_dot,lgrSL
@@ -1727,7 +1727,7 @@ contains
   !
   function fix_anomalous_vdm_gz(lgr) result(delta)
     implicit none
-    real(8),dimension(:) :: lgr
+    real(8),dimension(:),intent(in) :: lgr
     real(8),dimension(size(lgr)) :: delta
     complex(8),dimension(:),allocatable  :: lgr_cmplx,delta_cmplx
     complex(8),dimension(Ns,Ns) :: anomalous_constrGZ_dot,lgrGZ

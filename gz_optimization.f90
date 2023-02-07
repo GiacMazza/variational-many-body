@@ -1,5 +1,5 @@
 function R_VDM_free_zeros_(x)  result(Fout)   !+- change this name
-  real(8),dimension(:)                :: x      
+  real(8),dimension(:),intent(in)                :: x      
   !
   real(8),dimension(size(x))          :: Fout
   real(8),dimension(size(x))          :: tmp_x
@@ -135,7 +135,7 @@ end function R_VDM_free_zeros_
 
 
 function R_VDM_free_zeros__(x)  result(Fout)   !+- change this name
-  real(8),dimension(:)                :: x      
+  real(8),dimension(:),intent(in)                :: x      
   real(8),dimension(size(x))          :: Fout
   !
   integer                             :: Nslater_lgr,NQhop,NRhop,Nproj_lgr,Nopt
@@ -169,7 +169,7 @@ end function R_VDM_free_zeros__
 !
 !
 function R_Q_VDM_free_zeros_superc(x)  result(Fout)
-  real(8),dimension(:)                :: x      
+  real(8),dimension(:),intent(in)          :: x      
   !
   real(8),dimension(size(x))          :: Fout
   real(8),dimension(size(x))          :: tmp_x
@@ -294,7 +294,7 @@ end function R_Q_VDM_free_zeros_superc
 
 
 function R_Q_VDM_free_zeros_superc_(x)  result(Fout)
-  real(8),dimension(:)                :: x      
+  real(8),dimension(:),intent(in)                :: x      
   real(8),dimension(size(x))          :: Fout
   !
   integer                             :: Nslater_lgr,NQhop,NRhop,Nproj_lgr,Nopt

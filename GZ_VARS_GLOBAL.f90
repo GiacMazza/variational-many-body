@@ -162,6 +162,9 @@ MODULE GZ_VARS_GLOBAL
   logical,dimension(:,:),allocatable :: Rgrid,Qgrid,Ngrid
 
 
+  !+- MPI -+!
+  integer :: mpiID,mpiSize,comm,mpiERR
+
   
   !+-------------------------+!
   !+- MODEL DETAILS DETAILS -+!

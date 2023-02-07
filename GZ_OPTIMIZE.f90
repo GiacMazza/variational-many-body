@@ -741,7 +741,14 @@ CONTAINS
     bL = 1.d-4               ! lower bounds for minimization parameters
     bU = 1.d0-bL                 ! upper bounds for minimization parameters          
     !    
-    call lancelot_simple(n_min,optimized_vdm,GZ_energy,exit_code,my_fun=gz_get_energy_vdm, &
+    ! call lancelot_simple(n_min,optimized_vdm,GZ_energy,exit_code,my_fun=gz_get_energy_vdm, &
+    !      bl = bl, bu = bu,                                                                      &
+    !      neq = neq, nin = nin,                                                                  &
+    !      cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
+    !      gradtol = gradtol, feastol = feastol,                                                  &
+    !      print_level = print_level )
+    call lancelot_simple(n_min,optimized_vdm,my_fun=gz_get_energy_vdm, &
+         fx=GZ_energy,exit_code=exit_code, &
          bl = bl, bu = bu,                                                                      &
          neq = neq, nin = nin,                                                                  &
          cx = cx, y = y, iters  = iter, maxit = maxit,                                          &

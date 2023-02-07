@@ -69,7 +69,7 @@ program GUTZ_mb
   real(8) :: Uneq,Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU,dUneq
   real(8) :: tStart_kdiss,tRamp_kdiss,tSin_kdiss
   real(8) :: Jhneq,Jhneq0,tStart_neqJ,tRamp_neqJ,tSin_neqJ,dJneq
-  complex(8) :: bcs_sc_order,bcs_delta
+  complex(8) :: bcs_sc_order,bcs_delta,test_decay
   real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS,bcs_dens,bcs_energy
   real(8) :: sc_phase,bcs_sc_soliton,tmp_bcs,dot_bcs
   logical :: bcs_neq
@@ -420,10 +420,12 @@ program GUTZ_mb
            bcs_Kenergy = zero
            bcs_delta=zero
            bcs_dens=zero
+           test_decay=zero
            do ik=1,Lk
               bcs_sc_order = bcs_sc_order + 0.5d0*(bcs_wf(1,ik)+xi*bcs_wf(2,ik))*wtk(ik)
               bcs_dens = bcs_dens + 0.5d0*(bcs_wf(3,ik)+1.d0)*wtk(ik)
               bcs_Kenergy = bcs_Kenergy + epsik(ik)*bcs_wf(3,ik)*wtk(ik)
+              if(t>1d0) test_decay = test_decay + cos(sqrt(4.d0*epsik(ik)**2d0+4.d0)*t)*wtk(ik)
            end do
            itt=t2it(t,tstep*0.5d0)
            bcs_Uenergy = Ubcs_t(itt)*abs(bcs_sc_order)**2.d0
@@ -434,6 +436,7 @@ program GUTZ_mb
            end if
            !bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)                
            write(unit_neq_bcs,'(30F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens, bcs_Kenergy,bcs_Uenergy,bcs_energy, & 
+                test_decay, &
                 dreal(bcs_wf(1,Lk/2-10)),dreal(bcs_wf(1,Lk/2-20)),dreal(bcs_wf(1,Lk/2-30)), &
                 dreal(bcs_wf(2,Lk/2-10)),dreal(bcs_wf(2,Lk/2-20)),dreal(bcs_wf(2,Lk/2-30)), &
                 dreal(bcs_wf(3,Lk/2-10)),dreal(bcs_wf(3,Lk/2-20)),dreal(bcs_wf(3,Lk/2-30)), &
@@ -461,7 +464,7 @@ program GUTZ_mb
      end do
      close(unit_neq_bcs)
   end if
-
+  
 
   open(unit_neq_bcs,file='soliton_bcs.data')
   tmp_bcs=0d0
@@ -581,7 +584,7 @@ CONTAINS
           wtk(ix) = 0.d0
        end if
        if(flat_dos) then
-          wtk(ix) = fermi(epsik(ix)-Wband/2d0,1000d0)*fermi(-epsik(ix)-Wband/2d0,1000d0)/Wband*de
+          wtk(ix) = fermi(epsik(ix)-Wband/2d0,10000d0)*fermi(-epsik(ix)-Wband/2d0,10000d0)/Wband*de
        end if
 
        ! wtk(ix) = 1.d0/Wband*de

@@ -265,15 +265,19 @@ function gz_equations_of_motion_superc(time,y,Nsys) result(f)
   !
 
 
-  !+- this is for the dissipative part -+!
-  ! loc_dens=0.d0
-  ! do is=1,Ns
-  !    loc_dens = loc_dens + trace_phi_basis(gzproj,phi_traces_basis_local_dens(is,is,:,:))
-  ! end do
-  ! do iphi=1,Nphi
-  !    gzproj_dot(iphi) = gzproj_dot(iphi) + k_dens_diss*loc_dens*gzproj(iphi)
-  ! end do
-  
+  !+- simple test of the dissipative part -+!
+  loc_dens=0.d0
+  do is=1,Ns
+     loc_dens = loc_dens + trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,is,:,:))
+  end do
+  do iphi=1,Nphi
+     do jphi=1,Nphi
+        do is=1,Ns
+           gzproj_dot(iphi) = gzproj_dot(iphi) + k_dens_diss*phi_traces_basis_dens_dens(is,is,iphi,jphi)*gzproj(jphi)
+        end do
+     end do
+     gzproj_dot(iphi) = gzproj_dot(iphi) - k_dens_diss*loc_dens*gzproj(iphi) 
+  end do
   
   !
   call wfMatrix_superc_2_dynamicalVector(slater_dot,gzproj_dot,f)

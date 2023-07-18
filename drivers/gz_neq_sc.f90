@@ -98,7 +98,8 @@ program GUTZ_mb
   allocate(psi_t(nDynamics))
   allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))  
   !
-  call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init)
+  !call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init)
+  call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init)
   call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
   !   
   allocate(Ut(3,Nt_aux))  

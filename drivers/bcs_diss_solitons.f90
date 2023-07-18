@@ -499,9 +499,9 @@ CONTAINS
     
     
 
-    !dm_=delta_minus;dp_=delta_plus
-    dm_=0.0d0
-    dp_=1d0
+    dm_=delta_minus;dp_=delta_plus
+    ! dm_=0.0d0
+    ! dp_=1d0
 
     do is=1,1
        isoliton=is
@@ -513,7 +513,7 @@ CONTAINS
           
           delta_pm(1) = delta_minus
           delta_pm(2) = delta_plus
-          call fsolve(solitons_deltas_diss,delta_pm,tol=1d-18,info=iter)
+          call fsolve(solitons_deltas_diss,delta_pm,tol=1d-12,info=iter)
           delta_plus=max(delta_pm(1),delta_pm(2))
           delta_minus=min(delta_pm(1),delta_pm(2))
           
@@ -558,7 +558,7 @@ CONTAINS
     real(8) :: delta_plus,delta_minus,denk,numk
     real(8) :: gamma_diss,gammak
     !    
-    gamma_diss = period_save*(2d0*k_qp_loss)*(0.5d0 + dble(isoliton-1) )
+    gamma_diss = period_save*(1d0*k_qp_loss)*(0.5d0 + dble(isoliton-1) )
     !
     if(size(deltas).ne.2) then
        write(*,*) 'size(deltas).ne.2'
@@ -579,7 +579,7 @@ CONTAINS
        else
           gammak = 0d0*gamma_diss
        end if
-       ! gammak = 2d0*gamma_diss
+       gammak = 2d0*gamma_diss
        self_cons(1) = self_cons(1) + 2.d0*epsik(ik)*sign(1.d0,epsik(ik))/denk*wtk(ik)*sqrt(1d0-gammak)
        !
        numk=0.5d0*(delta_plus**2.d0-delta_minus**2.d0)-2.d0*epsik(ik)**2.d0/Ubcsf**2.d0

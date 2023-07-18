@@ -80,6 +80,8 @@ contains
     call parse_input_variable(slater_store,"SLATER_STORE",INPUTunit,default=.false.)
     call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0)           !+- fictitious temperature -+!
     call parse_input_variable(k_qp_diss,"K_DISS",INPUTunit,default=0.d0)       !+- two-body dissipation -+!
+    call parse_input_variable(k_dens_diss,"K_TWO_DISS",INPUTunit,default=0.d0)       !+- two-body dissipation -+!
+
     call parse_input_variable(k_qp_pump,"K_PUMP",INPUTunit,default=0.d0)       !+- one-body pump dissipation -+!
     call parse_input_variable(k_qp_loss,"K_LOSS",INPUTunit,default=0.d0)       !+- one-body loss dissipation -+!
     

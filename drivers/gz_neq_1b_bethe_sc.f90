@@ -341,9 +341,9 @@ program GUTZ_mb
            bcs_Uenergy = 2.d0*Uloc_t(1,itt)*bcs_delta*conjg(bcs_delta)        
            write(unit_neq_bcs,'(10F18.10)') t,dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_delta!,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
            !
+           psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
         end if
         !
-        psi_bcs_t = RK_step(3*Lk,4,tstep,t,psi_bcs_t,bcs_equations_of_motion)
      end if
      if(trpz) then
         psi_t = trpz_implicit(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion_superc)
@@ -695,7 +695,7 @@ CONTAINS
     if(size(bcs_wf,2).ne.Lk) stop "error init bcs Lk"
     !
     Ubcs=U
-    bcs_sc_order=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    bcs_sc_order=brentq(bcs_self_cons,0.d0,1.d0)    
     write(*,*) Ubcs,bcs_sc_order,bcs_sc_order*0.5d0
     do ik=1,Lk
        !
@@ -732,7 +732,7 @@ CONTAINS
     real(8) :: phi
     !
     Ubcs=xU
-    phi=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    phi=brentq(bcs_self_cons,0.d0,1.d0)    
     !
   end function bcs_order_param
 
@@ -743,7 +743,7 @@ CONTAINS
     ! write(*,*) phiBCS,tmp
     ! tmp=delta_bcs_order_param(-0.2d0)
     ! write(*,*) phiBCS,tmp
-    xu = fzero_brentq(delta_bcs_order_param,-10.d0,-0.2d0)
+    xu = brentq(delta_bcs_order_param,-10.d0,-0.2d0)
     !write(*,*) xu
   end subroutine getUbcs
 
@@ -753,7 +753,7 @@ CONTAINS
     real(8) :: phi
     !
     Ubcs=xU
-    phi=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    phi=brentq(bcs_self_cons,0.d0,1.d0)    
     phi=phi-phiBCS
     !
   end function delta_bcs_order_param

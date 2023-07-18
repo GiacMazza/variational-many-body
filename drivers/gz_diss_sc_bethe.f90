@@ -199,6 +199,10 @@ program GUTZ_mb
   !
   k_qp_diss=k_qp_diss*abs(Ubcsf)
   k_qp_loss=k_qp_loss*abs(Ubcsf)
+  k_qp_pump=k_qp_pump*abs(Ubcsf)
+  !
+  !
+  !
   allocate(kdiss_t(Nt_aux),kpump_t(Nt_aux),kloss_t(Nt_aux))
   unit_neq_hloc = free_unit()
   open(unit_neq_hloc,file="neq_kdiss.out")
@@ -253,38 +257,30 @@ program GUTZ_mb
   write(*,*) delta_pm,energy_init
   !
   !
-  !
-  call fsolve(solitons_deltas,delta_pm,tol=1d-18,info=iter)
-
-  delta_plus=max(delta_pm(1),delta_pm(2))
-  delta_minus=min(delta_pm(1),delta_pm(2))
-  !
-  !
-  call comelp (1.d0-delta_minus**2d0/delta_plus**2d0, ck, ce )
-  !
-  !
-  uio=free_unit()
-  open(uio,file="delta_solitons.out")  
-  write(uio,*) delta_pm,solitons_deltas(delta_pm),ck,ce,delta_minus,delta_plus
-  close(uio)
-
-  ! delta_plus_save=delta_plus
-  ! delta_pm=0d0
-  ! !
-  ! delta_pm(1)=brentq(solitons_deltas_diss,0d0,delta_plus_save)  
-  ! ! call fsolve(,delta_pm(1),tol=1d-18,info=iter)
-  ! delta_pm(2) = delta_plus_save
   
-  ! uio=free_unit()
-  ! open(uio,file="diss_delta_solitons.out")  
-  ! write(uio,*) delta_pm
-  ! close(uio)
-
   skip_bcs=.false.
   if(soliton_solve) then
      write(*,*) 'soliton solution w/out dynamics'
+     call fsolve(solitons_deltas,delta_pm,tol=1d-18,info=iter)
+     
+     delta_plus=max(delta_pm(1),delta_pm(2))
+     delta_minus=min(delta_pm(1),delta_pm(2))
+     !
+     !
+     call comelp (1.d0-delta_minus**2d0/delta_plus**2d0, ck, ce )
+     !
+     !
+     uio=free_unit()
+     open(uio,file="delta_solitons.out")  
+     write(uio,*) delta_pm,solitons_deltas(delta_pm),ck,ce,delta_minus,delta_plus
+     close(uio)
+     !
      skip_bcs=.true.
   end if
+
+  !
+
+
   
   if(.not.skip_bcs) then
      

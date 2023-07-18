@@ -51,23 +51,23 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(1,ik) = -2.d0*ekt*bcsWF(2,ik) + 2.d0*dimag(phi_t)*bcsWF(3,ik)
      if(.not.diss_complexU) then
         bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - kdiss_t(it)*n_t*bcsWF(1,ik) 
-        bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2.d0*kpump_t(it)*bcsWF(1,ik) 
-        bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2.d0*kloss_t(it)*bcsWF(1,ik) 
+        bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 1.d0*kpump_t(it)*bcsWF(1,ik) 
+        bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 1.d0*kloss_t(it)*bcsWF(1,ik) 
      end if
      !
      bcsWF_dot(2,ik) =  2.d0*ekt*bcsWF(1,ik) - 2.d0*dreal(phi_t)*bcsWF(3,ik)
      if(.not.diss_complexU) then
         bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - kdiss_t(it)*n_t*bcsWF(2,ik) 
-        bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2.d0*kpump_t(it)*bcsWF(2,ik) 
-        bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2.d0*kloss_t(it)*bcsWF(2,ik) 
+        bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 1.d0*kpump_t(it)*bcsWF(2,ik) 
+        bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 1.d0*kloss_t(it)*bcsWF(2,ik) 
 
      end if
      ! !
      bcsWF_dot(3,ik) =  2.d0*dreal(phi_t)*bcsWF(2,ik) - 2.d0*dimag(phi_t)*bcsWF(1,ik)
      if(.not.diss_complexU) then
         bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - kdiss_t(it)*n_t*(bcsWF(3,ik)+1.d0)
-        bcsWF_dot(3,ik) = bcsWF_dot(3,ik) + 2.d0*kpump_t(it)*(1.d0-n_tk(ik))
-        bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2.d0*kloss_t(it)*(bcsWF(3,ik)+1.d0)
+        bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 1.d0*kpump_t(it)*(bcsWF(3,ik)-1.d0)
+        bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 1.d0*kloss_t(it)*(bcsWF(3,ik)+1.d0)
      end if
      !
 

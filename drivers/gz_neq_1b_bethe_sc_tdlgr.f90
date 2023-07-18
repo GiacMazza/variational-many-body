@@ -157,7 +157,7 @@ program GUTZ_mb
   allocate(slater_init(2,Ns,Ns,Lk),gz_proj_init(Nphi))  
   !
   allocate(td_lgr(2,Ns,Ns)); td_lgr=zero
-  call read_optimized_variational_wf_superc(read_optWF_dir,slater_init,gz_proj_init,td_lgr(1,:,:),td_lgr(2,:,:))
+  call read_optimized_variational_wf(read_optWF_dir,slater_init,gz_proj_init,td_lgr(1,:,:),td_lgr(2,:,:))
   call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
   !
   Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
@@ -748,7 +748,7 @@ CONTAINS
     if(size(bcs_wf,2).ne.Lk) stop "error init bcs Lk"
     !
     Ubcs=U
-    bcs_sc_order=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    bcs_sc_order=brentq(bcs_self_cons,0.d0,1.d0)    
     write(*,*) Ubcs,bcs_sc_order,bcs_sc_order*0.5d0
     do ik=1,Lk
        !
@@ -785,7 +785,7 @@ CONTAINS
     real(8) :: phi
     !
     Ubcs=xU
-    phi=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    phi=brentq(bcs_self_cons,0.d0,1.d0)    
     !
   end function bcs_order_param
 
@@ -796,7 +796,7 @@ CONTAINS
     ! write(*,*) phiBCS,tmp
     ! tmp=delta_bcs_order_param(-0.2d0)
     ! write(*,*) phiBCS,tmp
-    xu = fzero_brentq(delta_bcs_order_param,-10.d0,-0.2d0)
+    xu = brentq(delta_bcs_order_param,-10.d0,-0.2d0)
     !write(*,*) xu
   end subroutine getUbcs
 
@@ -806,7 +806,7 @@ CONTAINS
     real(8) :: phi
     !
     Ubcs=xU
-    phi=fzero_brentq(bcs_self_cons,0.d0,1.d0)    
+    phi=brentq(bcs_self_cons,0.d0,1.d0)    
     phi=phi-phiBCS
     !
   end function delta_bcs_order_param

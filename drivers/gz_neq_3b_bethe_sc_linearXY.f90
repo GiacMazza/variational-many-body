@@ -145,7 +145,7 @@ program GUTZ_mb
   call parse_input_variable(dJneq,"DJneq","inputGZ.conf",default=0.d0) 
   call parse_input_variable(tdLGR,"tdLGR","inputGZ.conf",default='sl')  !possibilitie sl/sg/no
   call parse_input_variable(read_full_phi,"read_phi","inputGZ.conf",default=.false.)
-
+  
   call parse_input_variable(tsave,"TSAVE","inputGZ.conf",default=0.d0)
   !
   call read_input("inputGZ.conf")

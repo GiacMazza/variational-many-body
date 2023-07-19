@@ -1,9 +1,4 @@
-!+- STEP FUNCTIONS INVOLVING TIME-DEPENDENT LAGRANGE MULTIPLIERS -+!
-!
-!
-!
-!+- EsOM solving lgr parameters for both slater and gzproj -+!
-function gz_eom_superc_lgrSLGZ(time,y,Nsys) result(f)
+function gz_eom_superc_lgr_diss(time,y,Nsys) result(f)
   implicit none
   !inputs
   integer                                   :: Nsys ! nr of equations
@@ -478,7 +473,7 @@ function gz_equations_of_motion_superc_lgr_sp(time,y,Nsys) result(f)
   !
   slater_derivatives = zero
   slater_dot = zero
-
+  
   do ik=1,Lk
      call get_Hk_t(Hk,ik,time)
      !

@@ -71,6 +71,11 @@ program GUTZ_mb
   real(8) :: bcs_Kenergy,bcs_Uenergy,phiBCS
   logical :: bcs_neq
   logical :: linear_ramp,trpz
+
+  complex(8),dimension(:),allocatable :: diss_lgrV_AC_SL, diss_lgrV_AC_GZ
+  complex(8),dimension(:),allocatable :: diss_lgrV_AC_SL_,diss_lgrV_AC_GZ_
+  complex(8),dimension(:),allocatable :: diss_lgrV_NC
+  
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
@@ -161,7 +166,50 @@ program GUTZ_mb
   call wfMatrix_superc_2_dynamicalVector(slater_init,gz_proj_init,psi_t)  
 
 
-
+  !+- STRIDES FOR THE DETERMINATION OF THE LGR PARAMETERS -+!
+  Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
+  Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+  allocate(diss_lgrV_NC(Nvdm_NC_opt));     diss_lgrV_NC=0d0
+  allocate(diss_lgr_NC(Ns,Ns)); call vdm_NC_stride_v2m(diss_lgrV_NC,diss_lgr_NC)
+  ! do is=1,Ns
+  !    write(*,*) dreal(diss_lgr_NC(is,:)),dimag(diss_lgr_NC(is,:))
+  ! end do
+  ! call vdm_NC_stride_m2v(diss_lgr_NC,diss_lgrV_NC)
+  ! do is=1,Nvdm_NC_opt
+  !    write(*,*) diss_lgrV_NC(is)
+  ! end do
+  !
+  ! write(*,*)
+  allocate(diss_lgrV_AC_SL(Nvdm_AC_opt));  diss_lgrV_AC_SL=0.d0
+  allocate(diss_lgr_AC_SL(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_SL,diss_lgr_AC_SL)
+  ! do is=1,Ns
+  !    write(*,*) dreal(diss_lgr_AC_SL(is,:)),dimag(diss_lgr_AC_SL(is,:))
+  ! end do
+  ! call vdm_AC_stride_m2v(diss_lgr_AC_SL,diss_lgrV_AC_SL)
+  ! do is=1,Nvdm_AC_opt
+  !    write(*,*) diss_lgrV_AC_SL(is)
+  ! end do
+  !
+  allocate(diss_lgrV_AC_SL_(Nvdm_AC_opt)); diss_lgrV_AC_SL_=0.d0
+  allocate(diss_lgr_AC_SL_(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_SL_,diss_lgr_AC_SL_)
+  ! do is=1,Ns
+  !    write(*,*) dreal(diss_lgr_AC_SL_(is,:)),dimag(diss_lgr_AC_SL_(is,:))
+  ! end do
+  ! call vdm_AC_stride_m2v(diss_lgr_AC_SL_,diss_lgrV_AC_SL_)
+  ! do is=1,Nvdm_AC_opt
+  !    write(*,*) diss_lgrV_AC_SL_(is)
+  ! end do 
+  !
+  allocate(diss_lgrV_AC_GZ(Nvdm_AC_opt));  diss_lgrV_AC_GZ=0.d0
+  allocate(diss_lgr_AC_GZ(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_GZ,diss_lgr_AC_GZ)
+  !
+  allocate(diss_lgrV_AC_GZ_(Nvdm_AC_opt)); diss_lgrV_AC_GZ_=0.d0
+  allocate(diss_lgr_AC_GZ_(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_GZ_,diss_lgr_AC_GZ_)
+  !
+  stop
+  !+- need to write all the dissipative equations of motions 
+  !
+  !
   if(bcs_neq) then
      !+- BCS init
      !
@@ -396,30 +444,6 @@ CONTAINS
        write(77,*) epsik(ix),wtk(ix)
     end do
     hybik=0.d0
-    ! write(*,*) test_k,de
-    !
-    ! allocate(kx(Nx))
-    ! kx = linspace(0.d0,pi,Nx,.true.,.true.)
-    ! Lk=Nx*Nx*Nx
-    ! allocate(epsik(Lk),wtk(Lk),hybik(Lk))
-    ! ik=0
-    ! test_k=0.d0;n1=0.d0;n2=0.d0
-    ! do ix=1,Nx
-    !    do iy=1,Nx
-    !       do iz=1,Nx
-    !          ik=ik+1
-    !          !kx_=dble(ix)/dble(Nx)*pi
-    !          epsik(ik) = -2.d0/6.d0*(cos(kx(ix))+cos(kx(iy))+cos(kx(iz))) 
-    !          hybik(ik) = 1.d0/6.d0*(cos(kx(ix))-cos(kx(iy)))*cos(kx(iz)) 
-    !          wtk(ik) = 1.d0/dble(Lk)
-    !          n1=n1+fermi(epsik(ik)+cfield*0.5,beta)*wtk(ik)
-    !          n2=n2+fermi(epsik(ik)-cfield*0.5,beta)*wtk(ik)
-    !       end do
-    !    end do
-    ! end do
-    ! !
-    ! write(*,*) 'n1/n2'
-    ! write(*,*) n1,n2,n1+n2
     call get_free_dos(epsik,wtk,file='DOS_free.kgrid')
     !
     allocate(Hk_tb(Ns,Ns,Lk))
@@ -455,6 +479,81 @@ CONTAINS
 
 
 
+
+  !+- strides for the problem at hand -+!
+  subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
+    implicit none
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
+    !
+    vdm_NC_mat = zero
+    do is=1,Ns
+       vdm_NC_mat(is,is) = vdm_NC_indep(1)
+    end do
+  end subroutine vdm_NC_vec2mat
+  subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
+    implicit none
+    complex(8),dimension(:)   :: vdm_NC_indep
+    complex(8),dimension(:,:) :: vdm_NC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
+    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
+    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
+    !
+    is=index(1,1)   
+    vdm_NC_indep(1) = vdm_NC_mat(is,is)
+    !
+  end subroutine vdm_NC_mat2vec
+
+  
+  !
+  subroutine vdm_AC_vec2mat(vdm_AC_indep,vdm_AC_mat)
+    implicit none
+    complex(8),dimension(:)   :: vdm_AC_indep
+    complex(8),dimension(:,:) :: vdm_AC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin,iind
+    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
+    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+    !
+    vdm_AC_mat = zero    
+    iind=0
+    do iorb=1,Norb
+       iind=iind+1
+       do ispin=1,2
+          jspin=3-ispin
+          is=index(ispin,iorb)
+          js=index(jspin,iorb)
+          vdm_AC_mat(is,js) = (-1.d0)**dble(jspin)*vdm_AC_indep(iind)
+       end do
+    end do    
+    !
+  end subroutine vdm_AC_vec2mat
+  subroutine vdm_AC_mat2vec(vdm_AC_mat,vdm_AC_indep)
+    implicit none
+    complex(8),dimension(:)   :: vdm_AC_indep
+    complex(8),dimension(:,:) :: vdm_AC_mat
+    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin,iind
+    if(size(vdm_AC_mat,1).ne.size(vdm_AC_mat,2)) stop "wrong stride"
+    if(size(vdm_AC_mat,1).ne.Ns) stop "wrong stride"
+    if(size(vdm_AC_indep).ne.Nvdm_AC_opt) stop "wrong stride!"    
+    !
+    iorb=1;jorb=1;ispin=1;jspin=2
+    iind=0
+    do iorb=1,Norb
+       is=index(ispin,iorb)
+       js=index(jspin,iorb)
+       iind=iind+1
+       vdm_AC_indep(iind) = vdm_AC_mat(is,js)
+    end do
+    !
+  end subroutine vdm_AC_mat2vec
+
+  
 
 
 
@@ -626,64 +725,6 @@ CONTAINS
     !
   end subroutine Rhop_mat2vec
 
-
-
-  subroutine vdm_NC_vec2mat(vdm_NC_indep,vdm_NC_mat)
-    complex(8),dimension(:)   :: vdm_NC_indep
-    complex(8),dimension(:,:) :: vdm_NC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-    !
-    vdm_NC_mat = zero
-    do iorb=1,Norb
-       do ispin=1,2
-          is=index(ispin,iorb)
-          vdm_NC_mat(is,is) = vdm_NC_indep(iorb)
-       end do
-    end do
-    !
-  end subroutine vdm_NC_vec2mat
-  subroutine vdm_NC_mat2vec(vdm_NC_mat,vdm_NC_indep)
-    complex(8),dimension(:)   :: vdm_NC_indep
-    complex(8),dimension(:,:) :: vdm_NC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_NC_indep).ne.Nvdm_NC_opt) stop "wrong stride!"    
-    !
-    ispin=1;iorb=1;is=index(ispin,iorb)
-    vdm_NC_indep(1)=vdm_NC_mat(is,is)
-    ispin=1;iorb=2;is=index(ispin,iorb)
-    vdm_NC_indep(2)=vdm_NC_mat(is,is)
-    !
-  end subroutine vdm_NC_mat2vec
-
-
-
-  subroutine vdm_NCoff_vec2mat(vdm_NC_indep,vdm_NC_mat)
-    complex(8),dimension(:)   :: vdm_NC_indep
-    complex(8),dimension(:,:) :: vdm_NC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-    !
-    vdm_NC_mat = zero
-    !
-  end subroutine vdm_NCoff_vec2mat
-  subroutine vdm_NCoff_mat2vec(vdm_NC_mat,vdm_NC_indep)
-    complex(8),dimension(:)   :: vdm_NC_indep
-    complex(8),dimension(:,:) :: vdm_NC_mat
-    integer                   :: i,j,is,js,iorb,jorb,ispin,jspin
-    if(size(vdm_NC_mat,1).ne.size(vdm_NC_mat,2)) stop "wrong stride"
-    if(size(vdm_NC_mat,1).ne.Ns) stop "wrong stride"
-    if(size(vdm_NC_indep).ne.Nvdm_NCoff_opt) stop "wrong stride!"    
-    !
-    vdm_NC_indep = zero
-    !
-  end subroutine vdm_NCoff_mat2vec
 
 
   subroutine init_bcs_wf(bcs_wf,U)

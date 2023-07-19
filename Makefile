@@ -67,6 +67,7 @@ EXE=gz_neq_1b_bethe_sc
 #EXE=gz_diss_sc_bethe
 #EXE=bcs_diss_solitons
 
+EXE=gz_diss_neq_1b_bethe_sc
 
 DIR=drivers
 DIREXE=$(HOME)/.bin

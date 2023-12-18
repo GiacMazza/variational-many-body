@@ -167,6 +167,15 @@ program GUTZ_mb
 
 
   !+- STRIDES FOR THE DETERMINATION OF THE LGR PARAMETERS -+!
+  NLP=4*Ns*Ns
+  allocate(ivec2ij_GZ(4,NLP)); ivec2ij_GZ=0
+  allocate(ij2ivec_GZ(2,2,Ns,Ns)); ij2ivec_GZ=0
+  !
+  
+  
+
+
+  
   Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
   Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
   allocate(diss_lgrV_NC(Nvdm_NC_opt));     diss_lgrV_NC=0d0

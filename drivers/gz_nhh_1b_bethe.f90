@@ -19,6 +19,7 @@ program GUTZ_mb
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t
   integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin
+  integer :: in,jn,iv
   integer :: nprint
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir,read_finSC_dir
@@ -167,53 +168,89 @@ program GUTZ_mb
 
 
   !+- STRIDES FOR THE DETERMINATION OF THE LGR PARAMETERS -+!
-  NLP=4*Ns*Ns
-  allocate(ivec2ij_GZ(4,NLP)); ivec2ij_GZ=0
-  allocate(ij2ivec_GZ(2,2,Ns,Ns)); ij2ivec_GZ=0
+  NLP_GZ=4*Ns*Ns
+  allocate(ivec2ij_GZ(4,NLP_GZ));  ivec2ij_GZ = 0
+  allocate(ij2ivec_GZ(2,2,Ns,Ns)); ij2ivec_GZ = 0
   !
-  
+  NLP_SL=2*Ns*(2*Ns-1)
+  allocate(ivec2ij_SL(4,NLP_SL));  ivec2ij_SL = 0
+  allocate(ij2ivec_SL(2,2,Ns,Ns)); ij2ivec_SL = 0
+
+  iv=0
+  do in=1,2
+     do jn=1,2
+        do is=1,Ns
+           do js=1,Ns
+              iv=iv+1
+              ij2ivec_GZ(in,jn,is,js) = iv
+              ivec2ij_GZ(1,iv) = in
+              ivec2ij_GZ(2,iv) = jn
+              ivec2ij_GZ(3,iv) = is
+              ivec2ij_GZ(4,iv) = js
+           end do
+        end do
+     end do
+  end do
+  iv=0
+  do in=1,2
+     do jn=1,2
+        do is=1,Ns
+           do js=1,Ns
+              if(is.ne.js.and.in.ne.jn) then
+                 iv=iv+1
+                 ij2ivec_SL(in,jn,is,js) = iv
+                 ivec2ij_SL(1,iv) = in
+                 ivec2ij_SL(2,iv) = jn
+                 ivec2ij_SL(3,iv) = is
+                 ivec2ij_SL(4,iv) = js
+              end if
+           end do
+        end do
+     end do
+  end do
+
   
 
 
   
-  Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
-  Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
-  allocate(diss_lgrV_NC(Nvdm_NC_opt));     diss_lgrV_NC=0d0
-  allocate(diss_lgr_NC(Ns,Ns)); call vdm_NC_stride_v2m(diss_lgrV_NC,diss_lgr_NC)
-  ! do is=1,Ns
-  !    write(*,*) dreal(diss_lgr_NC(is,:)),dimag(diss_lgr_NC(is,:))
-  ! end do
-  ! call vdm_NC_stride_m2v(diss_lgr_NC,diss_lgrV_NC)
-  ! do is=1,Nvdm_NC_opt
-  !    write(*,*) diss_lgrV_NC(is)
-  ! end do
-  !
-  ! write(*,*)
-  allocate(diss_lgrV_AC_SL(Nvdm_AC_opt));  diss_lgrV_AC_SL=0.d0
-  allocate(diss_lgr_AC_SL(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_SL,diss_lgr_AC_SL)
-  ! do is=1,Ns
-  !    write(*,*) dreal(diss_lgr_AC_SL(is,:)),dimag(diss_lgr_AC_SL(is,:))
-  ! end do
-  ! call vdm_AC_stride_m2v(diss_lgr_AC_SL,diss_lgrV_AC_SL)
-  ! do is=1,Nvdm_AC_opt
-  !    write(*,*) diss_lgrV_AC_SL(is)
-  ! end do
-  !
-  allocate(diss_lgrV_AC_SL_(Nvdm_AC_opt)); diss_lgrV_AC_SL_=0.d0
-  allocate(diss_lgr_AC_SL_(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_SL_,diss_lgr_AC_SL_)
-  ! do is=1,Ns
-  !    write(*,*) dreal(diss_lgr_AC_SL_(is,:)),dimag(diss_lgr_AC_SL_(is,:))
-  ! end do
-  ! call vdm_AC_stride_m2v(diss_lgr_AC_SL_,diss_lgrV_AC_SL_)
-  ! do is=1,Nvdm_AC_opt
-  !    write(*,*) diss_lgrV_AC_SL_(is)
-  ! end do 
-  !
-  allocate(diss_lgrV_AC_GZ(Nvdm_AC_opt));  diss_lgrV_AC_GZ=0.d0
-  allocate(diss_lgr_AC_GZ(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_GZ,diss_lgr_AC_GZ)
-  !
-  allocate(diss_lgrV_AC_GZ_(Nvdm_AC_opt)); diss_lgrV_AC_GZ_=0.d0
-  allocate(diss_lgr_AC_GZ_(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_GZ_,diss_lgr_AC_GZ_)
+  ! Nvdm_NC_opt=1; vdm_NC_stride_v2m => vdm_NC_vec2mat ; vdm_NC_stride_m2v => vdm_NC_mat2vec
+  ! Nvdm_AC_opt=1; vdm_AC_stride_v2m => vdm_AC_vec2mat ; vdm_AC_stride_m2v => vdm_AC_mat2vec
+  ! allocate(diss_lgrV_NC(Nvdm_NC_opt));     diss_lgrV_NC=0d0
+  ! allocate(diss_lgr_NC(Ns,Ns)); call vdm_NC_stride_v2m(diss_lgrV_NC,diss_lgr_NC)
+  ! ! do is=1,Ns
+  ! !    write(*,*) dreal(diss_lgr_NC(is,:)),dimag(diss_lgr_NC(is,:))
+  ! ! end do
+  ! ! call vdm_NC_stride_m2v(diss_lgr_NC,diss_lgrV_NC)
+  ! ! do is=1,Nvdm_NC_opt
+  ! !    write(*,*) diss_lgrV_NC(is)
+  ! ! end do
+  ! !
+  ! ! write(*,*)
+  ! allocate(diss_lgrV_AC_SL(Nvdm_AC_opt));  diss_lgrV_AC_SL=0.d0
+  ! allocate(diss_lgr_AC_SL(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_SL,diss_lgr_AC_SL)
+  ! ! do is=1,Ns
+  ! !    write(*,*) dreal(diss_lgr_AC_SL(is,:)),dimag(diss_lgr_AC_SL(is,:))
+  ! ! end do
+  ! ! call vdm_AC_stride_m2v(diss_lgr_AC_SL,diss_lgrV_AC_SL)
+  ! ! do is=1,Nvdm_AC_opt
+  ! !    write(*,*) diss_lgrV_AC_SL(is)
+  ! ! end do
+  ! !
+  ! allocate(diss_lgrV_AC_SL_(Nvdm_AC_opt)); diss_lgrV_AC_SL_=0.d0
+  ! allocate(diss_lgr_AC_SL_(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_SL_,diss_lgr_AC_SL_)
+  ! ! do is=1,Ns
+  ! !    write(*,*) dreal(diss_lgr_AC_SL_(is,:)),dimag(diss_lgr_AC_SL_(is,:))
+  ! ! end do
+  ! ! call vdm_AC_stride_m2v(diss_lgr_AC_SL_,diss_lgrV_AC_SL_)
+  ! ! do is=1,Nvdm_AC_opt
+  ! !    write(*,*) diss_lgrV_AC_SL_(is)
+  ! ! end do 
+  ! !
+  ! allocate(diss_lgrV_AC_GZ(Nvdm_AC_opt));  diss_lgrV_AC_GZ=0.d0
+  ! allocate(diss_lgr_AC_GZ(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_GZ,diss_lgr_AC_GZ)
+  ! !
+  ! allocate(diss_lgrV_AC_GZ_(Nvdm_AC_opt)); diss_lgrV_AC_GZ_=0.d0
+  ! allocate(diss_lgr_AC_GZ_(Ns,Ns)); call vdm_AC_stride_v2m(diss_lgrV_AC_GZ_,diss_lgr_AC_GZ_)
   !
   stop
   !+- need to write all the dissipative equations of motions 

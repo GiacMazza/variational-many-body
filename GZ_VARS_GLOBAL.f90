@@ -162,13 +162,15 @@ MODULE GZ_VARS_GLOBAL
   logical,dimension(:,:),allocatable :: Rgrid,Qgrid,Ngrid
 
 
-  !+- time dependent lagrange parameters -+!
+  !+- time dependent lagrange parameters for non-hermitean dynamics -+!
   !+ anomalous costraints  acting only on the _SL_ or _GZ_ sectors -+!
-  complex(8),dimension(:,:),allocatable :: diss_lgr_AC_SL ,diss_lgr_AC_GZ
-  complex(8),dimension(:,:),allocatable :: diss_lgr_AC_SL_,diss_lgr_AC_GZ_
-  !+ normal costraints  acting only on both sectors -+!
-  complex(8),dimension(:,:),allocatable :: diss_lgr_NC
-  
+  ! complex(8),dimension(:,:),allocatable :: diss_lgr_AC_SL ,diss_lgr_AC_GZ
+  ! complex(8),dimension(:,:),allocatable :: diss_lgr_AC_SL_,diss_lgr_AC_GZ_
+  ! !+ normal costraints  acting only on both sectors -+!
+  ! complex(8),dimension(:,:),allocatable :: diss_lgr_NC
+  integer :: NLP_GZ,NLP_SL
+  integer,dimension(:,:),allocatable ::     ivec2ij_GZ,ivec2ij_SL
+  integer,dimension(:,:,:,:),allocatable :: ij2ivec_GZ,ij2ivec_SL
   
   
   !+- MPI -+!

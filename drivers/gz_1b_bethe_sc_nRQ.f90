@@ -178,7 +178,7 @@ program GUTZ_mb
 
            xmu_unit=free_unit()
            open(xmu_unit,file='search_XMU.out') 
-           search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
+           search_mu=brentq(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
            close(xmu_unit)     
 
 
@@ -270,7 +270,7 @@ program GUTZ_mb
 
            xmu_unit=free_unit()
            open(xmu_unit,file='search_XMU.out') 
-           search_mu=zbrent(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
+           search_mu=brentq(gz_optimized_density_VS_xmu,xmu1,xmu2,nerr)       
            close(xmu_unit)     
 
 

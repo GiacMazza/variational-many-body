@@ -22,7 +22,7 @@ FPP=
 #EXE=gz_1b_attractiveU
 
 
-#EXE=gz_1b_bethe_sc_nRQ
+EXE=gz_1b_bethe_sc_nRQ
 #EXE=gz_1b_cubic_sc_nRQ
 ##EXE=gz_1b_cb_sc_nRQ
 #EXE=gz_1b_bethe_sc_temp
@@ -30,7 +30,7 @@ FPP=
 
 
 #EXE=gz_neq_1b_bethe
-EXE=gz_neq_1b_bethe_sc
+#EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_1b_cubic_sc
 #EXE=gz_neq_1b_cb_sc
 #EXE=gz_neq_1b_bethe_sc_tdlgr
@@ -67,7 +67,7 @@ EXE=gz_neq_1b_bethe_sc
 #EXE=gz_diss_sc_bethe
 #EXE=bcs_diss_solitons
 
-EXE=gz_diss_neq_1b_bethe_sc
+#EXE=gz_diss_neq_1b_bethe_sc
 
 DIR=drivers
 DIREXE=$(HOME)/.bin

@@ -64,12 +64,12 @@ EXE=gz_1b_bethe_sc_nRQ
 
 #EXE=gz_GF_pp_sc
 
-#EXE=gz_diss_sc_bethe
+EXE=bcs_diss_sc_bethe
 #EXE=bcs_diss_solitons
 
 #EXE=gz_diss_neq_1b_bethe_sc
 
-EXE=gz_nhh_1b_bethe
+#EXE=gz_nhh_1b_bethe
 
 DIR=drivers
 DIREXE=$(HOME)/.bin

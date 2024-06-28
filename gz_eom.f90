@@ -56,8 +56,8 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
               slater_dot(is,js,ik) = slater_dot(is,js,ik) - tRR(ks,is)*slater(ks,js,ik)
            end do
         end do
-        slater_dot(is,is,ik) = slater_dot(is,is,ik) + xi*k_qp_diss*fermi(dreal(Hk(is,is)),beta_diss)*(1.0d0-slater(is,is,ik))*abs(Rhop(is,is))**2.d0 !+- pump processes -+!
-        slater_dot(is,is,ik) = slater_dot(is,is,ik) - xi*k_qp_diss*(1.d0-fermi(dreal(Hk(is,is)),beta_diss))*slater(is,is,ik)*abs(Rhop(is,is))**2.d0  !+- loss processes -+!
+        slater_dot(is,is,ik) = slater_dot(is,is,ik) + xi*k_1p_loss*fermi(dreal(Hk(is,is)),beta_diss)*(1.0d0-slater(is,is,ik))*abs(Rhop(is,is))**2.d0 !+- pump processes -+!
+        slater_dot(is,is,ik) = slater_dot(is,is,ik) - xi*k_1p_loss*(1.d0-fermi(dreal(Hk(is,is)),beta_diss))*slater(is,is,ik)*abs(Rhop(is,is))**2.d0  !+- loss processes -+!
      end do
      !     
      do is=1,Ns

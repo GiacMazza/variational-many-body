@@ -197,13 +197,16 @@ program GUTZ_mb
   !
   !
   !
-  k_qp_diss=k_qp_diss*abs(Ubcsf)
-  k_qp_loss=k_qp_loss*abs(Ubcsf)
-  k_qp_pump=k_qp_pump*abs(Ubcsf)
+  k_2p_loss=k_2p_loss*abs(Ubcsf)
+  k_2p_pump=k_2p_pump*abs(Ubcsf)
+  !
+  !
+  k_1p_loss=k_1p_loss*abs(Ubcsf)
+  k_1p_pump=k_1p_pump*abs(Ubcsf)
   !
   !
   !
-  allocate(kdiss_t(Nt_aux),kpump_t(Nt_aux),kloss_t(Nt_aux))
+  allocate(k2p_loss_t(Nt_aux),k2p_pump_t(Nt_aux),kpump_t(Nt_aux),kloss_t(Nt_aux))
   unit_neq_hloc = free_unit()
   open(unit_neq_hloc,file="neq_kdiss.out")
   do itt=1,Nt_aux
@@ -225,11 +228,13 @@ program GUTZ_mb
         s = 1.d0 + dUneq*dsin(2.d0*pi*t/tSin_kdiss)
      end if
      !
-     kdiss_t(itt) = r*k_qp_diss
-     kpump_t(itt) = r*k_qp_pump
-     kloss_t(itt) = r*k_qp_loss
+     k2p_loss_t(itt) = r*k_2p_loss
+     k2p_pump_t(itt) = r*k_2p_pump
+
+     kpump_t(itt) = r*k_1p_pump
+     kloss_t(itt) = r*k_1p_loss
      if(mod(itt-1,nprint).eq.0) then        
-        write(unit_neq_hloc,'(5F18.10)') t,kdiss_t(itt),kpump_t(itt),kloss_t(itt)
+        write(unit_neq_hloc,'(5F18.10)') t,k2p_loss_t(itt),k2p_pump_t(itt),kpump_t(itt),kloss_t(itt)
      end if
   end do
   close(unit_neq_hloc)
@@ -506,7 +511,7 @@ CONTAINS
     self_cons=0d0
     do ik=1,Lk
        !
-       denk = Ubcsf**2.d0*(delta_minus**2.d0+delta_plus**2.d0) + 4.d0*epsik(ik)**2.d0 + k_qp_loss**2.d0
+       denk = Ubcsf**2.d0*(delta_minus**2.d0+delta_plus**2.d0) + 4.d0*epsik(ik)**2.d0 + k_1p_loss**2.d0
        denk = denk**2.d0
        denk = denk - 4.d0*Ubcsf**4.d0*delta_minus**2.d0*delta_plus**2.d0
        denk = denk**0.5d0

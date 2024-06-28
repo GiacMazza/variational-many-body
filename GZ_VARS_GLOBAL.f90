@@ -151,7 +151,7 @@ MODULE GZ_VARS_GLOBAL
   real(8),dimension(:,:),allocatable     :: eLevels_t 
   
   !
-  real(8),dimension(:),allocatable :: Ubcs_t,kdiss_t,kpump_t,kloss_t
+  real(8),dimension(:),allocatable :: Ubcs_t,k2p_loss_t,k2p_pump_t,kpump_t,kloss_t
   real(8) :: sc_seed
   !
   integer,dimension(:,:),allocatable     :: print_grid_Rhop

@@ -431,14 +431,15 @@ subroutine gz_proj_free_energy_lgr_superc(slater_matrix_el,n0,Evar,Eslater,Egutz
   GZvect_indep_=GZvect_indep
   !GZvect_indep_=1.d0/sqrt(dble(n_min))
   write(*,*) GZvect_indep_
-  call lancelot_simple(n_min,GZvect_indep_,my_fun=energy_GZproj_functional,                   &
-       fx=GZ_free_energy, exit_code=exit_code,                                         &
-       bl = bl, bu = bu,                                                    &
-       neq = neq, nin = nin,                                                                  &
-       cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
-       gradtol = gradtol, feastol = feastol,                                                  &
-       print_level = print_level )
-
+  ! call lancelot_simple(n_min,GZvect_indep_,my_fun=energy_GZproj_functional,                   &
+  !      fx=GZ_free_energy, exit_code=exit_code,                                         &
+  !      bl = bl, bu = bu,                                                    &
+  !      neq = neq, nin = nin,                                                                  &
+  !      cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
+  !      gradtol = gradtol, feastol = feastol,                                                  &
+  !      print_level = print_level )
+  write(*,*) 'trying to use an obselete function - stop it'
+  stop
   !+--------------------------------------------------------------------------------------+!    
   !
   if(iverbose_) then

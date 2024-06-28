@@ -6,19 +6,19 @@ MODULE GZ_OPTIMIZED_ENERGY
   USE GZ_EFFECTIVE_HOPPINGS
   USE GZ_LOCAL_FOCK  
   !
-  USE LANCELOT_simple_double
+  !USE LANCELOT_simple_double
   !
   USE GZ_MATRIX_BASIS
   USE GZ_ENERGY_MINIMIZATION
-  USE MIN_AMOEBA
+  !USE MIN_AMOEBA
   implicit none
   private
   !
 
   !+- OPTIMIZATION ROUTINES w/ respect the VariationalDensityMatrix (VDM) -+!
-  public :: gz_optimization_vdm_simplex   ! Simplex method (AMOEBA.f90)  !
-  public :: gz_free_energy_optimization_vdm_simplex !
-  public :: gz_optimization_vdm_nlsq      !+- constrained NonLinearLeastSquare method (GALHAD)
+  ! public :: gz_optimization_vdm_simplex   ! Simplex method (AMOEBA.f90)  !
+  ! public :: gz_free_energy_optimization_vdm_simplex !
+  ! public :: gz_optimization_vdm_nlsq      !+- constrained NonLinearLeastSquare method (GALHAD)
 
   !+- OPTIMIZATION considering VDM and Renormalization_matrices as free parameters -+!
   public :: gz_optimization_vdm_Rhop
@@ -691,76 +691,76 @@ CONTAINS
   !+- CONSTRAINED MINIMIZATION WITH RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
   !+---------------------------------------------------------------------------+!
   !
-  subroutine gz_optimization_vdm_nlsq(init_vdm,optimized_vdm)
-    real(8),dimension(:),intent(in)  :: init_vdm
-    real(8),dimension(size(init_vdm)),intent(out) :: optimized_vdm
-    integer                             :: iter,unit_vdm_opt,icall
-    real(8)                             :: GZ_energy
-    !
-    !LANCELOT VARIABLES
-    !
-    integer                           :: n_min,neq,nin,maxit,print_level,exit_code
-    real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
-    real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
-    integer                           :: iunit,err_unit,ene_unit,Nsuccess    
-    !
-    if(size(init_vdm).ne.Nvdm_NC_opt-Nvdm_NCoff_opt) stop "wrong dimensions @ gz_optimizatoin_vdm_nlsq"
-    optimized_vdm=init_vdm
-    !
-    unit_vdm_opt=free_unit()
-    open(unit_vdm_opt,file='vdm_optimization.out'); icall=0
-    !
-    opt_energy_unit=free_unit()
-    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
-    opt_rhop_unit=free_unit()
-    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
-    if(gz_superc) then
-       opt_qhop_unit=free_unit()
-       open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
-    end if
-    opt_GZ_unit=free_unit()
-    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
-    if(GZmin_verbose) then
-       GZmin_unit=free_unit()
-       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
-       GZmin_unit_=free_unit()
-       open(GZmin_unit_,file='GZ_proj_min.out')
-    end if
+  ! subroutine gz_optimization_vdm_nlsq(init_vdm,optimized_vdm)
+  !   real(8),dimension(:),intent(in)  :: init_vdm
+  !   real(8),dimension(size(init_vdm)),intent(out) :: optimized_vdm
+  !   integer                             :: iter,unit_vdm_opt,icall
+  !   real(8)                             :: GZ_energy
+  !   !
+  !   !LANCELOT VARIABLES
+  !   !
+  !   integer                           :: n_min,neq,nin,maxit,print_level,exit_code
+  !   real(8)                           :: gradtol,feastol,Ephi,nsite,err_iter,Ephi_
+  !   real(8),allocatable               :: bL(:),bU(:),cx(:),y(:),phi_optimize(:),phi_optimize_(:)
+  !   integer                           :: iunit,err_unit,ene_unit,Nsuccess    
+  !   !
+  !   if(size(init_vdm).ne.Nvdm_NC_opt-Nvdm_NCoff_opt) stop "wrong dimensions @ gz_optimizatoin_vdm_nlsq"
+  !   optimized_vdm=init_vdm
+  !   !
+  !   unit_vdm_opt=free_unit()
+  !   open(unit_vdm_opt,file='vdm_optimization.out'); icall=0
+  !   !
+  !   opt_energy_unit=free_unit()
+  !   open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+  !   opt_rhop_unit=free_unit()
+  !   open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+  !   if(gz_superc) then
+  !      opt_qhop_unit=free_unit()
+  !      open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
+  !   end if
+  !   opt_GZ_unit=free_unit()
+  !   open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+  !   if(GZmin_verbose) then
+  !      GZmin_unit=free_unit()
+  !      open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+  !      GZmin_unit_=free_unit()
+  !      open(GZmin_unit_,file='GZ_proj_min.out')
+  !   end if
 
 
 
-    ! LANCELOT configuration parameters 
-    n_min       = Nvdm_NC_opt-Nvdm_NCoff_opt  ! number of minimization parameters  
-    neq         = 0   ! number of equality constraints                   
-    nin         = 0           ! number of in-equality constraints                   
-    maxit       = 1000        ! maximum iteration number 
-    gradtol     = 1.d-7       ! maximum norm of the gradient at convergence 
-    feastol     = 1.d-7       ! maximum violation of parameters at convergence  
-    print_level = lancelot_verbose           ! verbosity
-    allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
-    bL = 1.d-4               ! lower bounds for minimization parameters
-    bU = 1.d0-bL                 ! upper bounds for minimization parameters          
-    !    
-    ! call lancelot_simple(n_min,optimized_vdm,GZ_energy,exit_code,my_fun=gz_get_energy_vdm, &
-    !      bl = bl, bu = bu,                                                                      &
-    !      neq = neq, nin = nin,                                                                  &
-    !      cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
-    !      gradtol = gradtol, feastol = feastol,                                                  &
-    !      print_level = print_level )
-    call lancelot_simple(n_min,optimized_vdm,my_fun=gz_get_energy_vdm, &
-         fx=GZ_energy,exit_code=exit_code, &
-         bl = bl, bu = bu,                                                                      &
-         neq = neq, nin = nin,                                                                  &
-         cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
-         gradtol = gradtol, feastol = feastol,                                                  &
-         print_level = print_level )
-    !+--------------------------------------------------------------------------------------+!    
+  !   ! LANCELOT configuration parameters 
+  !   n_min       = Nvdm_NC_opt-Nvdm_NCoff_opt  ! number of minimization parameters  
+  !   neq         = 0   ! number of equality constraints                   
+  !   nin         = 0           ! number of in-equality constraints                   
+  !   maxit       = 1000        ! maximum iteration number 
+  !   gradtol     = 1.d-7       ! maximum norm of the gradient at convergence 
+  !   feastol     = 1.d-7       ! maximum violation of parameters at convergence  
+  !   print_level = lancelot_verbose           ! verbosity
+  !   allocate(bl(n_min),bu(n_min),cx(neq+nin),y(neq+nin))
+  !   bL = 1.d-4               ! lower bounds for minimization parameters
+  !   bU = 1.d0-bL                 ! upper bounds for minimization parameters          
+  !   !    
+  !   ! call lancelot_simple(n_min,optimized_vdm,GZ_energy,exit_code,my_fun=gz_get_energy_vdm, &
+  !   !      bl = bl, bu = bu,                                                                      &
+  !   !      neq = neq, nin = nin,                                                                  &
+  !   !      cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
+  !   !      gradtol = gradtol, feastol = feastol,                                                  &
+  !   !      print_level = print_level )
+  !   call lancelot_simple(n_min,optimized_vdm,my_fun=gz_get_energy_vdm, &
+  !        fx=GZ_energy,exit_code=exit_code, &
+  !        bl = bl, bu = bu,                                                                      &
+  !        neq = neq, nin = nin,                                                                  &
+  !        cx = cx, y = y, iters  = iter, maxit = maxit,                                          &
+  !        gradtol = gradtol, feastol = feastol,                                                  &
+  !        print_level = print_level )
+  !   !+--------------------------------------------------------------------------------------+!    
 
-    optimization_flag=.true.
-    if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
-    call gz_get_energy_vdm(optimized_vdm,GZ_energy)
+  !   optimization_flag=.true.
+  !   if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
+  !   call gz_get_energy_vdm(optimized_vdm,GZ_energy)
 
-  end subroutine gz_optimization_vdm_nlsq
+  ! end subroutine gz_optimization_vdm_nlsq
 
 
 
@@ -772,160 +772,160 @@ CONTAINS
   !+---------------------------------------------------------------------+!
   !+- SIMPLEX MINIMIZATION W/ RESPECT TO THE VARIATIONAL DENSITY MATRIX -+!
   !+---------------------------------------------------------------------+!
-  subroutine gz_optimization_vdm_simplex(simplex_init,optimized_vdm) 
-    real(8),dimension(Ns+1,Ns),intent(inout) :: simplex_init
-    real(8),dimension(Ns),intent(out)               :: optimized_vdm
-    !real(8),intent(out)                                    :: optimized_energy    
-    !+- amoeba_variables-+!
-    real(8),allocatable,dimension(:,:)                     :: p
-    real(8),allocatable,dimension(:)                       :: y
-    real(8)                                                :: ftol
-    integer                                                :: np,mp,i_vertex,j_vertex,i_dim,iter
-    !integer,allocatable,dimension(:)                       :: idum
-    !integer                                                :: tmp_dum
-    !real(8)                                                :: rnd,tot_dens
-    real(8)                                                :: GZ_energy
-    !
-    !
-    integer                                                :: amoeba_unit    
-    !+-------------------+!
-    optimization_flag=.false.
-    amoeba_unit=free_unit()
-    open(amoeba_unit,file='Amoeba_minimization.out')
-    opt_energy_unit=free_unit()
-    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
-    opt_rhop_unit=free_unit()
-    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
-    if(gz_superc) then
-       opt_qhop_unit=free_unit()
-       open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
-    end if
-    opt_GZ_unit=free_unit()
-    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
-    if(GZmin_verbose) then
-       GZmin_unit=free_unit()
-       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
-       GZmin_unit_=free_unit()
-       open(GZmin_unit_,file='GZ_proj_min.out')
-    end if
-    NP=Ns
-    MP=NP+1  
-    allocate(y(MP),p(MP,NP))
-    !+- initialize simplex -+!
-    p=simplex_init
-    write(amoeba_unit,*) 'Initializing simplex verteces'
-    !+----------------------+!  
-    do i_vertex=1,MP
-       y(i_vertex) = gz_energy_vdm(p(i_vertex,:))
-       write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
-    end do
-    !<DEBUG
-    !stop
-    !DEBUG>
-    !
-    ftol=amoeba_min_tol
-    call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_energy_vdm,iter,amoeba_verbose)
-    !+- Optimized Variational Density Matrix -+!
-    optimized_vdm=p(1,:) 
-    !+- Optimized Variational Energy -+!
-    simplex_init=p
-    write(amoeba_unit,*) 
-    write(amoeba_unit,*) 'Last loop simplex verteces'
-    write(amoeba_unit,*) 
-    do i_vertex=1,MP
-       write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
-    end do
-    write(amoeba_unit,*) 
-    write(amoeba_unit,*) 
-    deallocate(y,p)
-    close(amoeba_unit)
-    close(opt_energy_unit)    
-    !
-    optimization_flag=.true.
-    if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
-    GZ_energy = gz_energy_vdm(optimized_vdm)
-    !
-  end subroutine gz_optimization_vdm_simplex
+  ! subroutine gz_optimization_vdm_simplex(simplex_init,optimized_vdm) 
+  !   real(8),dimension(Ns+1,Ns),intent(inout) :: simplex_init
+  !   real(8),dimension(Ns),intent(out)               :: optimized_vdm
+  !   !real(8),intent(out)                                    :: optimized_energy    
+  !   !+- amoeba_variables-+!
+  !   real(8),allocatable,dimension(:,:)                     :: p
+  !   real(8),allocatable,dimension(:)                       :: y
+  !   real(8)                                                :: ftol
+  !   integer                                                :: np,mp,i_vertex,j_vertex,i_dim,iter
+  !   !integer,allocatable,dimension(:)                       :: idum
+  !   !integer                                                :: tmp_dum
+  !   !real(8)                                                :: rnd,tot_dens
+  !   real(8)                                                :: GZ_energy
+  !   !
+  !   !
+  !   integer                                                :: amoeba_unit    
+  !   !+-------------------+!
+  !   optimization_flag=.false.
+  !   amoeba_unit=free_unit()
+  !   open(amoeba_unit,file='Amoeba_minimization.out')
+  !   opt_energy_unit=free_unit()
+  !   open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+  !   opt_rhop_unit=free_unit()
+  !   open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+  !   if(gz_superc) then
+  !      opt_qhop_unit=free_unit()
+  !      open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
+  !   end if
+  !   opt_GZ_unit=free_unit()
+  !   open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+  !   if(GZmin_verbose) then
+  !      GZmin_unit=free_unit()
+  !      open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+  !      GZmin_unit_=free_unit()
+  !      open(GZmin_unit_,file='GZ_proj_min.out')
+  !   end if
+  !   NP=Ns
+  !   MP=NP+1  
+  !   allocate(y(MP),p(MP,NP))
+  !   !+- initialize simplex -+!
+  !   p=simplex_init
+  !   write(amoeba_unit,*) 'Initializing simplex verteces'
+  !   !+----------------------+!  
+  !   do i_vertex=1,MP
+  !      y(i_vertex) = gz_energy_vdm(p(i_vertex,:))
+  !      write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
+  !   end do
+  !   !<DEBUG
+  !   !stop
+  !   !DEBUG>
+  !   !
+  !   ftol=amoeba_min_tol
+  !   call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_energy_vdm,iter,amoeba_verbose)
+  !   !+- Optimized Variational Density Matrix -+!
+  !   optimized_vdm=p(1,:) 
+  !   !+- Optimized Variational Energy -+!
+  !   simplex_init=p
+  !   write(amoeba_unit,*) 
+  !   write(amoeba_unit,*) 'Last loop simplex verteces'
+  !   write(amoeba_unit,*) 
+  !   do i_vertex=1,MP
+  !      write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
+  !   end do
+  !   write(amoeba_unit,*) 
+  !   write(amoeba_unit,*) 
+  !   deallocate(y,p)
+  !   close(amoeba_unit)
+  !   close(opt_energy_unit)    
+  !   !
+  !   optimization_flag=.true.
+  !   if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
+  !   GZ_energy = gz_energy_vdm(optimized_vdm)
+  !   !
+  ! end subroutine gz_optimization_vdm_simplex
 
 
 
 
 
 
-  subroutine gz_free_energy_optimization_vdm_simplex(simplex_init,optimized_vdm) 
-    real(8),dimension(Ns+1,Ns),intent(inout) :: simplex_init
-    real(8),dimension(Ns),intent(out)               :: optimized_vdm
-    !real(8),intent(out)                                    :: optimized_energy    
-    !+- amoeba_variables-+!
-    real(8),allocatable,dimension(:,:)                     :: p
-    real(8),allocatable,dimension(:)                       :: y
-    real(8)                                                :: ftol
-    integer                                                :: np,mp,i_vertex,j_vertex,i_dim,iter
-    !integer,allocatable,dimension(:)                       :: idum
-    !integer                                                :: tmp_dum
-    !real(8)                                                :: rnd,tot_dens
-    real(8)                                                :: GZ_energy
-    !
-    !
-    integer                                                :: amoeba_unit    
-    !+-------------------+!
-    optimization_flag=.false.
-    amoeba_unit=free_unit()
-    open(amoeba_unit,file='Amoeba_minimization.out')
-    opt_energy_unit=free_unit()
-    open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
-    opt_rhop_unit=free_unit()
-    open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
-    if(gz_superc) then
-       opt_qhop_unit=free_unit()
-       open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
-    end if
-    opt_GZ_unit=free_unit()
-    open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
-    if(GZmin_verbose) then
-       GZmin_unit=free_unit()
-       open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
-       GZmin_unit_=free_unit()
-       open(GZmin_unit_,file='GZ_proj_min.out')
-    end if
-    NP=Ns
-    MP=NP+1  
-    allocate(y(MP),p(MP,NP))
-    !+- initialize simplex -+!
-    p=simplex_init
-    write(amoeba_unit,*) 'Initializing simplex verteces'
-    !+----------------------+!  
-    do i_vertex=1,MP
-       y(i_vertex) = gz_free_energy_vdm(p(i_vertex,:))
-       write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
-    end do
-    !<DEBUG
-    !stop
-    !DEBUG>
-    !
-    ftol=amoeba_min_tol
-    call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_free_energy_vdm,iter,amoeba_verbose)
-    !+- Optimized Variational Density Matrix -+!
-    optimized_vdm=p(1,:) 
-    !+- Optimized Variational Energy -+!
-    simplex_init=p
-    write(amoeba_unit,*) 
-    write(amoeba_unit,*) 'Last loop simplex verteces'
-    write(amoeba_unit,*) 
-    do i_vertex=1,MP
-       write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
-    end do
-    write(amoeba_unit,*) 
-    write(amoeba_unit,*) 
-    deallocate(y,p)
-    close(amoeba_unit)
-    close(opt_energy_unit)    
-    !
-    optimization_flag=.true.
-    if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
-    GZ_energy = gz_free_energy_vdm(optimized_vdm)
-    !
-  end subroutine gz_free_energy_optimization_vdm_simplex
+  ! subroutine gz_free_energy_optimization_vdm_simplex(simplex_init,optimized_vdm) 
+  !   real(8),dimension(Ns+1,Ns),intent(inout) :: simplex_init
+  !   real(8),dimension(Ns),intent(out)               :: optimized_vdm
+  !   !real(8),intent(out)                                    :: optimized_energy    
+  !   !+- amoeba_variables-+!
+  !   real(8),allocatable,dimension(:,:)                     :: p
+  !   real(8),allocatable,dimension(:)                       :: y
+  !   real(8)                                                :: ftol
+  !   integer                                                :: np,mp,i_vertex,j_vertex,i_dim,iter
+  !   !integer,allocatable,dimension(:)                       :: idum
+  !   !integer                                                :: tmp_dum
+  !   !real(8)                                                :: rnd,tot_dens
+  !   real(8)                                                :: GZ_energy
+  !   !
+  !   !
+  !   integer                                                :: amoeba_unit    
+  !   !+-------------------+!
+  !   optimization_flag=.false.
+  !   amoeba_unit=free_unit()
+  !   open(amoeba_unit,file='Amoeba_minimization.out')
+  !   opt_energy_unit=free_unit()
+  !   open(opt_energy_unit,file='GZ_OptEnergy_VS_vdm.out')
+  !   opt_rhop_unit=free_unit()
+  !   open(opt_rhop_unit,file='GZ_OptRhop_VS_vdm.out')
+  !   if(gz_superc) then
+  !      opt_qhop_unit=free_unit()
+  !      open(opt_qhop_unit,file='GZ_OptQhop_VS_vdm.out')
+  !   end if
+  !   opt_GZ_unit=free_unit()
+  !   open(opt_GZ_unit,file='GZ_OptProj_VS_vdm.out')
+  !   if(GZmin_verbose) then
+  !      GZmin_unit=free_unit()
+  !      open(GZmin_unit,file='GZ_SelfCons_min_verbose.out')
+  !      GZmin_unit_=free_unit()
+  !      open(GZmin_unit_,file='GZ_proj_min.out')
+  !   end if
+  !   NP=Ns
+  !   MP=NP+1  
+  !   allocate(y(MP),p(MP,NP))
+  !   !+- initialize simplex -+!
+  !   p=simplex_init
+  !   write(amoeba_unit,*) 'Initializing simplex verteces'
+  !   !+----------------------+!  
+  !   do i_vertex=1,MP
+  !      y(i_vertex) = gz_free_energy_vdm(p(i_vertex,:))
+  !      write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
+  !   end do
+  !   !<DEBUG
+  !   !stop
+  !   !DEBUG>
+  !   !
+  !   ftol=amoeba_min_tol
+  !   call amoeba(p(1:MP,1:NP),y(1:MP),ftol,gz_free_energy_vdm,iter,amoeba_verbose)
+  !   !+- Optimized Variational Density Matrix -+!
+  !   optimized_vdm=p(1,:) 
+  !   !+- Optimized Variational Energy -+!
+  !   simplex_init=p
+  !   write(amoeba_unit,*) 
+  !   write(amoeba_unit,*) 'Last loop simplex verteces'
+  !   write(amoeba_unit,*) 
+  !   do i_vertex=1,MP
+  !      write(amoeba_unit,*) p(i_vertex,:),y(i_vertex)
+  !   end do
+  !   write(amoeba_unit,*) 
+  !   write(amoeba_unit,*) 
+  !   deallocate(y,p)
+  !   close(amoeba_unit)
+  !   close(opt_energy_unit)    
+  !   !
+  !   optimization_flag=.true.
+  !   if(.not.allocated(GZ_vector)) allocate(GZ_vector(Nphi))
+  !   GZ_energy = gz_free_energy_vdm(optimized_vdm)
+  !   !
+  ! end subroutine gz_free_energy_optimization_vdm_simplex
 
 
 

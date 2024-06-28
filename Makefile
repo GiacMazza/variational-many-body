@@ -83,8 +83,9 @@ BRANCH=
 endif
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 #
-OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o GZ_GREENS_FUNCTIONS.o
-#
+OBJS=RK_VIDE.o MATRIX_SPARSE.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o GZ_GREENS_FUNCTIONS.o
+#OBJS=RK_VIDE.o MATRIX_SPARSE.o AMOEBA.o GZ_VARS_INPUT.o GZ_VARS_GLOBAL.o ELECTRIC_FIELD.o  GZ_AUX_FUNX.o GZ_neqAUX_FUNX.o GZ_LOCAL_FOCK_SPACE.o GZ_VARIATIONAL_BASIS.o GZ_LOCAL_HAMILTONIAN.o GZ_EFFECTIVE_HOPPINGS.o GZ_ENERGY.o GZ_OPTIMIZE.o GZ_DYNAMICS.o GZ_GREENS_FUNCTIONS.o
+
 
 GLOB_INC:=$(shell pkg-config --cflags dmft_tools scifor)
 GLOB_LIB:=$(shell pkg-config --libs dmft_tools scifor)  
@@ -95,8 +96,8 @@ GALLIBDIR  = $(LIBDIR)/galahad/objects/pc64.lnx.gfo/double
 GALLIBMOD  = $(LIBDIR)/galahad/modules/pc64.lnx.gfo/double
 GALLIBS = -lgalahad -lgalahad_hsl -lgalahad_metis4
 
-GLOB_INC+=-I$(GALLIBMOD) -L$(GALLIBDIR)
-GLOB_LIB+=$(GALLIBS)
+# GLOB_INC+=-I$(GALLIBMOD) -L$(GALLIBDIR)
+# GLOB_LIB+=$(GALLIBS)
 
 #
 
@@ -113,7 +114,7 @@ GLOB_LIB+=$(GALLIBS)
 #ARGS+=-L$(LIBDIR)/old_libs/SciFortran/gnu/lib  -lscifor -lfftpack -lminpack  -llapack -lblas -larpack
 
 
-FFLAG = -O2 -ffree-line-length-none
+FFLAG = -O2 -ffree-line-length-none #-z noexecstack
 DFLAG = -O0 -p -g -fimplicit-none -Wsurprising -Wuninitialized -fbounds-check  -Waliasing -Wall -fwhole-file -fcheck=all -pedantic -fbacktrace -ffree-line-length-none
 OFLAG = -O3 -ffast-math -march=native -funroll-loops -ffree-line-length-none
 FPPSERIAL =-cpp -D_

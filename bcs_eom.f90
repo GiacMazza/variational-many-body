@@ -41,7 +41,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
   !+- two-particle losses -+!
   phi_t = (Ubcs_t(it)+xi*k2p_loss_t(it))*delta_t + sc_seed !
   !+- two-particle pump -+!
-  phi_t = (Ubcs_t(it)-xi*k2p_loss_t(it))*delta_t 
+  phi_t = (Ubcs_t(it)-xi*k2p_pump_t(it))*delta_t 
 
   
   Sz_dot=0.d0
@@ -56,7 +56,8 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(1,ik) = -2.d0*ekt*bcsWF(2,ik) + 2.d0*dimag(phi_t)*bcsWF(3,ik)
      if(.not.diss_complexU) then
         !+- two-particle loss
-        bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*bcsWF(1,ik)
+        !bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*bcsWF(1,ik)
+        bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - k2p_loss_t(it)*n_t*bcsWF(1,ik)
         !+- two-particle pump
         bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2d0*k2p_pump_t(it)*(1d0-0.5d0*n_t)*bcsWF(1,ik)
         
@@ -70,7 +71,8 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(2,ik) =  2.d0*ekt*bcsWF(1,ik) - 2.d0*dreal(phi_t)*bcsWF(3,ik)
      if(.not.diss_complexU) then
         !+- two-particle loss
-        bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*bcsWF(2,ik)
+        !bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*bcsWF(2,ik)
+        bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - k2p_loss_t(it)*n_t*bcsWF(2,ik)
         !+- two-particle pump
         bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2d0*k2p_pump_t(it)*(1d0-0.5d0*n_t)*bcsWF(2,ik)
         
@@ -84,7 +86,8 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(3,ik) =  2.d0*dreal(phi_t)*bcsWF(2,ik) - 2.d0*dimag(phi_t)*bcsWF(1,ik)
      if(.not.diss_complexU) then
         !+- two-particle loss
-        bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*(bcsWF(3,ik)+1.d0)
+        !bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*(bcsWF(3,ik)+1.d0)
+        bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - k2p_loss_t(it)*n_t*(bcsWF(3,ik)+1.d0)
         !+- two-particle pump
         bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2d0*k2p_pump_t(it)*(1d0-0.5d0*n_t)*(bcsWF(3,ik)-1.d0)
         

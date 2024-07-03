@@ -436,15 +436,25 @@ program GUTZ_mb
               tmax=t
            end if
            !bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)                
-           write(unit_neq_bcs,'(30F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens, bcs_Kenergy,bcs_Uenergy,bcs_energy, & 
-                test_decay, &
-                dreal(bcs_wf(1,Lk/2-10)),dreal(bcs_wf(1,Lk/2-20)),dreal(bcs_wf(1,Lk/2-30)), &
-                dreal(bcs_wf(2,Lk/2-10)),dreal(bcs_wf(2,Lk/2-20)),dreal(bcs_wf(2,Lk/2-30)), &
-                dreal(bcs_wf(3,Lk/2-10)),dreal(bcs_wf(3,Lk/2-20)),dreal(bcs_wf(3,Lk/2-30)), &
-                dreal(bcs_wf(1,Lk/2+10)),dreal(bcs_wf(1,Lk/2+20)),dreal(bcs_wf(1,Lk/2+30)), &
-                dreal(bcs_wf(2,Lk/2+10)),dreal(bcs_wf(2,Lk/2+20)),dreal(bcs_wf(2,Lk/2+30)), &
-                dreal(bcs_wf(3,Lk/2+10)),dreal(bcs_wf(3,Lk/2+20)),dreal(bcs_wf(3,Lk/2+30))
-           
+           write(unit_neq_bcs,'(30F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens, bcs_Kenergy,bcs_Uenergy,bcs_energy!, & 
+                ! test_decay, &                
+                ! dreal(bcs_wf(1,Lk/2-10)),dreal(bcs_wf(1,Lk/2-20)),dreal(bcs_wf(1,Lk/2-30)), &
+                ! dreal(bcs_wf(2,Lk/2-10)),dreal(bcs_wf(2,Lk/2-20)),dreal(bcs_wf(2,Lk/2-30)), &
+                ! dreal(bcs_wf(3,Lk/2-10)),dreal(bcs_wf(3,Lk/2-20)),dreal(bcs_wf(3,Lk/2-30)), &
+                ! dimag(bcs_wf(1,Lk/2-10)),dimag(bcs_wf(1,Lk/2-20)),dimag(bcs_wf(1,Lk/2-30)), &
+                ! dimag(bcs_wf(2,Lk/2-10)),dimag(bcs_wf(2,Lk/2-20)),dimag(bcs_wf(2,Lk/2-30)), &
+                ! dimag(bcs_wf(3,Lk/2-10)),dimag(bcs_wf(3,Lk/2-20)),dimag(bcs_wf(3,Lk/2-30))
+
+
+
+                !            dreal(bcs_wf(1,Lk/2-10)),dreal(bcs_wf(1,Lk/2-100)),dreal(bcs_wf(1,Lk/2-300)), &
+                ! dreal(bcs_wf(2,Lk/2-10)),dreal(bcs_wf(2,Lk/2-100)),dreal(bcs_wf(2,Lk/2-300)), &
+                ! dreal(bcs_wf(3,Lk/2-10)),dreal(bcs_wf(3,Lk/2-100)),dreal(bcs_wf(3,Lk/2-300))
+           ! , &
+           !      dimag(bcs_wf(1,Lk/2-10)),dimag(bcs_wf(1,Lk/2-20)),dimag(bcs_wf(1,Lk/2-30)), &
+           !      dimag(bcs_wf(2,Lk/2-10)),dimag(bcs_wf(2,Lk/2-20)),dimag(bcs_wf(2,Lk/2-30)), &
+           !      dimag(bcs_wf(3,Lk/2-10)),dimag(bcs_wf(3,Lk/2-20)),dimag(bcs_wf(3,Lk/2-30))
+
            !
            ! ,bcs_Kenergy+bcs_Uenergy,bcs_Kenergy,bcs_Uenergy
            !     

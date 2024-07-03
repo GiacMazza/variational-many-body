@@ -115,7 +115,7 @@ GALLIBS = -lgalahad -lgalahad_hsl -lgalahad_metis4
 
 
 FFLAG = -O2 -ffree-line-length-none #-z noexecstack
-DFLAG = -O0 -p -g -fimplicit-none -Wsurprising -Wuninitialized -fbounds-check  -Waliasing -Wall -fwhole-file -fcheck=all -pedantic -fbacktrace -ffree-line-length-none
+DFLAG = -O0 -p -g -fimplicit-none -Wsurprising -Wuninitialized -fbounds-check  -Waliasing -Wall -fwhole-file -fcheck=all -pedantic -fbacktrace -ffree-line-length-none # -z noexecstack
 OFLAG = -O3 -ffast-math -march=native -funroll-loops -ffree-line-length-none
 FPPSERIAL =-cpp -D_
 FPPMPI =-cpp -D_MPI	

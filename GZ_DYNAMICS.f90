@@ -720,6 +720,10 @@ CONTAINS
   end subroutine gz_neq_measure_superc_sp
 
 
+  !+- NLPdissipative routines -+!
+
+  !subroutine NLP_matrix_to_vector
+  
 
 END MODULE GZ_DYNAMICS
 

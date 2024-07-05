@@ -168,10 +168,17 @@ MODULE GZ_VARS_GLOBAL
   ! complex(8),dimension(:,:),allocatable :: diss_lgr_AC_SL_,diss_lgr_AC_GZ_
   ! !+ normal costraints  acting only on both sectors -+!
   ! complex(8),dimension(:,:),allocatable :: diss_lgr_NC
+  !+- first attempt -> I actually do not like it <-
   integer :: NLP_GZ,NLP_SL
   integer,dimension(:,:),allocatable ::     ivec2ij_GZ,ivec2ij_SL
   integer,dimension(:,:,:,:),allocatable :: ij2ivec_GZ,ij2ivec_SL
-  
+  !
+  integer :: Nlp_diss
+  integer,dimension(:,:),allocatable :: ilpvec2ij
+  integer,dimension(:,:,:),allocatable :: ij2ilpvec
+
+  !+- quick and dirty for the single-band paramagnetic case -+!
+  complex(8) :: lgr_diss_1b
   
   !+- MPI -+!
   integer :: mpiID,mpiSize,comm,mpiERR

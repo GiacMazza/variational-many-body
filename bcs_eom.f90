@@ -38,11 +38,9 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      n_tk(ik) = 0.5d0*(bcsWF(3,ik)+1.d0)
   end do
   !
-  !+- two-particle losses -+!
-  phi_t = (Ubcs_t(it)+xi*k2p_loss_t(it))*delta_t + sc_seed !
-  !+- two-particle pump -+!
-  phi_t = (Ubcs_t(it)-xi*k2p_pump_t(it))*delta_t 
-
+  phi_t = 0.d0
+  !+- two-particle losses and pumps -+!
+  phi_t = (Ubcs_t(it)+xi*k2p_loss_t(it)-xi*k2p_pump_t(it))*delta_t + sc_seed !
   
   Sz_dot=0.d0
   nnsum=0.d0
@@ -56,8 +54,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(1,ik) = -2.d0*ekt*bcsWF(2,ik) + 2.d0*dimag(phi_t)*bcsWF(3,ik)
      if(.not.diss_complexU) then
         !+- two-particle loss
-        !bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*bcsWF(1,ik)
-        bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - k2p_loss_t(it)*n_t*bcsWF(1,ik)
+        bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*bcsWF(1,ik)
         !+- two-particle pump
         bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2d0*k2p_pump_t(it)*(1d0-0.5d0*n_t)*bcsWF(1,ik)
         
@@ -71,8 +68,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(2,ik) =  2.d0*ekt*bcsWF(1,ik) - 2.d0*dreal(phi_t)*bcsWF(3,ik)
      if(.not.diss_complexU) then
         !+- two-particle loss
-        !bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*bcsWF(2,ik)
-        bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - k2p_loss_t(it)*n_t*bcsWF(2,ik)
+        bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*bcsWF(2,ik)
         !+- two-particle pump
         bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2d0*k2p_pump_t(it)*(1d0-0.5d0*n_t)*bcsWF(2,ik)
         
@@ -86,8 +82,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(3,ik) =  2.d0*dreal(phi_t)*bcsWF(2,ik) - 2.d0*dimag(phi_t)*bcsWF(1,ik)
      if(.not.diss_complexU) then
         !+- two-particle loss
-        !bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*(bcsWF(3,ik)+1.d0)
-        bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - k2p_loss_t(it)*n_t*(bcsWF(3,ik)+1.d0)
+        bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2d0*k2p_loss_t(it)*0.5d0*n_t*(bcsWF(3,ik)+1.d0)
         !+- two-particle pump
         bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2d0*k2p_pump_t(it)*(1d0-0.5d0*n_t)*(bcsWF(3,ik)-1.d0)
         
@@ -99,7 +94,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
 
      !+- NON HERMITEAN PART
      !+ two-particle losses  -+!
-     nhh_dot = -1.d0*n_t*delta_tk(ik)*n_tk(ik) + delta_t*n_tk(ik)**2.d0-conjg(delta_t)*delta_tk(ik)
+     nhh_dot = -1.d0*n_t*delta_tk(ik)*n_tk(ik) + delta_t*n_tk(ik)**2.d0-conjg(delta_t)*delta_tk(ik)**2d0
      bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2.d0*(1.d0-a_nhh)*k2p_loss_t(it)*2.d0*dreal(nhh_dot)
      bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2.d0*(1.d0-a_nhh)*k2p_loss_t(it)*2.d0*dimag(nhh_dot)
      !
@@ -109,11 +104,10 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
 
      !+- NON HERMITEAN PART
      !+ two-particle pump  -+!
-     nhh_dot = -1d0*(2.d0-n_t)*delta_tk(ik)*(1d0-n_tk(ik)) + delta_t*(1d0-n_tk(ik))**2.d0-conjg(delta_t)*delta_tk(ik)
+     nhh_dot = -1d0*(2.d0-n_t)*delta_tk(ik)*(1d0-n_tk(ik)) + delta_t*(1d0-n_tk(ik))**2.d0-conjg(delta_t)*delta_tk(ik)**2d0
      bcsWF_dot(1,ik) = bcsWF_dot(1,ik) - 2.d0*(1.d0-a_nhh)*k2p_pump_t(it)*2.d0*dreal(nhh_dot)
      bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2.d0*(1.d0-a_nhh)*k2p_pump_t(it)*2.d0*dimag(nhh_dot)
      ! !
-     !nhh_dot = 0.5d0*n_t*(abs(delta_tk(ik))**2.d0-n_tk(ik)**2.d0)-2.d0*dreal(delta_t*conjg(delta_tk(ik))*n_tk(ik))
      nhh_dot = (1d0-0.5d0*n_t)*((1d0-n_tk(ik))**2.d0-abs(delta_tk(ik))**2.d0)+2.d0*dreal(delta_t*conjg(delta_tk(ik))*(1d0-n_tk(ik)))
      bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2.d0*(1.d0-a_nhh)*k2p_pump_t(it)*nhh_dot     
 

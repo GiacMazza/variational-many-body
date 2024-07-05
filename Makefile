@@ -8,7 +8,7 @@ FPP=
 #EXE=gz_generate_phi_traces
 
 #EXE=gz_1b_nR
-#EXE=gz_1b_bethe_nR
+EXE=gz_1b_bethe_nR
 
 #EXE=gz_2b_bethe
 #EXE=gz_2b_cubic_hyb
@@ -22,14 +22,14 @@ FPP=
 #EXE=gz_1b_attractiveU
 
 
-EXE=gz_1b_bethe_sc_nRQ
+#EXE=gz_1b_bethe_sc_nRQ
 #EXE=gz_1b_cubic_sc_nRQ
 ##EXE=gz_1b_cb_sc_nRQ
 #EXE=gz_1b_bethe_sc_temp
 #EXE=gz_1b_eom
 
 
-#EXE=gz_neq_1b_bethe
+EXE=gz_neq_1b_bethe
 #EXE=gz_neq_1b_bethe_sc
 #EXE=gz_neq_1b_cubic_sc
 #EXE=gz_neq_1b_cb_sc
@@ -64,12 +64,12 @@ EXE=gz_1b_bethe_sc_nRQ
 
 #EXE=gz_GF_pp_sc
 
-EXE=bcs_diss_sc_bethe
+#EXE=bcs_diss_sc_bethe
 #EXE=bcs_diss_solitons
 
 #EXE=gz_diss_neq_1b_bethe_sc
 
-#EXE=gz_nhh_1b_bethe
+EXE=gz_nhh_1b_bethe
 
 DIR=drivers
 DIREXE=$(HOME)/.bin

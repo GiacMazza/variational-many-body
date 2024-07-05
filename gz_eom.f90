@@ -1,7 +1,7 @@
 !+- GENERAL EsOM FOR THE NORMAL CASE
 function gz_equations_of_motion(time,y,Nsys) result(f)
   implicit none
-  !inputs                                                                                                                                                        
+  !inputs  
   integer                                     :: Nsys ! nr of equations
   real(8)                                     :: time ! time variable
   complex(8),dimension(Nsys)                  :: y    ! argument array
@@ -11,16 +11,17 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
   complex(8),dimension(Ns,Ns)                 :: Hk,tRR
   complex(8),dimension(Nphi)                  :: gzproj,gzproj_dot
   complex(8),dimension(Nphi,Nphi)             :: Hproj
-  integer                                     :: is,js,ik,it,ks,kks,iis,jjs,iphi,jphi
+  integer                                     :: is,js,ik,it,ks,kks,iis,jjs,iphi,jphi,ispin
   complex(8),dimension(Ns,Ns)                 :: tmpHk,Rhop,slater_derivatives,Rhop_hc
   complex(8),dimension(Ns,Ns)                 :: vdm_natural
   real(8),dimension(Ns)                       :: vdm_diag
+  complex(8)                                  :: mu_diss
   !
 
   !HERE write the GZ EQUATIONS OF MOTION
   if(Nsys.ne.nDynamics) stop "wrong dimensions in the GZ_equations_of_motion"
   !
-  call dynamicalVector_2_wfMatrix(y,slater,gzproj)
+  call dynamicalVector_2_wfMatrix(y,slater,gzproj)  
   do is=1,Ns
      do js=1,Ns
         vdm_natural(is,js) = trace_phi_basis(gzproj,phi_traces_basis_dens(is,js,:,:))
@@ -33,7 +34,7 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
         Rhop_hc(is,js) = conjg(Rhop(js,is))
      end do
   end do
-
+  !  
   !
   slater_dot=zero
   gzproj_dot=zero
@@ -43,10 +44,10 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
   slater_derivatives=zero
   do ik=1,Lk
      call get_Hk_t(Hk,ik,time)
+     !if(Norb.eq.1) Hk = Hk + dreal(lgr_diss_1b)*eye(Ns)
      !
      tRR = matmul(Hk,Rhop)
      tRR = matmul(Rhop_hc,tRR)
-     !
      !
      do is=1,Ns
         do js=1,Ns
@@ -56,9 +57,22 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
               slater_dot(is,js,ik) = slater_dot(is,js,ik) - tRR(ks,is)*slater(ks,js,ik)
            end do
         end do
-        slater_dot(is,is,ik) = slater_dot(is,is,ik) + xi*k_1p_loss*fermi(dreal(Hk(is,is)),beta_diss)*(1.0d0-slater(is,is,ik))*abs(Rhop(is,is))**2.d0 !+- pump processes -+!
-        slater_dot(is,is,ik) = slater_dot(is,is,ik) - xi*k_1p_loss*(1.d0-fermi(dreal(Hk(is,is)),beta_diss))*slater(is,is,ik)*abs(Rhop(is,is))**2.d0  !+- loss processes -+!
+        ! qp dissipation
+        ! slater_dot(is,is,ik) = slater_dot(is,is,ik) + xi*k_1p_loss*fermi(dreal(Hk(is,is)),beta_diss)*(1.0d0-slater(is,is,ik))*abs(Rhop(is,is))**2.d0 !+- pump processes -+!
+        ! slater_dot(is,is,ik) = slater_dot(is,is,ik) - xi*k_1p_loss*(1.d0-fermi(dreal(Hk(is,is)),beta_diss))*slater(is,is,ik)*abs(Rhop(is,is))**2.d0  !+- loss processes -+!
+        !
      end do
+     
+     if(Norb.eq.1) then
+        do is=1,Ns
+           do js=1,Ns
+              slater_dot(is,js,ik) = slater_dot(is,js,ik) + 2d0*xi*dimag(lgr_diss_1b)*slater(is,js,ik)
+              do ks=1,Ns
+                 slater_dot(is,js,ik) = slater_dot(is,js,ik) - 2d0*xi*dimag(lgr_diss_1b)*slater(is,ks,ik)*slater(ks,js,ik)
+              end do
+           end do
+        end do
+     end if
      !     
      do is=1,Ns
         do js=1,Ns
@@ -72,9 +86,8 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      !
   end do
   slater_dot = -xi*slater_dot
-
+  
   !+- create HLOC
-
   Uloc=Uloc_t(:,it)
   Ust =Ust_t(it)
   Jh=Jh_t(it)
@@ -83,6 +96,26 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
   eLevels = eLevels_t(:,it)
   call get_local_hamiltonian_trace(eLevels)  
   call build_neqH_GZproj(Hproj,slater_derivatives,Rhop,vdm_diag)
+  !
+  if(Norb.eq.1) then
+     !+- add the dissipative part
+     is=index(1,1)
+     js=index(2,1)
+     !
+     Hproj = Hproj - xi*k2p_loss_t(it)*phi_traces_basis_dens_dens(is,js,:,:)
+     !+- norm-fixing chemical potential -+!
+     mu_diss = xi*k2p_loss_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))     
+     !+- add the lgr-parameters for the diagonal constraints
+     do ispin=1,2
+        is=index(ispin,1)
+        Hproj = Hproj - lgr_diss_1b*phi_traces_basis_dens(is,is,:,:)
+        mu_diss = mu_diss + xi*dimag(lgr_diss_1b)*trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:))
+     end do
+     !
+     Hproj = Hproj + mu_diss*eye(Nphi)
+     !
+  end if
+  
   !
   do iphi=1,Nphi
      gzproj_dot(iphi) = zero

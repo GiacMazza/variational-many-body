@@ -79,6 +79,8 @@ program GUTZ_mb
   call parse_input_variable(tSin_neqU,"TSIN_NEQU","inputGZ.conf",default=0.5d0)
   call parse_input_variable(dUneq,"DUneq","inputGZ.conf",default=0.d0) 
   !
+  call parse_input_variable(tStart_kdiss,"TSTART_KDISS","inputGZ.conf",default=0.d0)
+  call parse_input_variable(tRamp_kdiss,"TRAMP_KDISS","inputGZ.conf",default=0.d0)
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -279,11 +281,13 @@ program GUTZ_mb
         !
 
         !
-        do ik=1,Lk
-           write(unit_neq_nqp,'(10F18.10)') t,epsik(ik),slater(1,1,ik)
-        end do
-        write(unit_neq_nqp,'(10F18.10)')
-        write(unit_neq_nqp,'(10F18.10)')
+        if(mod(it-1,10*nprint).eq.0) then
+           do ik=1,Lk
+              write(unit_neq_nqp,'(10F18.10)') t,epsik(ik),slater(1,1,ik)
+           end do
+           write(unit_neq_nqp,'(10F18.10)')
+           write(unit_neq_nqp,'(10F18.10)')
+        end if
         !
 
         do is=1,Ns

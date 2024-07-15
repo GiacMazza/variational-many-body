@@ -64,26 +64,32 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      end do
      
      if(Norb.eq.1) then
+        ! do is=1,Ns
+        !    do js=1,Ns
+        !       tmp_diss_ik = 0d0
+        !       tmp_diss_ik = tmp_diss_ik + 2d0*xi*dimag(lgr_diss_1b)*slater(is,js,ik)
+        !       !slater_dot(is,js,ik) = slater_dot(is,js,ik) + 2d0*xi*dimag(lgr_diss_1b)*slater(is,js,ik)
+        !       do ks=1,Ns
+        !          tmp_diss_ik = tmp_diss_ik - 2d0*xi*dimag(lgr_diss_1b)*slater(is,ks,ik)*slater(ks,js,ik)
+        !          !slater_dot(is,js,ik) = slater_dot(is,js,ik) - 2d0*xi*dimag(lgr_diss_1b)*slater(is,ks,ik)*slater(ks,js,ik)
+        !       end do
+        !       slater_dot(is,js,ik) = slater_dot(is,js,ik) + tmp_diss_ik
+        !    end do
+        ! end do
+        ! if(ik.eq.500) write(700,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        ! if(ik.eq.495) write(701,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        ! if(ik.eq.490) write(702,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        ! if(ik.eq.485) write(703,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        ! if(ik.eq.480) write(704,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        ! if(ik.eq.475) write(705,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        ! if(ik.eq.470) write(706,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        !
+        !
         do is=1,Ns
-           do js=1,Ns
-              tmp_diss_ik = 0d0
-              tmp_diss_ik = tmp_diss_ik + 2d0*xi*dimag(lgr_diss_1b)*slater(is,js,ik)
-              !slater_dot(is,js,ik) = slater_dot(is,js,ik) + 2d0*xi*dimag(lgr_diss_1b)*slater(is,js,ik)
-              do ks=1,Ns
-                 tmp_diss_ik = tmp_diss_ik - 2d0*xi*dimag(lgr_diss_1b)*slater(is,ks,ik)*slater(ks,js,ik)
-                 !slater_dot(is,js,ik) = slater_dot(is,js,ik) - 2d0*xi*dimag(lgr_diss_1b)*slater(is,ks,ik)*slater(ks,js,ik)
-              end do
-              slater_dot(is,js,ik) = slater_dot(is,js,ik) + tmp_diss_ik
-           end do
+           slater_dot(is,is,ik) = slater_dot(is,is,ik) + 2d0*xi*dimag(lgr_diss_1b)*(1d0-slater(is,is,ik))
         end do
-        if(ik.eq.500) write(700,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
-        if(ik.eq.495) write(701,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
-        if(ik.eq.490) write(702,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
-        if(ik.eq.485) write(703,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
-        if(ik.eq.480) write(704,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
-        if(ik.eq.475) write(705,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
-        if(ik.eq.470) write(706,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
-        
+        !
+        !
      end if
      !     
      do is=1,Ns
@@ -114,11 +120,32 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      is=index(1,1)
      js=index(2,1)
      !
+
+     !+- TWO-PARTICLE LOSS
      Hproj = Hproj - xi*k2p_loss_t(it)*phi_traces_basis_dens_dens(is,js,:,:)
      !+- norm-fixing chemical potential -+!
      mu_diss = xi*k2p_loss_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
 
 
+     !+- TWO-PARTICLE PUMP
+     is=index(1,1)
+     js=index(2,1)
+     Hproj = Hproj - xi*k2p_pump_t(it)*phi_traces_basis_dens_dens(is,js,:,:)
+     mu_diss = mu_diss + xi*k2p_pump_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
+     !+- this should be actually useless -+!
+     Hproj = Hproj - xi*k2p_pump_t(it)*zeye(Nphi)
+     mu_diss = mu_diss + xi*k2p_pump_t(it)*trace_phi_basis(gzproj,zeye(Nphi))     
+     !
+     is=index(1,1)
+     js=index(1,1)
+     Hproj = Hproj + xi*k2p_pump_t(it)*phi_traces_basis_dens_dens(is,js,:,:)
+     mu_diss = mu_diss - xi*k2p_pump_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))     
+     is=index(2,1)
+     js=index(2,1)
+     Hproj = Hproj + xi*k2p_pump_t(it)*phi_traces_basis_dens_dens(is,js,:,:)
+     mu_diss = mu_diss - xi*k2p_pump_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
+          
+     !+- SINGLE-PARTICLE LOSS
      is=index(1,1)
      js=index(1,1)
      !
@@ -143,7 +170,7 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
         mu_diss = mu_diss + xi*dimag(lgr_diss_1b)*trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:))
      end do
      !
-     Hproj = Hproj + mu_diss*eye(Nphi)
+     Hproj = Hproj + mu_diss*zeye(Nphi)
      !
   end if
   

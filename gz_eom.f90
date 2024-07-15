@@ -15,7 +15,7 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
   complex(8),dimension(Ns,Ns)                 :: tmpHk,Rhop,slater_derivatives,Rhop_hc
   complex(8),dimension(Ns,Ns)                 :: vdm_natural
   real(8),dimension(Ns)                       :: vdm_diag
-  complex(8)                                  :: mu_diss
+  complex(8)                                  :: mu_diss,tmp_diss_ik
   !
 
   !HERE write the GZ EQUATIONS OF MOTION
@@ -66,12 +66,24 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      if(Norb.eq.1) then
         do is=1,Ns
            do js=1,Ns
-              slater_dot(is,js,ik) = slater_dot(is,js,ik) + 2d0*xi*dimag(lgr_diss_1b)*slater(is,js,ik)
+              tmp_diss_ik = 0d0
+              tmp_diss_ik = tmp_diss_ik + 2d0*xi*dimag(lgr_diss_1b)*slater(is,js,ik)
+              !slater_dot(is,js,ik) = slater_dot(is,js,ik) + 2d0*xi*dimag(lgr_diss_1b)*slater(is,js,ik)
               do ks=1,Ns
-                 slater_dot(is,js,ik) = slater_dot(is,js,ik) - 2d0*xi*dimag(lgr_diss_1b)*slater(is,ks,ik)*slater(ks,js,ik)
+                 tmp_diss_ik = tmp_diss_ik - 2d0*xi*dimag(lgr_diss_1b)*slater(is,ks,ik)*slater(ks,js,ik)
+                 !slater_dot(is,js,ik) = slater_dot(is,js,ik) - 2d0*xi*dimag(lgr_diss_1b)*slater(is,ks,ik)*slater(ks,js,ik)
               end do
+              slater_dot(is,js,ik) = slater_dot(is,js,ik) + tmp_diss_ik
            end do
         end do
+        if(ik.eq.500) write(700,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        if(ik.eq.495) write(701,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        if(ik.eq.490) write(702,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        if(ik.eq.485) write(703,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        if(ik.eq.480) write(704,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        if(ik.eq.475) write(705,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        if(ik.eq.470) write(706,'(10F18.10)') tmp_diss_ik,slater(1,1,ik),slater(2,2,ik)
+        
      end if
      !     
      do is=1,Ns
@@ -104,7 +116,26 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      !
      Hproj = Hproj - xi*k2p_loss_t(it)*phi_traces_basis_dens_dens(is,js,:,:)
      !+- norm-fixing chemical potential -+!
-     mu_diss = xi*k2p_loss_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))     
+     mu_diss = xi*k2p_loss_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
+
+
+     is=index(1,1)
+     js=index(1,1)
+     !
+     Hproj = Hproj - xi*kloss_t(it)*phi_traces_basis_dens_dens(is,js,:,:)
+     !+- norm-fixing chemical potential -+!
+     mu_diss = mu_diss + xi*kloss_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
+     !
+     !
+     is=index(2,1)
+     js=index(2,1)
+     !
+     Hproj = Hproj - xi*kloss_t(it)*phi_traces_basis_dens_dens(is,js,:,:)
+     !+- norm-fixing chemical potential -+!
+     mu_diss = mu_diss + xi*kloss_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
+
+     
+     
      !+- add the lgr-parameters for the diagonal constraints
      do ispin=1,2
         is=index(ispin,1)

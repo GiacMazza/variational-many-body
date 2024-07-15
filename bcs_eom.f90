@@ -99,7 +99,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2.d0*(1.d0-a_nhh)*k2p_loss_t(it)*2.d0*dimag(nhh_dot)
      !
      nhh_dot = 0.5d0*n_t*(abs(delta_tk(ik))**2.d0-n_tk(ik)**2.d0)-2.d0*dreal(delta_t*conjg(delta_tk(ik))*n_tk(ik))
-     bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2.d0*(1.d0-a_nhh)*k2p_loss_t(it)*nhh_dot
+     bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2.d0*(1.d0-a_nhh)*k2p_loss_t(it)*2.d0*nhh_dot
 
 
      !+- NON HERMITEAN PART
@@ -109,7 +109,7 @@ function BCS_equations_of_motion(time,y,Nsys) result(f)
      bcsWF_dot(2,ik) = bcsWF_dot(2,ik) - 2.d0*(1.d0-a_nhh)*k2p_pump_t(it)*2.d0*dimag(nhh_dot)
      ! !
      nhh_dot = (1d0-0.5d0*n_t)*((1d0-n_tk(ik))**2.d0-abs(delta_tk(ik))**2.d0)+2.d0*dreal(delta_t*conjg(delta_tk(ik))*(1d0-n_tk(ik)))
-     bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2.d0*(1.d0-a_nhh)*k2p_pump_t(it)*nhh_dot     
+     bcsWF_dot(3,ik) = bcsWF_dot(3,ik) - 2.d0*(1.d0-a_nhh)*k2p_pump_t(it)*2.d0*nhh_dot     
 
      !
      Sz_dot=Sz_dot+bcsWF_dot(3,ik)*wtk(ik)

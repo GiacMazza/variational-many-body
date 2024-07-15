@@ -923,8 +923,8 @@ CONTAINS
     if(braket(1)*braket(2).le.0d0) then
        bcs_sc_order=brentq(bcs_self_cons,1.d-9,1.d0)
     else
-       if(U.lt.1d-6) then
-          bcs_sc_order = 1e-10
+       if(-1d0*U.lt.1d-6) then
+          bcs_sc_order = 0d0
        else
 
           bcs_sc_order = Wband/abs(Ubcs)*exp(-Wband/abs(Ubcs))
@@ -983,7 +983,8 @@ CONTAINS
        Ek = sqrt(epsik(ik)**2.d0 + (phi*Ubcs)**2.d0)
        x = x + wtk(ik)/Ek!*tanh(beta*Ek*0.5d0)
     end do
-    x=x*abs(Ubcs)*0.5d0
+    !x=x*abs(Ubcs)*0.5d0
+    x=-1d0*x*Ubcs*0.5d0
     x=x-1.d0
     !
     ! write(*,*) 

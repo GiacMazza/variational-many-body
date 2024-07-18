@@ -86,7 +86,10 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
         !
         !
         do is=1,Ns
-           slater_dot(is,is,ik) = slater_dot(is,is,ik) + 2d0*xi*dimag(lgr_diss_1b)*(1d0-slater(is,is,ik))
+           !slater_dot(is,is,ik) = slater_dot(is,is,ik) + 2d0*xi*dimag(lgr_diss_1b)*(1d0-slater(is,is,ik))
+           slater_dot(is,is,ik) = slater_dot(is,is,ik) - 2d0*xi*dimag(lgr_diss_1b)**2d0*slater(is,is,ik)
+           slater_dot(is,is,ik) = slater_dot(is,is,ik) + 2d0*xi*dreal(lgr_diss_1b)**2d0*(1.d0-slater(is,is,ik))
+
         end do
         !
         !
@@ -134,7 +137,7 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      mu_diss = mu_diss + xi*k2p_pump_t(it)*trace_phi_basis(gzproj,phi_traces_basis_dens_dens(is,js,:,:))
      !+- this should be actually useless -+!
      Hproj = Hproj - xi*k2p_pump_t(it)*zeye(Nphi)
-     mu_diss = mu_diss + xi*k2p_pump_t(it)*trace_phi_basis(gzproj,zeye(Nphi))     
+     mu_diss = mu_diss + xi*k2p_pump_t(it)!*trace_phi_basis(gzproj,zeye(Nphi))     
      !
      is=index(1,1)
      js=index(1,1)
@@ -164,11 +167,11 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
      
      
      !+- add the lgr-parameters for the diagonal constraints
-     do ispin=1,2
-        is=index(ispin,1)
-        Hproj = Hproj - lgr_diss_1b*phi_traces_basis_dens(is,is,:,:)
-        mu_diss = mu_diss + xi*dimag(lgr_diss_1b)*trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:))
-     end do
+     ! do ispin=1,2
+     !    is=index(ispin,1)
+     !    Hproj = Hproj - lgr_diss_1b*phi_traces_basis_dens(is,is,:,:)
+     !    mu_diss = mu_diss + xi*dimag(lgr_diss_1b)*trace_phi_basis(gzproj,phi_traces_basis_dens(is,is,:,:))
+     ! end do
      !
      Hproj = Hproj + mu_diss*zeye(Nphi)
      !

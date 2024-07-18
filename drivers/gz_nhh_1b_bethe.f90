@@ -44,6 +44,7 @@ program GUTZ_mb
   integer :: unit_neq_AngMom
   integer :: unit_neq_sc_order
   integer :: unit_neq_nqp
+  integer :: unit_neq_lgr_diss
   !
   !+- observables -+!
   complex(8),dimension(:),allocatable   :: Rhop
@@ -65,6 +66,7 @@ program GUTZ_mb
   real(8),dimension(2) :: diss_lgr
   integer :: iter
   real(8) :: delta_lgr,diss_lgr_newton
+  character(len=3)  :: fix_lgr_method
   !
   call parse_input_variable(Wband,"WBAND","inputGZ.conf",default=2.d0)
   call parse_input_variable(Nx,"Nx","inputGZ.conf",default=1000)
@@ -81,6 +83,8 @@ program GUTZ_mb
   !
   call parse_input_variable(tStart_kdiss,"TSTART_KDISS","inputGZ.conf",default=0.d0)
   call parse_input_variable(tRamp_kdiss,"TRAMP_KDISS","inputGZ.conf",default=0.d0)
+  call parse_input_variable(fix_lgr_method,"FIX_LGR_METHOD","inputGZ.conf",default='MIN')
+
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -137,7 +141,9 @@ program GUTZ_mb
   open(unit_neq_hloc,file="neq_local_interaction_parameters.out")
   !
   do itt=1,Nt_aux
-     write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
+     if(mod(itt-1,2*nprint).eq.0) then        
+        write(unit_neq_hloc,*) t_grid_aux(itt),Uloc_t(:,itt),Jh_t(itt),Jsf_t(itt),Jph_t(itt),Ust_t(itt)
+     end if
   end do
   close(unit_neq_hloc)
   !
@@ -165,7 +171,7 @@ program GUTZ_mb
 
      kpump_t(itt) = r*k_1p_pump
      kloss_t(itt) = r*k_1p_loss
-     if(mod(itt-1,nprint).eq.0) then        
+     if(mod(itt-1,2*nprint).eq.0) then        
         write(unit_neq_hloc,'(5F18.10)') t,k2p_loss_t(itt),k2p_pump_t(itt),kpump_t(itt),kloss_t(itt)
      end if
   end do
@@ -261,6 +267,9 @@ program GUTZ_mb
   unit_neq_nqp = free_unit()
   open(unit_neq_nqp,file='neq_slater.data')
   !
+  unit_neq_lgr_diss = free_unit()
+  open(unit_neq_lgr_diss,file='neq_lgr_diss.data')
+  !
   allocate(Rhop_matrix(Ns,Ns))
   allocate(local_density_matrix(Ns,Ns))
   allocate(local_dens_dens(Ns,Ns))
@@ -270,6 +279,8 @@ program GUTZ_mb
   allocate(slater(Ns,Ns,Lk))
 
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
+  diss_lgr = 0d0
+  diss_lgr=0.01+xi*0.01d0
   do it=1,Nt
      write(*,*) it,Nt
      !
@@ -314,6 +325,7 @@ program GUTZ_mb
         write(unit_neq_AngMom,'(10F18.10)') t,local_angular_momenta
         write(unit_neq_ene,'(10F18.10)') t,energies
         write(unit_neq_constrU,'(10F18.10)') t,unitary_constr
+        write(unit_neq_lgr_diss,'(10F18.10)') t,diss_lgr 
         !        
      end if
      !
@@ -321,13 +333,19 @@ program GUTZ_mb
      !+- here instead of a direct step I first need to determine the lagrange parameters at each
      ! iteration
      !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
-     diss_lgr = 0d0     
-     !call fsolve(fix_neq_diss_lgr,diss_lgr,tol=1d-10)
-     !call fmin_cg(diss_lgr,fix_neq_diss_lgr_min,iter,delta_lgr)
-     call newton(fix_neq_diss_lgr_imag,diss_lgr(2))
+     if(fix_lgr_method.eq.'MIN') then
+        diss_lgr=0.1
+        call fmin_cg(diss_lgr,fix_neq_diss_lgr_min,iter,delta_lgr)
+     else
+        !call fsolve(fix_neq_diss_lgr,diss_lgr,tol=1d-12,check=.false.)
+        diss_lgr=0.01+xi*0.01d0
+        call fsolve(fix_neq_diss_lgr,diss_lgr,check=.false.)
+     end if
+     !
+     !diss_lgr=0d0
+     !call newton(fix_neq_diss_lgr_imag,diss_lgr(2))
      !write(*,*) fix_neq_diss_lgr(diss_lgr)
      lgr_diss_1b = diss_lgr(1)+xi*diss_lgr(2)
-     write(250,*) diss_lgr
      psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
      !stop
      !
@@ -358,8 +376,8 @@ CONTAINS
     is=1
     delta(1)=dreal(cSL(is)-cGZ(is))
     delta(2)=dimag(cSL(is)-cGZ(is))
-    write(400,*) neq_diss_lgr,delta
-    write(500,'(10F18.10)') cSL,cGZ
+    ! write(400,*) neq_diss_lgr,delta
+    ! write(500,'(10F18.10)') cSL,cGZ
     !
   end function fix_neq_diss_lgr
 
@@ -386,8 +404,8 @@ CONTAINS
     ! is=1
     ! delta(1)=dreal(cSL(is)-cGZ(is))
     ! delta(2)=dimag(cSL(is)-cGZ(is))
-    write(700,*) neq_diss_lgr,delta
-    write(800,'(10F18.10)') cSL,cGZ
+    ! write(700,*) neq_diss_lgr,delta
+    ! write(800,'(10F18.10)') cSL,cGZ
     !
   end function fix_neq_diss_lgr_min
   !

@@ -86,8 +86,8 @@ function gz_equations_of_motion(time,y,Nsys) result(f)
         !
         !
         do is=1,Ns
-           slater_dot(is,is,ik) = slater_dot(is,is,ik) - 2d0*xi*dimag(lgr_diss_1b)**2d0*slater(is,is,ik)
-           slater_dot(is,is,ik) = slater_dot(is,is,ik) + 2d0*xi*dreal(lgr_diss_1b)**2d0*(1.d0-slater(is,is,ik))
+           slater_dot(is,is,ik) = slater_dot(is,is,ik) - 2d0*xi*dimag(lgr_diss_1b)*slater(is,is,ik)
+           slater_dot(is,is,ik) = slater_dot(is,is,ik) + 2d0*xi*dreal(lgr_diss_1b)*(1.d0-slater(is,is,ik))
         end do
         !
         !

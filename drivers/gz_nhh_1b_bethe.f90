@@ -342,18 +342,32 @@ program GUTZ_mb
         end if
      case(1)
         diss_lgr=diss_lgr_init
-        ! diss_lgr(2)=-0.2d0
-        ! do j=1,100
-        !    diss_lgr(2) = diss_lgr(2) + 0.2d0
+        diss_lgr(2)=-1.10d0
+        ! do j=1,20
+        !    diss_lgr(2) = diss_lgr(2) + 0.1d0
         !    write(*,*) fix_neq_diss_lgr_imag(diss_lgr(2))
         ! end do
-        ! stop
-
-        call newton(fix_neq_diss_lgr_imag,diss_lgr(2))
+        diss_lgr(2) = brentq(fix_neq_diss_lgr_imag,-1d0,1d0)
+        !call newton(fix_neq_diss_lgr_imag,diss_lgr(2))
+        write(*,*) diss_lgr(2)
+        !stop
 
      case(2)
-        diss_lgr=diss_lgr_init
-        call newton(fix_neq_diss_lgr_real,diss_lgr(1))
+
+        ! diss_lgr=diss_lgr_init
+        ! diss_lgr(1)=-1.10d0
+        ! do j=1,20
+        !    diss_lgr(1) = diss_lgr(1) + 0.1d0
+        !    write(*,*) fix_neq_diss_lgr_real(diss_lgr(1))
+        ! end do
+        diss_lgr(1) = brentq(fix_neq_diss_lgr_real,-1d0,1d0)
+        !call newton(fix_neq_diss_lgr_imag,diss_lgr(2))
+        !write(*,*) diss_lgr(2)
+        !stop
+
+        
+        ! diss_lgr=diss_lgr_init
+        ! call newton(fix_neq_diss_lgr_real,diss_lgr(1))
      end select
      !
      !diss_lgr=0d0
@@ -426,7 +440,7 @@ CONTAINS
   !
   !
   function fix_neq_diss_lgr_imag(neq_diss_lgr) result(delta)
-    real(8)            :: neq_diss_lgr
+    real(8),intent(in)            :: neq_diss_lgr
     real(8)      :: delta
     complex(8),dimension(Ns)  :: cSL,cGZ
 
@@ -456,14 +470,14 @@ CONTAINS
        delta = delta + (cSL(is)-cGZ(is))/dble(Ns)
     end do
     !
-    write(700,*) neq_diss_lgr,delta 
-    write(800,'(10F18.10)') cSL,cGZ 
+    ! write(700,*) neq_diss_lgr,delta 
+    ! write(800,'(10F18.10)') cSL,cGZ 
     !
   end function fix_neq_diss_lgr_imag
 
 
   function fix_neq_diss_lgr_real(neq_diss_lgr) result(delta)
-    real(8)            :: neq_diss_lgr
+    real(8),intent(in)            :: neq_diss_lgr
     real(8)      :: delta
     complex(8),dimension(Ns)  :: cSL,cGZ
 
@@ -480,7 +494,7 @@ CONTAINS
     do is=1,Ns
        call get_neq_dens_constr_slater(is,is,cSL(is))
        call get_neq_dens_constr_gzproj(is,is,cGZ(is))
-       delta = delta + abs(cSL(is)-cGZ(is))/dble(Ns)
+       delta = delta + (cSL(is)-cGZ(is))/dble(Ns)
     end do
     !
     !+- write(700,*) neq_diss_lgr,delta -+!

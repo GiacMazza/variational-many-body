@@ -18,7 +18,7 @@ program GUTZ_mb
   implicit none
   real(8),dimension(:),allocatable :: epsik,hybik
   real(8) :: t,r,s,tmpU
-  integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin,igz
+  integer :: Nx,out_unit,is,js,ik,it,itt,i,iorb,ispin,igz,j
   integer :: nprint
   !
   character(len=200) :: store_dir,read_dir,read_optWF_dir,read_finSC_dir
@@ -63,8 +63,8 @@ program GUTZ_mb
   real(8) :: Uneq,Uneq0,tStart_neqU,tRamp_neqU,tSin_neqU,dUneq
   real(8) :: tStart_kdiss,tRamp_kdiss
   
-  real(8),dimension(2) :: diss_lgr
-  integer :: iter
+  real(8),dimension(2) :: diss_lgr,diss_lgr_init
+  integer :: iter,fix_qp_lgr
   real(8) :: delta_lgr,diss_lgr_newton
   character(len=3)  :: fix_lgr_method
   !
@@ -84,7 +84,8 @@ program GUTZ_mb
   call parse_input_variable(tStart_kdiss,"TSTART_KDISS","inputGZ.conf",default=0.d0)
   call parse_input_variable(tRamp_kdiss,"TRAMP_KDISS","inputGZ.conf",default=0.d0)
   call parse_input_variable(fix_lgr_method,"FIX_LGR_METHOD","inputGZ.conf",default='MIN')
-
+  call parse_input_variable(diss_lgr_init,"DISS_LGR_INIT","inputGZ.conf",default=[0.d0,0.1d0])
+  call parse_input_variable(fix_qp_lgr,"FIX_QP_LGR","inputGZ.conf",default=1)  
   !
   call read_input("inputGZ.conf")
   call save_input_file("inputGZ.conf")
@@ -279,8 +280,6 @@ program GUTZ_mb
   allocate(slater(Ns,Ns,Lk))
 
   !*) ACTUAL DYNAMICS (simple do loop measuring each nprint times)
-  diss_lgr = 0d0
-  diss_lgr=0.01+xi*0.01d0
   do it=1,Nt
      write(*,*) it,Nt
      !
@@ -332,18 +331,32 @@ program GUTZ_mb
 
      !+- here instead of a direct step I first need to determine the lagrange parameters at each
      ! iteration
-     !psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
-     if(fix_lgr_method.eq.'MIN') then
-        diss_lgr=0.1
-        call fmin_cg(diss_lgr,fix_neq_diss_lgr_min,iter,delta_lgr)
-     else
-        !call fsolve(fix_neq_diss_lgr,diss_lgr,tol=1d-12,check=.false.)
-        diss_lgr=0.01+xi*0.01d0
-        call fsolve(fix_neq_diss_lgr,diss_lgr,check=.false.)
-     end if
+     select case(fix_qp_lgr)
+     case(0)
+        if(fix_lgr_method.eq.'MIN') then
+           diss_lgr=diss_lgr_init
+           call fmin_cg(diss_lgr,fix_neq_diss_lgr_min,iter,delta_lgr)
+        else
+           diss_lgr=diss_lgr_init
+           call fsolve(fix_neq_diss_lgr,diss_lgr,tol=1d-10,check=.false.)
+        end if
+     case(1)
+        diss_lgr=diss_lgr_init
+        ! diss_lgr(2)=-0.2d0
+        ! do j=1,100
+        !    diss_lgr(2) = diss_lgr(2) + 0.2d0
+        !    write(*,*) fix_neq_diss_lgr_imag(diss_lgr(2))
+        ! end do
+        ! stop
+
+        call newton(fix_neq_diss_lgr_imag,diss_lgr(2))
+
+     case(2)
+        diss_lgr=diss_lgr_init
+        call newton(fix_neq_diss_lgr_real,diss_lgr(1))
+     end select
      !
      !diss_lgr=0d0
-     !call newton(fix_neq_diss_lgr_imag,diss_lgr(2))
      !write(*,*) fix_neq_diss_lgr(diss_lgr)
      lgr_diss_1b = diss_lgr(1)+xi*diss_lgr(2)
      psi_t = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
@@ -399,13 +412,14 @@ CONTAINS
     do is=1,Ns
        call get_neq_dens_constr_slater(is,is,cSL(is))
        call get_neq_dens_constr_gzproj(is,is,cGZ(is))
-       delta = delta + abs(cSL(is)-cGZ(is))/dble(Ns)
+       delta = delta + (cSL(is)-cGZ(is))**2d0/dble(Ns)
     end do
     ! is=1
     ! delta(1)=dreal(cSL(is)-cGZ(is))
     ! delta(2)=dimag(cSL(is)-cGZ(is))
     ! write(700,*) neq_diss_lgr,delta
     ! write(800,'(10F18.10)') cSL,cGZ
+    !stop
     !
   end function fix_neq_diss_lgr_min
   !
@@ -424,6 +438,43 @@ CONTAINS
     psi_t_tmp = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
     
     !+- measure the difference -+!
+    !slater=0d0
+    !call gz_neq_measure(psi_t_tmp,t,read_slater=slater)
+    call gz_neq_measure(psi_t_tmp,t)
+
+    ! do ik=1,Lk
+    !    write(750,'(10F18.10)') epsik(ik),slater(1,1,ik)
+    ! end do
+    ! write(750,'(10F18.10)')
+    ! write(750,'(10F18.10)')
+
+    
+    delta=0d0
+    do is=1,Ns
+       call get_neq_dens_constr_slater(is,is,cSL(is))
+       call get_neq_dens_constr_gzproj(is,is,cGZ(is))
+       delta = delta + (cSL(is)-cGZ(is))/dble(Ns)
+    end do
+    !
+    write(700,*) neq_diss_lgr,delta 
+    write(800,'(10F18.10)') cSL,cGZ 
+    !
+  end function fix_neq_diss_lgr_imag
+
+
+  function fix_neq_diss_lgr_real(neq_diss_lgr) result(delta)
+    real(8)            :: neq_diss_lgr
+    real(8)      :: delta
+    complex(8),dimension(Ns)  :: cSL,cGZ
+
+    !if(size(neq_diss_lgr).ne.2) stop "(size(neq_diss_lgr).ne.2)"
+    !+- I need to broadcast the neq_diss to the global variables entering the EOMs
+    lgr_diss_1b = neq_diss_lgr
+    
+    !+- do the step -+!
+    psi_t_tmp = RK_step(nDynamics,4,tstep,t,psi_t,gz_equations_of_motion)
+    
+    !+- measure the difference -+!
     call gz_neq_measure(psi_t_tmp,t)
     delta=0d0
     do is=1,Ns
@@ -435,7 +486,7 @@ CONTAINS
     !+- write(700,*) neq_diss_lgr,delta -+!
     !+- write(800,'(10F18.10)') cSL,cGZ -+!
     !
-  end function fix_neq_diss_lgr_imag
+  end function fix_neq_diss_lgr_real
 
   
   !

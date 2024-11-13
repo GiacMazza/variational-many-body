@@ -77,6 +77,7 @@ program GUTZ_mb
   real(8) :: energy_init,delta_pm(2),delta_plus,delta_minus,delta_plus_save
   real(8) :: tmax,sc_max,esn,ecn,edn,ephi,ck,ce
   integer :: iter
+  integer,dimension(7) :: ik_print_nk
   logical :: soliton_solve,skip_bcs
   !
   call parse_input_variable(Cfield,"Cfield","inputGZ.conf",default=0.d0)
@@ -261,8 +262,7 @@ program GUTZ_mb
   energy_init = energy_init - abs(Ubcsf)*abs(bcs_sc_order)**2d0
   write(*,*) delta_pm,energy_init
   !
-  !
-  
+  !  
   skip_bcs=.false.
   if(soliton_solve) then
      write(*,*) 'soliton solution w/out dynamics'
@@ -285,7 +285,13 @@ program GUTZ_mb
 
   !
 
-
+  ik_print_nk=0
+  energy_init=-3.d0*Wband/8.d0
+  do i=1,7
+     ik_print_nk(i) = 1 + int((energy_init-epsik(1))*(Lk-1)/(epsik(Lk)-epsik(1)))
+     !write(*,*) i,ik_print_nk(i),epsik(ik_print_nk(i)),energy_init
+     energy_init = energy_init + Wband/8d0
+  end do
   
   if(.not.skip_bcs) then
      
@@ -436,14 +442,19 @@ program GUTZ_mb
               tmax=t
            end if
            !bcs_Uenergy = 2.d0*Ubcs_t(itt)*bcs_delta*conjg(bcs_delta)                
-           write(unit_neq_bcs,'(30F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens, bcs_Kenergy,bcs_Uenergy,bcs_energy, & 
-                test_decay, &                
-                dreal(bcs_wf(1,Lk/2-10)),dreal(bcs_wf(1,Lk/2-20)),dreal(bcs_wf(1,Lk/2-30)), &
-                dreal(bcs_wf(2,Lk/2-10)),dreal(bcs_wf(2,Lk/2-20)),dreal(bcs_wf(2,Lk/2-30)), &
-                dreal(bcs_wf(3,Lk/2-10)),dreal(bcs_wf(3,Lk/2-20)),dreal(bcs_wf(3,Lk/2-30)), &
-                dimag(bcs_wf(1,Lk/2-10)),dimag(bcs_wf(1,Lk/2-20)),dimag(bcs_wf(1,Lk/2-30)), &
-                dimag(bcs_wf(2,Lk/2-10)),dimag(bcs_wf(2,Lk/2-20)),dimag(bcs_wf(2,Lk/2-30)), &
-                dimag(bcs_wf(3,Lk/2-10)),dimag(bcs_wf(3,Lk/2-20)),dimag(bcs_wf(3,Lk/2-30))
+           write(unit_neq_bcs,'(30F18.10)') t,abs(bcs_sc_order),dreal(bcs_sc_order),dimag(bcs_sc_order),bcs_dens,&
+                bcs_Kenergy,bcs_Uenergy,bcs_energy, &
+                dreal(bcs_wf(3,ik_print_nk(1:7))), &
+                dreal(bcs_wf(2,ik_print_nk(1:7))), &
+                dreal(bcs_wf(1,ik_print_nk(1:7)))
+
+
+                ! dreal(bcs_wf(1,Lk/2-10)),dreal(bcs_wf(1,Lk/2-20)),dreal(bcs_wf(1,Lk/2-30)), &
+                ! dreal(bcs_wf(2,Lk/2-10)),dreal(bcs_wf(2,Lk/2-20)),dreal(bcs_wf(2,Lk/2-30)), &
+                ! dreal(bcs_wf(3,Lk/2-10)),dreal(bcs_wf(3,Lk/2-20)),dreal(bcs_wf(3,Lk/2-30)), &
+                ! dimag(bcs_wf(1,Lk/2-10)),dimag(bcs_wf(1,Lk/2-20)),dimag(bcs_wf(1,Lk/2-30)), &
+                ! dimag(bcs_wf(2,Lk/2-10)),dimag(bcs_wf(2,Lk/2-20)),dimag(bcs_wf(2,Lk/2-30)), &
+                ! dimag(bcs_wf(3,Lk/2-10)),dimag(bcs_wf(3,Lk/2-20)),dimag(bcs_wf(3,Lk/2-30))
 
 
 
@@ -475,7 +486,11 @@ program GUTZ_mb
      end do
      close(unit_neq_bcs)
   end if
-  
+  open(unit_neq_bcs,file='neq_nk_diss.data')
+  do ik=1,Lk
+     write(unit_neq_bcs,'(10F18.10)') epsik(ik),dreal(bcs_wf(3,ik)),dreal(bcs_wf(2,ik)),dreal(bcs_wf(1,ik))
+  end do
+  close(unit_neq_bcs)
 
   open(unit_neq_bcs,file='soliton_bcs.data')
   tmp_bcs=0d0
